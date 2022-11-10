@@ -12,6 +12,7 @@ cmake_minimum_required(VERSION 3.14)
 # the source. See exampleConfig.h.in for some more details.
 project(CPP_BOILERPLATE VERSION 1.2.3.4 LANGUAGES CXX)
 
+add_compile_options("-fcoroutines")
 
 # Options: Things you can set via commandline options to cmake (e.g. -DENABLE_LTO=[ON|OFF])
 option(ENABLE_WARNINGS_SETTINGS "Allow target_set_warnings to add flags and defines.
@@ -39,6 +40,12 @@ find_lto(CXX)
 # --------------------------------------------------------------------------------
 set(SOURCES          # All .cpp files in src/
     src/example.cpp
+    src/io_context.cc  
+    src/sharedstate.cc  
+    src/socket_accept_operation.cc  
+    src/socket.cc  
+    src/socket_recv_operation.cc  
+    src/socket_send_operation.cc
 )
 set(TESTFILES        # All .cpp files in tests/
     tests/main.cpp
@@ -63,7 +70,7 @@ target_set_warnings(${LIBRARY_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 
 # Add an executable for the file app/main.cpp.
 # If you add more executables, copy these lines accordingly.
-add_executable(main app/main.cpp)   # Name of exec. and location of file.
+add_executable(main app/main.cc)   # Name of exec. and location of file.
 target_link_libraries(main PRIVATE ${LIBRARY_NAME})  # Link the executable to library (if it uses it).
 target_set_warnings(main ENABLE ALL AS_ERROR ALL DISABLE Annoying) # Set warnings (if needed).
 target_enable_lto(main optimized)  # enable link-time-optimization if available for non-debug configurations
