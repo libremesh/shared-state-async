@@ -1,19 +1,4 @@
-[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](http://www.repostatus.org/badges/latest/active.svg)](http://www.repostatus.org/#active)
-[![Build Status](https://travis-ci.org/bsamseth/cpp-project.svg?branch=master)](https://travis-ci.org/bsamseth/cpp-project)
-[![Build status](https://ci.appveyor.com/api/projects/status/g9bh9kjl6ocvsvse/branch/master?svg=true)](https://ci.appveyor.com/project/bsamseth/cpp-project/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/bsamseth/cpp-project/badge.svg?branch=master)](https://coveralls.io/github/bsamseth/cpp-project?branch=master)
-[![codecov](https://codecov.io/gh/bsamseth/cpp-project/branch/master/graph/badge.svg)](https://codecov.io/gh/bsamseth/cpp-project)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/eb004322b0d146239a57eb242078e179)](https://www.codacy.com/app/bsamseth/cpp-project?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bsamseth/cpp-project&amp;utm_campaign=Badge_Grade)
-[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/bsamseth/cpp-project.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/bsamseth/cpp-project/context:cpp)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/bsamseth/cpp-project.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/bsamseth/cpp-project/alerts/)
-[![license](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://github.com/bsamseth/cpp-project/blob/master/LICENSE)
-[![Lines of Code](https://tokei.rs/b1/github/bsamseth/cpp-project)](https://github.com/Aaronepower/tokei)
-[![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/bsamseth/cpp-project.svg)](http://isitmaintained.com/project/bsamseth/cpp-project "Average time to resolve an issue")
-[![Percentage of issues still open](http://isitmaintained.com/badge/open/bsamseth/cpp-project.svg)](http://isitmaintained.com/project/bsamseth/cpp-project "Percentage of issues still open")
-
 # C++ Socket server epool coroutines (c++20)
-
-This is a boiler plate for C++ projects. What you get:
 
 -   Sources, headers and mains separated in distinct folders
 -   Use of modern [CMake](https://cmake.org/) for much easier compiling
@@ -36,7 +21,8 @@ sudo apt install doxygen lcov build-essential gdb cmake
 │   └── main.cc
 ├── include
 │   ├── example.h
-│   └── exampleConfig.h.in (TODO: review)
+│   ├── exampleConfig.h.in (TODO: review)
+│   └── ...
 ├── src
 │   └── example.cpp
 └── tests
@@ -59,7 +45,7 @@ If the executable you made does not use the library in [src/](src), then only th
 
 
 
-## Building
+## Building, Testing and Running
 
 Build by making a build directory (i.e. `build/`), run `cmake` in that dir, and then use `make` to build the desired target.
 
@@ -69,10 +55,12 @@ Example:
 > mkdir build && cd build
 > cmake .. -DCMAKE_BUILD_TYPE=[Debug | Coverage | Release]
 > make
-> ./main
+> ./main         # Runs the main executable
+> python3 ../tests/python-testclient/pythonTcpClient.py #runs a sample python client 
 > make test      # Makes and runs the tests.
-> make coverage  # Generate a coverage report.
+> make coverage  # Makes and runs the tests, then Generates a coverage report. (requires "cmake .. -DCMAKE_BUILD_TYPE=Coverage")
 > make doc       # Generate html documentation.
+> 
 ```
 
 ## .gitignore
