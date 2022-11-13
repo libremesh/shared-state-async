@@ -87,8 +87,8 @@ namespace SharedState
         result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
-    /*
-    tl::expected<std::string,std::error_code> mergestate(std::string arguments)
+    
+    tl::expected<std::string,Status> expMergestate(std::string arguments)
     {
         std::array<char, 128> buffer;
         std::string result;
@@ -97,7 +97,7 @@ namespace SharedState
 
         if (!pipe)
         {
-            return std::unexpected<std::error_code {std::errc::broken_pipe};
+            return tl::unexpected<Status> {Status::DataError};
         }
         // throw std::runtime_error("popen() failed!");
 
@@ -120,5 +120,5 @@ namespace SharedState
         result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
-    */
+    
 }
