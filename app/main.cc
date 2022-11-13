@@ -6,34 +6,29 @@
 #include <array>
 #include <unistd.h>
 
-
+/// @brief coro in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
+/// @param socket 
+/// @return true if everything goes fine
 std::task<bool> inside_loop(Socket &socket)
-// tomamos esto, hacemos el merge y lo devolvemos
 {
     char buffer[42] = {0};
     ssize_t nbRecv = co_await socket.recv(buffer, (sizeof buffer)-1);
-    ssize_t nbSend = 0;
-    // TODO: recibir todo enviarlo a algo que llamamos  al stdout
-    // TODO: crear una task que invoque al shstate empezar por invocar echo.
-
+    //ssize_t nbSend = 0;
+    // TODO: crear una task que invoque al shstate empezar por invocar echo.????
     std::cout << "RECIVING (" << buffer << "):" << '\n';
     std::string merged = SharedState::mergestate(buffer);
-    //std::string merged;
-    //mergestate(buffer, merged);
-    // esto no parece necesario
+
+    // esto no parece necesario, podria quedarse aqui para siempre  ? 
     // while (nbSend < nbRecv)
     //{
-    std::cout << "SENDINGS (" << merged << "):" << '\n';
-
-    std::cout << "SENDING Ss (" << merged.size() << "):" << '\n';
-
+    std::cout << "SENDING (" << merged << "):" << '\n';
     ssize_t res = co_await socket.send(merged.data(), merged.size());
     if (res <= 0)
         co_return false;
-    nbSend += res;
+    //nbSend += res;
     //}
-    // esto va al std error
-    std::cout << "DONE (" << nbRecv << "):" << '\n';
+    //TODO: esto va al std error ??
+    std::cerr << "DONE (" << nbRecv << "):" << '\n';
     if (nbRecv <= 0)
         co_return false;
     printf("%s\n", buffer);

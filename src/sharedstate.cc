@@ -1,57 +1,124 @@
 #include "sharedstate.hh"
 #include <algorithm>
+#include <optional>
+#include <expected.hpp>
 
 namespace SharedState
 {
 
-int mergestate(std::string arguments, std::string &output)
-{
-    const int bufsize = 128;
-    std::array<char, bufsize> buffer;
-    std::string cmd = "echo '" + arguments +"'";
-
-    auto pipe = popen(cmd.c_str(), "r");
-    if (!pipe)
-        throw std::runtime_error("popen() failed!");
-
-    size_t count;
-    do
+    int mergestate(std::string arguments, std::string &output)
     {
-        if ((count = fread(buffer.data(), 1, bufsize, pipe)) > 0)
+        const int bufsize = 128;
+        std::array<char, bufsize> buffer;
+        std::string cmd = "echo '" + arguments + "'";
+
+        auto pipe = popen(cmd.c_str(), "r");
+        if (!pipe)
+            throw std::runtime_error("popen() failed!");
+
+        size_t count;
+        do
         {
-            output.insert(output.end(), std::begin(buffer), std::next(std::begin(buffer), count));
-        }
-    } while (count > 0);
-    output.erase(std::remove(output.begin(), output.end(), '\n'), output.cend());
-    return pclose(pipe);
-}
+            if ((count = fread(buffer.data(), 1, bufsize, pipe)) > 0)
+            {
+                output.insert(output.end(), std::begin(buffer), std::next(std::begin(buffer), count));
+            }
+        } while (count > 0);
+        output.erase(std::remove(output.begin(), output.end(), '\n'), output.cend());
+        return pclose(pipe);
+    }
 
-std::string mergestate(std::string arguments)
-{
-    std::array<char, 128> buffer;
-    std::string result;
-    std::string cmd = "echo '" + arguments +"'";
-    auto pipe = popen(cmd.c_str(), "r");
-
-    if (!pipe)
-        throw std::runtime_error("popen() failed!");
-
-    while (!feof(pipe))
+    std::string mergestate(std::string arguments)
     {
-        if (fgets(buffer.data(), 128, pipe) != nullptr)
-            result += buffer.data();
+        std::array<char, 128> buffer;
+        std::string result;
+        std::string cmd = "echo '" + arguments + "'";
+        auto pipe = popen(cmd.c_str(), "r");
+
+        if (!pipe)
+            throw std::runtime_error("popen() failed!");
+
+        while (!feof(pipe))
+        {
+            if (fgets(buffer.data(), 128, pipe) != nullptr)
+                result += buffer.data();
+        }
+
+        auto rc = pclose(pipe);
+
+        if (rc == EXIT_SUCCESS)
+        { // == 0
+        }
+        else if (rc == EXIT_FAILURE)
+        { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
+        }
+        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        return result;
     }
 
-    auto rc = pclose(pipe);
+    std::optional<std::string> optMergeState(std::string arguments)
+    {
+        std::array<char, 128> buffer;
+        std::string result;
+        std::string cmd = "echo '" + arguments + "'";
+        auto pipe = popen(cmd.c_str(), "r");
 
-    if (rc == EXIT_SUCCESS)
-    { // == 0
+        if (!pipe){
+            std::cerr << "error opening pipe";
+            return {};
+        }
+
+        while (!feof(pipe))
+        {
+            if (fgets(buffer.data(), 128, pipe) != nullptr)
+                result += buffer.data();
+        }
+
+        auto rc = pclose(pipe);
+
+        if (rc == EXIT_SUCCESS)
+        {
+        }
+        else if (rc == EXIT_FAILURE)
+        {
+            std::cerr << "error on merge";
+            return {};
+        }
+        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        return result;
     }
-    else if (rc == EXIT_FAILURE)
-    { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
-    
+    /*
+    tl::expected<std::string,std::error_code> mergestate(std::string arguments)
+    {
+        std::array<char, 128> buffer;
+        std::string result;
+        std::string cmd = "echo '" + arguments + "'";
+        auto pipe = popen(cmd.c_str(), "r");
+
+        if (!pipe)
+        {
+            return std::unexpected<std::error_code {std::errc::broken_pipe};
+        }
+        // throw std::runtime_error("popen() failed!");
+
+        while (!feof(pipe))
+        {
+            if (fgets(buffer.data(), 128, pipe) != nullptr)
+                result += buffer.data();
+        }
+
+        auto rc = pclose(pipe);
+
+        if (rc == EXIT_SUCCESS)
+        {
+            return {};
+        }
+        else if (rc == EXIT_FAILURE)
+        {
+            return {};
+        }
+        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        return result;
     }
-    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
-    return result;
-}
+    */
 }

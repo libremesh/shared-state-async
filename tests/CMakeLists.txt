@@ -8,7 +8,7 @@ set(TESTFILES        # All .cpp files in tests/
 )
 
 set(TEST_MAIN unit_tests)   # Default name for test executable (change if you wish).
-set(TEST_RUNNER_PARAMS "--verbose")  # Any arguemnts to feed the test runner (change as needed).
+set(TEST_RUNNER_PARAMS "-s")  # Any arguemnts to feed the test runner (change as needed).
 
 # --------------------------------------------------------------------------------
 #                         Make Tests (no change needed).
