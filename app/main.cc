@@ -27,7 +27,7 @@ std::task<bool> inside_loop(Socket &socket)
         co_return false;
     //nbSend += res;
     //}
-    //TODO: esto va al std error ??
+    //TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE 
     std::cerr << "DONE (" << nbRecv << "):" << '\n';
     if (nbRecv <= 0)
         co_return false;
@@ -62,6 +62,5 @@ int main()
     Socket listen{"3490", io_context};
     auto t = accept(listen);
     t.resume();
-
     io_context.run();
 }
