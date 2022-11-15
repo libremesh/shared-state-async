@@ -13,7 +13,7 @@ const char* FlightsErrorCategory::name() const noexcept
 { return "flights"; }
 
 /**
- * @brief Message associated with the FlightsErrorCode
+ * @brief Message associated with the error
  * 
  * @param ev 
  * @return std::string 
@@ -42,6 +42,6 @@ const FlightsErrorCategory theFlightsErrorCategory {};
 
 }
 
-// Definition of make_error_code declared in FlightsErrorCode.h
-std::error_code make_error_code(SharedStateErrorCode e)
+// Definition of make_error_code MUST BE declared in FlightsErrorCode.h
+std::error_condition make_error_condition(SharedStateErrorCode e) noexcept
 { return {static_cast<int>(e), theFlightsErrorCategory}; }

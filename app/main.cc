@@ -17,7 +17,6 @@ std::task<bool> inside_loop(Socket &socket)
     // TODO: crear una task que invoque al shstate empezar por invocar echo.????
     std::cout << "RECIVING (" << buffer << "):" << '\n';
     std::string merged = SharedState::mergestate(buffer);
-
     // esto no parece necesario, podria quedarse aqui para siempre  ? 
     // while (nbSend < nbRecv)
     //{

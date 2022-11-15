@@ -12,11 +12,12 @@ enum class SharedStateErrorCode
   Timeout                   // did not respond in time
 };
 
-// Overload of standard library make_error_code for FlightsErrorCode
-std::error_code make_error_code(SharedStateErrorCode);
+// Overload of standard library make_error_code 
+//must be in the same namespace of the enum
+std::error_condition make_error_condition(SharedStateErrorCode) noexcept;
 
 namespace std
 {
     template<>
-    struct is_error_code_enum<SharedStateErrorCode> : true_type {};
+    struct is_error_condition_enum<SharedStateErrorCode> : true_type {};
 }

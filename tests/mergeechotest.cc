@@ -42,8 +42,8 @@ void verificarExpectedWillFail(std::string original)
 {
   auto merged = SharedState::expMergestate(original,true);
   CHECK_FALSE(merged);
-  CHECK(merged.error() == SharedStateErrorCode::OpenPipeError);
-  CHECK(merged.error().message() == make_error_code(SharedStateErrorCode::OpenPipeError).message());
+  std::error_condition(SharedStateErrorCode::OpenPipeError);
+  CHECK(merged.error().message() == make_error_condition(SharedStateErrorCode::OpenPipeError).message());
 }
 
 TEST_CASE("Opt merge")
@@ -53,7 +53,7 @@ TEST_CASE("Opt merge")
 }
 
 TEST_CASE("Parametrized merge test") {
-    std::vector<std::string> data {"","mensajeaverificar", "asdasdaasd < saddsdfsdf","546654654654","546654654654546654654654546654654654546654654654" };
+    std::vector<std::string> data {"","mensajeaverificar", "asdasdaasd > saddsdfsdf","546654654654","546654654654546654654654546654654654546654654654" };
 
     for(auto& i : data) {
         CAPTURE(i); // log the current input data

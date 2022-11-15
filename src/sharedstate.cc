@@ -91,10 +91,12 @@ namespace SharedState
         return result;
     }
     
-    /// @brief 
+
+    /// @brief error_condition ... > es como error code pero crossplatform 
+    /// error_code ... es dependiente de plataforma 
     /// @param arguments 
     /// @return 
-    tl::expected<std::string,std::error_code> expMergestate(std::string arguments,bool willFail)
+    tl::expected<std::string,std::error_condition> expMergestate(std::string arguments,bool willFail)
     {
         std::array<char, 128> buffer;
         std::string result;
@@ -103,7 +105,7 @@ namespace SharedState
 
         if (!pipe || willFail)
         {
-            return tl::unexpected<std::error_code> {make_error_code(SharedStateErrorCode::OpenPipeError)};
+            return tl::unexpected<std::error_condition> {make_error_condition(SharedStateErrorCode::OpenPipeError)};
         }
         while (!feof(pipe))
         {
@@ -115,7 +117,7 @@ namespace SharedState
 
         if (rc == EXIT_FAILURE)
         {
-            return tl::unexpected<std::error_code> {make_error_code(SharedStateErrorCode::OpenPipeError)};
+            return tl::unexpected<std::error_condition> (make_error_condition(SharedStateErrorCode::OpenPipeError));
         }
         result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
