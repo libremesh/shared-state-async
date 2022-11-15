@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <optional>
 #include <expected.hpp>
-#include "FlightsErrorCode.h"
+#include "SharedStateErrorCode.hh"
 
 
 namespace SharedState
@@ -103,7 +103,7 @@ namespace SharedState
 
         if (!pipe || willFail)
         {
-            return tl::unexpected<std::error_code> {make_error_code(FlightsErrorCode::NonexistentLocations)};
+            return tl::unexpected<std::error_code> {make_error_code(SharedStateErrorCode::OpenPipeError)};
         }
         while (!feof(pipe))
         {
@@ -115,7 +115,7 @@ namespace SharedState
 
         if (rc == EXIT_FAILURE)
         {
-            return tl::unexpected<std::error_code> {make_error_code(FlightsErrorCode::NonexistentLocations)};
+            return tl::unexpected<std::error_code> {make_error_code(SharedStateErrorCode::OpenPipeError)};
         }
         result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;

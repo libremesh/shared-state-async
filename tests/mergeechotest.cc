@@ -1,6 +1,6 @@
 #include "doctest/doctest.h"
 #include "sharedstate.hh"
-#include "FlightsErrorCode.h"
+#include "SharedStateErrorCode.hh"
 
 // Tests that don't naturally fit in the headers/.cpp files directly
 // can be placed in a tests/*.cpp file. Integration tests are a good example.
@@ -42,8 +42,8 @@ void verificarExpectedWillFail(std::string original)
 {
   auto merged = SharedState::expMergestate(original,true);
   CHECK_FALSE(merged);
-  CHECK(merged.error() == FlightsErrorCode::NonexistentLocations);
-  CHECK(merged.error().message() == make_error_code(FlightsErrorCode::NonexistentLocations).message());
+  CHECK(merged.error() == SharedStateErrorCode::OpenPipeError);
+  CHECK(merged.error().message() == make_error_code(SharedStateErrorCode::OpenPipeError).message());
 }
 
 TEST_CASE("Opt merge")
