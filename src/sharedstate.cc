@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <optional>
 #include <expected.hpp>
+#include "FlightsErrorCode.h"
+
 
 namespace SharedState
 {
@@ -65,6 +67,7 @@ namespace SharedState
 
         if (!pipe){
             std::cerr << "error opening pipe";
+
             return {};
         }
 
@@ -88,19 +91,20 @@ namespace SharedState
         return result;
     }
     
-    tl::expected<std::string,Status> expMergestate(std::string arguments)
+    /// @brief 
+    /// @param arguments 
+    /// @return 
+    tl::expected<std::string,std::error_code> expMergestate(std::string arguments,bool willFail)
     {
         std::array<char, 128> buffer;
         std::string result;
         std::string cmd = "echo '" + arguments + "'";
         auto pipe = popen(cmd.c_str(), "r");
 
-        if (!pipe)
+        if (!pipe || willFail)
         {
-            return tl::unexpected<Status> {Status::DataError};
+            return tl::unexpected<std::error_code> {make_error_code(FlightsErrorCode::NonexistentLocations)};
         }
-        // throw std::runtime_error("popen() failed!");
-
         while (!feof(pipe))
         {
             if (fgets(buffer.data(), 128, pipe) != nullptr)
@@ -109,13 +113,9 @@ namespace SharedState
 
         auto rc = pclose(pipe);
 
-        if (rc == EXIT_SUCCESS)
+        if (rc == EXIT_FAILURE)
         {
-            return {};
-        }
-        else if (rc == EXIT_FAILURE)
-        {
-            return {};
+            return tl::unexpected<std::error_code> {make_error_code(FlightsErrorCode::NonexistentLocations)};
         }
         result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;

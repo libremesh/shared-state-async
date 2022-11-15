@@ -11,12 +11,12 @@ namespace SharedState
         Ok,
         AccessDenied,
         DataSourceError,
-        DataError,
+        PipeError,
     };
 
     int mergestate(std::string arguments, std::string &output);
     std::string mergestate(std::string arguments);
     std::optional<std::string> optMergeState(std::string arguments);
-    tl::expected<std::string, Status> expMergestate(std::string arguments);
+    tl::expected<std::string,std::error_code> expMergestate(std::string arguments,bool willFail = false);
 
 }

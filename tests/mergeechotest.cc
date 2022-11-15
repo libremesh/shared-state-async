@@ -1,5 +1,6 @@
 #include "doctest/doctest.h"
 #include "sharedstate.hh"
+#include "FlightsErrorCode.h"
 
 // Tests that don't naturally fit in the headers/.cpp files directly
 // can be placed in a tests/*.cpp file. Integration tests are a good example.
@@ -26,9 +27,23 @@ TEST_CASE("parametrizedmerge")
 void verificarOptional(std::string original)
 {
   auto merged = SharedState::optMergeState(original);
-  std::cout << merged.value() << original;
   CHECK(original.size() == merged.value().size());
   CHECK(original == merged.value());
+}
+
+void verificarExpected(std::string original)
+{
+  auto merged = SharedState::expMergestate(original);
+  CHECK(original.size() == merged.value().size());
+  CHECK(original == merged.value());
+}
+
+void verificarExpectedWillFail(std::string original)
+{
+  auto merged = SharedState::expMergestate(original,true);
+  CHECK_FALSE(merged);
+  CHECK(merged.error() == FlightsErrorCode::NonexistentLocations);
+  CHECK(merged.error().message() == make_error_code(FlightsErrorCode::NonexistentLocations).message());
 }
 
 TEST_CASE("Opt merge")
@@ -38,10 +53,12 @@ TEST_CASE("Opt merge")
 }
 
 TEST_CASE("Parametrized merge test") {
-    std::vector<std::string> data {"mensajeaverificar", "asdasdaasd < saddsdfsdf","546654654654","546654654654546654654654546654654654546654654654" };
+    std::vector<std::string> data {"","mensajeaverificar", "asdasdaasd < saddsdfsdf","546654654654","546654654654546654654654546654654654546654654654" };
 
     for(auto& i : data) {
         CAPTURE(i); // log the current input data
         verificarOptional(i);
+        verificarExpected(i);
+        verificarExpectedWillFail(i);
     }
 }
