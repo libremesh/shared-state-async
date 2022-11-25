@@ -14,8 +14,6 @@ jobs:
       matrix:
         toolchain:
           - linux-gcc
-          - macos-clang
-          - windows-msvc
 
         configuration:
           - Debug
@@ -24,6 +22,7 @@ jobs:
           - toolchain: linux-gcc
             os: ubuntu-latest
             compiler: gcc
+            gcc: 11
 
           - toolchain: macos-clang
             os: macos-latest
@@ -36,6 +35,11 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
+      
+    - name: switch to gcc-10 on linux
+      run: |
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/g++ g++ /usr/bin/g++-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10
+        sudo update-alternatives --set gcc /usr/bin/gcc-10
 
     - name: Configure (${{ matrix.configuration }})
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
