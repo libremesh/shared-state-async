@@ -3,16 +3,26 @@
 #include <optional>
 #include <expected.hpp>
 #include "SharedStateErrorCode.hh"
-
+#include <chrono>
 
 namespace SharedState
 {
+ 
 
-    int mergestate(std::string arguments, std::string &output)
+    std::error_condition reqSync (const std::string& stateSlice,std::string& newState)
+    {
+        newState = stateSlice;
+        //llamar a lua shared state reqSync
+        return std::error_condition();
+    }
+
+    //std::error_condition merge(const std::string& stateSlice)
+    int mergestate(std::string stateSlice, std::string &output)
+//    int merge(const std::string& stateSlice, std::string& output)
     {
         const int bufsize = 128;
         std::array<char, bufsize> buffer;
-        std::string cmd = "echo '" + arguments + "'";
+        std::string cmd = "sleep 10 && echo '" + stateSlice + "'";
 
         auto pipe = popen(cmd.c_str(), "r");
         if (!pipe)
@@ -34,18 +44,20 @@ namespace SharedState
     {
         std::array<char, 128> buffer;
         std::string result;
-        std::string cmd = "echo '" + arguments + "'";
+        std::string cmd = "sleep 1 && echo '" + arguments + "'";
+        auto begin = std::chrono::high_resolution_clock::now();
         auto pipe = popen(cmd.c_str(), "r");
-
-        if (!pipe)
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        if (!pipe)
             throw std::runtime_error("popen() failed!");
-
+        begin = std::chrono::high_resolution_clock::now();
         while (!feof(pipe))
         {
             if (fgets(buffer.data(), 128, pipe) != nullptr)
                 result += buffer.data();
         }
-
+        end = std::chrono::high_resolution_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
         auto rc = pclose(pipe);
 
         if (rc == EXIT_SUCCESS)
@@ -62,7 +74,7 @@ namespace SharedState
     {
         std::array<char, 128> buffer;
         std::string result;
-        std::string cmd = "echo '" + arguments + "'";
+        std::string cmd = "sleep 1 && echo '" + arguments + "'";
         auto pipe = popen(cmd.c_str(), "r");
 
         if (!pipe){

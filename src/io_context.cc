@@ -1,9 +1,8 @@
 #include "io_context.hh"
-
 #include <stdexcept>
-
 #include "socket.hh"
 
+//Epoll handler and notification
 void IOContext::run()
 {
     struct epoll_event ev, events[max_events];
@@ -31,6 +30,7 @@ void IOContext::run()
             ev.data.ptr = socket;
             if (epoll_ctl(fd_, EPOLL_CTL_MOD, socket->fd_, &ev) == -1)
                 throw std::runtime_error{"epoll_ctl: mod"};
+                //todo: eliminate this
             socket->io_state_ = io_state;
         }
     }

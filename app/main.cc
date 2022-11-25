@@ -12,6 +12,7 @@
 std::task<bool> inside_loop(Socket &socket)
 {
     char buffer[42] = {0};
+    //TODO: lo que no entra en el buffer se procesa como otro mensaje... 
     ssize_t nbRecv = co_await socket.recv(buffer, (sizeof buffer)-1);
     //ssize_t nbSend = 0;
     // TODO: crear una task que invoque al shstate empezar por invocar echo.????

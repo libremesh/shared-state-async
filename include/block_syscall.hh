@@ -7,7 +7,7 @@
 #include <iostream>
 
 template<typename SyscallOpt, typename ReturnValue>
-class BlockSyscall
+class BlockSyscall //Awaiter
 {
 public:
     BlockSyscall()

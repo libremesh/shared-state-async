@@ -24,6 +24,15 @@ TEST_CASE("parametrizedmerge")
   CHECK(original == merged);
 }
 
+
+
+void verificar(std::string original)
+{
+  auto merged = SharedState::mergestate(original);
+  CHECK(original.size() == merged.size());
+  CHECK(original == merged);
+}
+
 void verificarOptional(std::string original)
 {
   auto merged = SharedState::optMergeState(original);
@@ -42,8 +51,8 @@ void verificarExpectedWillFail(std::string original)
 {
   auto merged = SharedState::expMergestate(original,true);
   CHECK_FALSE(merged);
-  std::error_condition(SharedStateErrorCode::OpenPipeError);
-  CHECK(merged.error().message() == make_error_condition(SharedStateErrorCode::OpenPipeError).message());
+  std::error_condition(SharedState::SharedStateErrorCode::OpenPipeError);
+  CHECK(merged.error().message() == make_error_condition(SharedState::SharedStateErrorCode::OpenPipeError).message());
 }
 
 TEST_CASE("Opt merge")
@@ -58,7 +67,11 @@ TEST_CASE("Parametrized merge test") {
     for(auto& i : data) {
         CAPTURE(i); // log the current input data
         verificarOptional(i);
+        verificar(i);
         verificarExpected(i);
         verificarExpectedWillFail(i);
     }
 }
+
+// sync vacio devuelve lo mismo que get
+ 

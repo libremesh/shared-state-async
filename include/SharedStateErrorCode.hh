@@ -1,6 +1,8 @@
 #pragma once
 
 #include <system_error>
+namespace SharedState
+{
 
 enum class SharedStateErrorCode
 {
@@ -13,11 +15,11 @@ enum class SharedStateErrorCode
 };
 
 // Overload of standard library make_error_code 
-//must be in the same namespace of the enum
+//+++  must be in the same namespace of the enum +++
 std::error_condition make_error_condition(SharedStateErrorCode) noexcept;
-
+}
 namespace std
 {
     template<>
-    struct is_error_condition_enum<SharedStateErrorCode> : true_type {};
+    struct is_error_condition_enum<SharedState::SharedStateErrorCode> : true_type {};
 }
