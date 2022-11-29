@@ -4,6 +4,7 @@
 #include <expected.hpp>
 #include "SharedStateErrorCode.hh"
 #include <chrono>
+#include "socket.hh"
 
 namespace SharedState
 {
@@ -40,7 +41,7 @@ namespace SharedState
         return pclose(pipe);
     }
 
-    std::string mergestate(std::string arguments)
+    std::string mergestate(std::string arguments, Socket* s)
     {
         std::array<char, 128> buffer;
         std::string result;
@@ -48,16 +49,22 @@ namespace SharedState
         auto begin = std::chrono::high_resolution_clock::now();
         auto pipe = popen(cmd.c_str(), "r");
         auto end = std::chrono::high_resolution_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        if (!pipe)
+        std::cout << "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
+        if (!pipe)
             throw std::runtime_error("popen() failed!");
+        
         begin = std::chrono::high_resolution_clock::now();
-        while (!feof(pipe))
+         
+        Socket filesocket{pipe,s};
+        ssize_t nbRecv = co_await filesocket.recvfile(buffer.data(),128);
+        /*while (!feof(pipe))
         {
             if (fgets(buffer.data(), 128, pipe) != nullptr)
                 result += buffer.data();
-        }
+        }*/
         end = std::chrono::high_resolution_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
+        std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
+        filesocket.~Socket();
         auto rc = pclose(pipe);
 
         if (rc == EXIT_SUCCESS)
@@ -70,6 +77,38 @@ namespace SharedState
         return result;
     }
 
+std::string mergestate(std::string arguments)
+    {
+        std::array<char, 128> buffer;
+        std::string result;
+        std::string cmd = "sleep 1 && echo '" + arguments + "'";
+        auto begin = std::chrono::high_resolution_clock::now();
+        auto pipe = popen(cmd.c_str(), "r");
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
+        if (!pipe)
+            throw std::runtime_error("popen() failed!");
+        
+        begin = std::chrono::high_resolution_clock::now();
+         
+        while (!feof(pipe))
+        {
+            if (fgets(buffer.data(), 128, pipe) != nullptr)
+                result += buffer.data();
+        }
+        end = std::chrono::high_resolution_clock::now();
+        std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
+        auto rc = pclose(pipe);
+
+        if (rc == EXIT_SUCCESS)
+        { // == 0
+        }
+        else if (rc == EXIT_FAILURE)
+        { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
+        }
+        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        return result;
+    }
     std::optional<std::string> optMergeState(std::string arguments)
     {
         std::array<char, 128> buffer;

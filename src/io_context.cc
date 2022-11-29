@@ -30,7 +30,7 @@ void IOContext::run()
             ev.data.ptr = socket;
             if (epoll_ctl(fd_, EPOLL_CTL_MOD, socket->fd_, &ev) == -1)
                 throw std::runtime_error{"epoll_ctl: mod"};
-                //todo: eliminate this
+                //todo: eliminate
             socket->io_state_ = io_state;
         }
     }
@@ -45,6 +45,18 @@ void IOContext::attach(Socket* socket)
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
     socket->io_state_ = io_state;
+}
+
+void IOContext::attachreadonly(Socket* socket)
+{
+    struct epoll_event ev;
+    auto io_state = EPOLLIN;
+    ev.events = io_state;
+    ev.data.ptr = socket;
+    if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
+        throw std::runtime_error{"epoll_ctl: attach"};
+    socket->io_state_ = io_state;
+    std::cout << "successfully attached # " <<  socket->fd_ << std::endl;;
 }
 
 void IOContext::watchRead(Socket* socket)
@@ -73,9 +85,15 @@ void IOContext::unwatchWrite(Socket* socket)
 
 void IOContext::detach(Socket* socket)
 {
-    if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, nullptr) == -1) {
+    struct epoll_event ev;
+    auto io_state = EPOLLIN;
+    ev.events = io_state;
+    std::cout<< "detaching ##" << socket->fd_ << std::endl;
+
+    if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, &ev) == -1) {
         perror("epoll_ctl: detach");
         exit(EXIT_FAILURE);
     }
+    socket->fd_=-1;
     processedSockets.erase(socket);
 }

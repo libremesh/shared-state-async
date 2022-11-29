@@ -1,7 +1,5 @@
 #include "socket_recv_operation.hh"
-
 #include <iostream>
-
 #include "socket.hh"
 
 SocketRecvOperation::SocketRecvOperation(Socket* socket,

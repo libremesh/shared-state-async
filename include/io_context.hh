@@ -7,6 +7,7 @@
 #include "socket_accept_operation.hh"
 #include "socket_recv_operation.hh"
 #include "socket_send_operation.hh"
+#include "file_read_operation.hh"
 
 /* Just an epoll wrapper */
 class Socket;
@@ -35,7 +36,9 @@ private:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
+    friend FileReadOperation;
     void attach(Socket* socket);
+    void attachreadonly(Socket* socket);
     void watchRead(Socket* socket);
     void unwatchRead(Socket* socket);
     void watchWrite(Socket* socket);

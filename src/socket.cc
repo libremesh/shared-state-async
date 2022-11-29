@@ -10,14 +10,14 @@
 #include <iostream>
 
 Socket::Socket(std::string_view port, IOContext& io_context)
-    : io_context_{io_context}
+    : io_context_{io_context} //non static data_member initialization
 {
     struct addrinfo hints, *res;
 
     std::memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;  // use IPv4 or IPv6, whichever
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
+    hints.ai_family = AF_UNSPEC;  //Use IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM; //TCP ... if you require UDP you must use SOCK_DGRAM
+    hints.ai_flags = AI_PASSIVE;     //Fill in my IP for me
 
     getaddrinfo(NULL, port.data(), &hints, &res);
     fd_ = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -28,10 +28,22 @@ Socket::Socket(std::string_view port, IOContext& io_context)
         throw std::runtime_error{"bind"};
         //todo: fix
     listen(fd_, 8);
-    //todo:
+    //todo:error check
     fcntl(fd_, F_SETFL, O_NONBLOCK);
     io_context_.attach(this);
     io_context_.watchRead(this);
+}
+
+Socket::Socket(FILE * fdFromStream, Socket* socket)
+    :io_context_{socket->io_context_} 
+{
+    fd_=fileno(fdFromStream);
+    int flags = fcntl(fd_, F_GETFL, 0);
+    //put into "nonblocking mode"
+    fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
+    io_context_.attachreadonly(this);
+    io_context_.watchRead(this);
+    std::cout<< "filedescriptor # " << fd_ << std::endl;
 }
 
 //move o copia deberia prohibirla devolver unique pointer... 
@@ -46,10 +58,10 @@ Socket::Socket(Socket&& socket)
 
 Socket::~Socket()
 {
+    std::cout << "delete the socket(" << fd_ << ")\n";
     if (fd_ == -1)
         return;
     io_context_.detach(this);
-    std::cout << "close(" << fd_ << ")\n";
     close(fd_);
 }
 
@@ -61,6 +73,13 @@ std::task<std::shared_ptr<Socket>> Socket::accept()
         throw std::runtime_error{"accept"};
         //todo:
     co_return std::shared_ptr<Socket>(new Socket{fd, io_context_});
+}
+
+
+
+FileReadOperation Socket::recvfile(void* buffer, std::size_t len)
+{
+    return FileReadOperation{this, buffer, len};
 }
 
 SocketRecvOperation Socket::recv(void* buffer, std::size_t len)

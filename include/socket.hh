@@ -9,6 +9,7 @@
 #include "socket_accept_operation.hh"
 #include "socket_recv_operation.hh"
 #include "socket_send_operation.hh"
+#include "file_read_operation.hh"
 #include "task.hh"
 
 class Socket
@@ -17,6 +18,7 @@ public:
     /* Listen tcp non blocking socket */
     Socket(std::string_view port, IOContext& io_context);
     Socket(const Socket&) = delete;
+    Socket(FILE * fd, Socket* socket);
     Socket(Socket&& socket);
 
     ~Socket();
@@ -25,6 +27,8 @@ public:
 
     SocketRecvOperation recv(void* buffer, std::size_t len);
     SocketSendOperation send(void* buffer, std::size_t len);
+    FileReadOperation recvfile(void* buffer, std::size_t len);
+
 
     bool resumeRecv()
     {
@@ -46,8 +50,10 @@ private:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
+    friend FileReadOperation;
     IOContext& io_context_;
     int fd_ = -1;
+    FILE * pipe= nullptr;
     friend IOContext;
     uint32_t io_state_ = 0;
     uint32_t io_new_state_ = 0;
