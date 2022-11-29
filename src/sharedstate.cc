@@ -56,12 +56,12 @@ namespace SharedState
         begin = std::chrono::high_resolution_clock::now();
          
         Socket filesocket{pipe,s};
-        ssize_t nbRecv = co_await filesocket.recvfile(buffer.data(),128);
-        /*while (!feof(pipe))
+        //ssize_t nbRecv = co_await filesocket.recvfile(buffer.data(),128);
+        while (!feof(pipe))
         {
             if (fgets(buffer.data(), 128, pipe) != nullptr)
                 result += buffer.data();
-        }*/
+        }
         end = std::chrono::high_resolution_clock::now();
         std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
         filesocket.~Socket();

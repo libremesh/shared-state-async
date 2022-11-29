@@ -11,13 +11,28 @@
 /// @return true if everything goes fine
 std::task<bool> inside_loop(Socket &socket)
 {
-    char buffer[42] = {0};
+    char socbuffer[42] = {0};
     //TODO: lo que no entra en el buffer se procesa como otro mensaje... 
-    ssize_t nbRecv = co_await socket.recv(buffer, (sizeof buffer)-1);
+    ssize_t nbRecv = co_await socket.recv(socbuffer, (sizeof socbuffer)-1);
     //ssize_t nbSend = 0;
     // TODO: crear una task que invoque al shstate empezar por invocar echo.????
-    std::cout << "RECIVING (" << buffer << "):" << '\n';
-    std::string merged = SharedState::mergestate(buffer,&socket);
+    std::cout << "RECIVING (" << socbuffer << "):" << '\n';
+    //std::string merged = SharedState::mergestate(buffer,&socket);
+    std::array<char, 128> buffer;
+    std::string merged;
+    std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
+    auto pipe = popen(cmd.c_str(), "r");
+    //partir el popen
+    if (!pipe)
+        throw std::runtime_error("popen() failed!");        
+    std::unique_ptr<Socket> filesocket = std::make_unique<Socket>(pipe,&socket);//se puede inicializar el file adentro
+    co_await filesocket->recvfile(buffer.data(),128);
+    merged=buffer.data();
+    //filesocket=nullptr;
+    filesocket.reset(nullptr);
+    pclose(pipe);
+
+    merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     // esto no parece necesario, podria quedarse aqui para siempre  ? 
     // while (nbSend < nbRecv)
     //{
@@ -31,7 +46,7 @@ std::task<bool> inside_loop(Socket &socket)
     std::cerr << "DONE (" << nbRecv << "):" << '\n';
     if (nbRecv <= 0)
         co_return false;
-    printf("%s\n", buffer);
+    
     co_return true;
 }
 

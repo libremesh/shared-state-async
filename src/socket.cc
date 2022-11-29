@@ -35,15 +35,16 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 }
 
 Socket::Socket(FILE * fdFromStream, Socket* socket)
-    :io_context_{socket->io_context_} 
+    :io_context_{socket->io_context_}, pipe(fdFromStream)
 {
     fd_=fileno(fdFromStream);
+
     int flags = fcntl(fd_, F_GETFL, 0);
     //put into "nonblocking mode"
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachreadonly(this);
-    io_context_.watchRead(this);
-    std::cout<< "filedescriptor # " << fd_ << std::endl;
+    //io_context_.watchRead(this);
+    std::cout<< "Socket created and filedescriptor # " << fd_ << std::endl;
 }
 
 //move o copia deberia prohibirla devolver unique pointer... 
