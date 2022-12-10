@@ -10,6 +10,7 @@
 #include "file_read_operation.hh"
 
 /* Just an epoll wrapper */
+//This class will work as dispacher, freeing epool suspended corotasks
 class Socket;
 
 class IOContext

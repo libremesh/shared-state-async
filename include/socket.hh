@@ -4,7 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
-
+#include "async_file_desc.hh"
 #include "io_context.hh"
 #include "socket_accept_operation.hh"
 #include "socket_recv_operation.hh"
@@ -12,7 +12,7 @@
 #include "file_read_operation.hh"
 #include "task.hh"
 
-class Socket
+class Socket :AsyncFileDescriptor
 {
 public:
     /* Listen tcp non blocking socket */
@@ -51,7 +51,7 @@ private:
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
-    IOContext& io_context_;
+ //   IOContext& io_context_;
     int fd_ = -1;
     FILE * pipe= nullptr;
     friend IOContext;

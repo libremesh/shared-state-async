@@ -10,7 +10,8 @@
 #include <iostream>
 
 Socket::Socket(std::string_view port, IOContext& io_context)
-    : io_context_{io_context} //non static data_member initialization
+    : AsyncFileDescriptor(io_context) 
+    //: io_context_{io_context} //non static data_member initialization
 {
     struct addrinfo hints, *res;
 
@@ -35,7 +36,7 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 }
 
 Socket::Socket(FILE * fdFromStream, Socket* socket)
-    :io_context_{socket->io_context_}, pipe(fdFromStream)
+    :AsyncFileDescriptor((AsyncFileDescriptor)socket->io_context_), pipe(fdFromStream)
 {
     fd_=fileno(fdFromStream);
 
@@ -49,7 +50,7 @@ Socket::Socket(FILE * fdFromStream, Socket* socket)
 
 //move o copia deberia prohibirla devolver unique pointer... 
 Socket::Socket(Socket&& socket)
-    : io_context_{socket.io_context_}
+    : AsyncFileDescriptor{socket.io_context_}
     , fd_{socket.fd_}
     , io_state_{socket.io_state_}
     , io_new_state_{socket.io_new_state_}
@@ -93,7 +94,7 @@ SocketSendOperation Socket::send(void* buffer, std::size_t len)
 }
 
 Socket::Socket(int fd, IOContext& io_context)
-    : io_context_{io_context}
+    : AsyncFileDescriptor{io_context}
     , fd_{fd}
 {
     fcntl(fd_, F_SETFL, O_NONBLOCK);

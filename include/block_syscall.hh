@@ -24,10 +24,13 @@ public:
         returnValue_ = static_cast<SyscallOpt*>(this)->syscall();
         haveSuspend_ =
             returnValue_ == -1 && (errno == EAGAIN || errno == EWOULDBLOCK);
+        //haveSuspend_=true;
         if (haveSuspend_)
             static_cast<SyscallOpt*>(this)->suspend();
+            // the value true returns control to the caller/resumer of the current coroutine 
 
         return haveSuspend_;
+        // the value false resumes the current coroutine. 
     }
 
     ReturnValue await_resume()
@@ -37,6 +40,9 @@ public:
             returnValue_ = static_cast<SyscallOpt*>(this)->syscall();
         return returnValue_;
     }
+    //derived clases must implement these methods
+    virtual ssize_t syscall() = 0;
+    virtual void suspend() = 0;
 
 protected:
     bool haveSuspend_;
