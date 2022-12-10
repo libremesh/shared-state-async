@@ -6,25 +6,29 @@
 #include <array>
 #include <unistd.h>
 
+
+#define BUFFSIZE 256
+
 /// @brief coro in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
 /// @param socket 
 /// @return true if everything goes fine
 std::task<bool> inside_loop(Socket &socket)
 {
-    char socbuffer[42] = {0};
+    char socbuffer[BUFFSIZE] = {0};
     //TODO: lo que no entra en el buffer se procesa como otro mensaje... 
     ssize_t nbRecv = co_await socket.recv(socbuffer, (sizeof socbuffer)-1);
     //ssize_t nbSend = 0;
     // TODO: crear una task que invoque al shstate empezar por invocar echo.????
     std::cout << "RECIVING (" << socbuffer << "):" << '\n';
     //std::string merged = SharedState::mergestate(buffer,&socket);
-    std::array<char, 128> buffer;
+    std::array<char, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
     auto pipe = popen(cmd.c_str(), "r");
     //partir el popen
     if (!pipe)
-        throw std::runtime_error("popen() failed!");        
+        co_return false;
+       
     std::unique_ptr<Socket> filesocket = std::make_unique<Socket>(pipe,&socket);//se puede inicializar el file adentro
     co_await filesocket->recvfile(buffer.data(),128);
     merged=buffer.data();
