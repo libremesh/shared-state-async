@@ -4,10 +4,19 @@
 #include <memory>
 #include <optional>
 #include <string_view>
-
 #include "io_context.hh"
 #include "block_syscall.hh"
 #include "task.hh"
+#include <string_view>
+#include "async_file_desc.hh"
+#include "socket_accept_operation.hh"
+#include "socket_recv_operation.hh"
+#include "socket_send_operation.hh"
+#include "file_read_operation.hh"
+#include "socket.hh"
+#include <fcntl.h>
+
+#include <iostream>
 
 class AsyncFileDescriptor
 {
@@ -18,9 +27,19 @@ public:
     AsyncFileDescriptor(const AsyncFileDescriptor&) = delete;
     AsyncFileDescriptor(AsyncFileDescriptor&& socket)
     : io_context_{socket.io_context_}
+    , fd_{socket.fd_}
     , io_state_{socket.io_state_}
     , io_new_state_{socket.io_new_state_}
+{
+    socket.fd_ = -1;
+}
+
+    AsyncFileDescriptor(int fd, IOContext& io_context)
+    : io_context_ {io_context}
+    , fd_{fd}
     {
+        fcntl(fd_, F_SETFL, O_NONBLOCK);
+        io_context_.attach(this);
     }
 
     bool resumeRecv()
@@ -39,15 +58,18 @@ public:
         return true;
     }
 
-protected:
+//private:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
     friend IOContext;
     IOContext& io_context_;
+    int fd_ = -1;
     uint32_t io_state_ = 0;
     uint32_t io_new_state_ = 0;
+    
+
     std::coroutine_handle<> coroRecv_;
     std::coroutine_handle<> coroSend_;
 };

@@ -52,13 +52,11 @@ private:
     friend SocketSendOperation;
     friend FileReadOperation;
  //   IOContext& io_context_;
-    int fd_ = -1;
     FILE * pipe= nullptr;
     friend IOContext;
-    uint32_t io_state_ = 0;
-    uint32_t io_new_state_ = 0;
+
 
     explicit Socket(int fd, IOContext& io_context);
-    std::coroutine_handle<> coroRecv_;
-    std::coroutine_handle<> coroSend_;
+    //std::coroutine_handle<> coroRecv_;
+    //std::coroutine_handle<> coroSend_;
 };

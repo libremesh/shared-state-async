@@ -12,6 +12,7 @@
 /* Just an epoll wrapper */
 //This class will work as dispacher, freeing epool suspended corotasks
 class Socket;
+class AsyncFileDescriptor;
 
 class IOContext
 {
@@ -28,21 +29,22 @@ public:
     void run();
 private:
     constexpr static std::size_t max_events = 10;
-    const int fd_;
+    const int fd_; //iocontext epool fd
 
     // Fill it by watchRead / watchWrite
-    std::set<Socket*> processedSockets;
+    std::set<AsyncFileDescriptor*> processedSockets;
 
+    friend AsyncFileDescriptor;
     friend Socket;
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
-    void attach(Socket* socket);
-    void attachreadonly(Socket* socket);
-    void watchRead(Socket* socket);
-    void unwatchRead(Socket* socket);
-    void watchWrite(Socket* socket);
-    void unwatchWrite(Socket* socket);
-    void detach(Socket* socket);
+    void attach(AsyncFileDescriptor* socket);
+    void attachreadonly(AsyncFileDescriptor* socket);
+    void watchRead(AsyncFileDescriptor* socket);
+    void unwatchRead(AsyncFileDescriptor* socket);
+    void watchWrite(AsyncFileDescriptor* socket);
+    void unwatchWrite(AsyncFileDescriptor* socket);
+    void detach(AsyncFileDescriptor* socket);
 };

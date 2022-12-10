@@ -48,15 +48,7 @@ Socket::Socket(FILE * fdFromStream, Socket* socket)
     std::cout<< "Socket created and filedescriptor # " << fd_ << std::endl;
 }
 
-//move o copia deberia prohibirla devolver unique pointer... 
-Socket::Socket(Socket&& socket)
-    : AsyncFileDescriptor{socket.io_context_}
-    , fd_{socket.fd_}
-    , io_state_{socket.io_state_}
-    , io_new_state_{socket.io_new_state_}
-{
-    socket.fd_ = -1;
-}
+
 
 Socket::~Socket()
 {
@@ -74,6 +66,7 @@ std::task<std::shared_ptr<Socket>> Socket::accept()
     if (fd == -1)
         throw std::runtime_error{"accept"};
         //todo:
+    std::cout << "aceptando";
     co_return std::shared_ptr<Socket>(new Socket{fd, io_context_});
 }
 
@@ -93,10 +86,13 @@ SocketSendOperation Socket::send(void* buffer, std::size_t len)
     return SocketSendOperation{this, buffer, len};
 }
 
-Socket::Socket(int fd, IOContext& io_context)
-    : AsyncFileDescriptor{io_context}
-    , fd_{fd}
-{
-    fcntl(fd_, F_SETFL, O_NONBLOCK);
-    io_context_.attach(this);
-}
+Socket::Socket(int fd, IOContext& io_context):AsyncFileDescriptor(fd,io_context)
+{}
+
+// Socket::Socket(int fd, IOContext& io_context)
+//     : io_context_{io_context}
+//     , fd_{fd}
+// {
+//     fcntl(fd_, F_SETFL, O_NONBLOCK);
+//     io_context_.attach(this);
+// }

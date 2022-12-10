@@ -41,8 +41,8 @@ public:
         return returnValue_;
     }
     //derived clases must implement these methods
-    virtual ssize_t syscall() = 0;
-    virtual void suspend() = 0;
+    //virtual ssize_t syscall() = 0;
+    //virtual void suspend() = 0;
 
 protected:
     bool haveSuspend_;

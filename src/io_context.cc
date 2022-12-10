@@ -14,7 +14,7 @@ void IOContext::run()
 
         for (int n = 0; n < nfds; ++n)
         {
-            auto socket = static_cast<Socket*>(events[n].data.ptr);
+            auto socket = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
 
             if (events[n].events & EPOLLIN)
                 socket->resumeRecv();
@@ -36,7 +36,7 @@ void IOContext::run()
     }
 }
 
-void IOContext::attach(Socket* socket)
+void IOContext::attach(AsyncFileDescriptor* socket)
 {
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
@@ -47,7 +47,7 @@ void IOContext::attach(Socket* socket)
     socket->io_state_ = io_state;
 }
 
-void IOContext::attachreadonly(Socket* socket)
+void IOContext::attachreadonly(AsyncFileDescriptor* socket)
 {
     struct epoll_event ev;
     auto io_state = EPOLLIN;
@@ -59,31 +59,31 @@ void IOContext::attachreadonly(Socket* socket)
     std::cout << "successfully attached # " <<  socket->fd_ << std::endl;;
 }
 
-void IOContext::watchRead(Socket* socket)
+void IOContext::watchRead(AsyncFileDescriptor* socket)
 {
     socket->io_new_state_ = socket->io_state_ | EPOLLIN;
     processedSockets.insert(socket);
 }
 
-void IOContext::unwatchRead(Socket* socket)
+void IOContext::unwatchRead(AsyncFileDescriptor* socket)
 {
     socket->io_new_state_ = socket->io_state_ & ~EPOLLIN;
     processedSockets.insert(socket);
 }
 
-void IOContext::watchWrite(Socket* socket)
+void IOContext::watchWrite(AsyncFileDescriptor* socket)
 {
     socket->io_new_state_ = socket->io_state_ | EPOLLOUT;
     processedSockets.insert(socket);
 }
 
-void IOContext::unwatchWrite(Socket* socket)
+void IOContext::unwatchWrite(AsyncFileDescriptor* socket)
 {
     socket->io_new_state_ = socket->io_state_ & ~EPOLLOUT;
     processedSockets.insert(socket);
 }
 
-void IOContext::detach(Socket* socket)
+void IOContext::detach(AsyncFileDescriptor* socket)
 {
     struct epoll_event ev;
     auto io_state = EPOLLIN;
