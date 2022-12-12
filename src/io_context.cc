@@ -29,8 +29,12 @@ void IOContext::run()
             ev.events = io_state;
             ev.data.ptr = socket;
             if (epoll_ctl(fd_, EPOLL_CTL_MOD, socket->fd_, &ev) == -1)
-                throw std::runtime_error{"epoll_ctl: mod"};
+            {
+                std::cout<< "error" << strerror(errno);
+                perror("File deletion failed");
+                throw std::runtime_error{"epoll_ctl: mod "+ errno};
                 //todo: eliminate
+            }
             socket->io_state_ = io_state;
         }
     }

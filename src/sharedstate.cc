@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <optional>
 #include <expected.hpp>
-#include "SharedStateErrorCode.hh"
+#include "shared_state_error_code.hh"
 #include <chrono>
 #include "socket.hh"
 

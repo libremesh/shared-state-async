@@ -26,11 +26,11 @@ ssize_t FileReadOperation::syscall()
     std::cout << "fgets(" << fileno(socket->pipe) << ", buffer_, len_, 0)\n";
     while (!feof(socket->pipe))
     {
-        //Todo:review this conversion
         if (fgets((char *)buffer_, len_, socket->pipe) != nullptr)
             result += (char *)buffer_;
-            //co_yield 0;
     }
+    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+
     return 10;
     //todo: fix this
 }

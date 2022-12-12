@@ -25,18 +25,15 @@ std::task<bool> inside_loop(Socket &socket)
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
-    auto pipe = popen(cmd.c_str(), "r");
-    //partir el popen
-    if (!pipe)
-        co_return false;
-       
-    //a std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(pipe,&(AsyncFileDescriptor)socket);//se puede inicializar el file adentro
-    AsyncCommand* filesocket = new AsyncCommand (pipe,&socket);
+    std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(cmd,&socket);
+    //std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(pipe,&socket);//se puede inicializar el file adentro
+    //AsyncCommand* filesocket = new AsyncCommand (pipe,&socket);
     co_await filesocket->recvfile(buffer.data(),BUFFSIZE);
     merged=buffer.data();
     //filesocket=nullptr;
-    //a filesocket.reset(nullptr);
-    pclose(pipe);
+    filesocket.reset(nullptr);
+    //delete filesocket;
+    //pclose(pipe);
 
     merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     // esto no parece necesario, podria quedarse aqui para siempre  ? 

@@ -1,4 +1,4 @@
-#include "SharedStateErrorCode.hh"
+#include "shared_state_error_code.hh"
 
 namespace SharedState
 {

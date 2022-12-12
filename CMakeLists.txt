@@ -45,7 +45,7 @@ set(SOURCES          # All .cpp files in src/
     src/socket.cc  
     src/socket_recv_operation.cc  
     src/socket_send_operation.cc
-    src/SharedStateErrorCode.cc
+    src/shared_state_error_code.cc
     src/file_read_operation.cc
     src/async_command.cc
 )

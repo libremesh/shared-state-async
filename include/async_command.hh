@@ -10,15 +10,16 @@
 #include "task.hh"
 #include "socket.hh"
 
-class AsyncCommand : public AsyncFileDescriptor
+class AsyncCommand :AsyncFileDescriptor
 {
 public:
     /* Listen tcp non blocking socket */
     //AsyncCommand(std::string_view command, std::string_view arguments, IOContext& io_context);
-        AsyncCommand(const AsyncCommand&) = delete;
+    AsyncCommand(const AsyncCommand&) = delete;
     AsyncCommand(AsyncCommand&& command);
     //AsyncCommand(FILE * fdFromStream, Socket* socket);
     AsyncCommand(FILE * fdFromStream, AsyncFileDescriptor* socket);
+    AsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
 
     ~AsyncCommand();
 
