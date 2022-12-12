@@ -5,6 +5,7 @@
 #include <iostream>
 #include <array>
 #include <unistd.h>
+#include "async_command.hh"
 
 
 #define BUFFSIZE 256
@@ -29,11 +30,12 @@ std::task<bool> inside_loop(Socket &socket)
     if (!pipe)
         co_return false;
        
-    std::unique_ptr<Socket> filesocket = std::make_unique<Socket>(pipe,&socket);//se puede inicializar el file adentro
-    co_await filesocket->recvfile(buffer.data(),128);
+    //a std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(pipe,&(AsyncFileDescriptor)socket);//se puede inicializar el file adentro
+    AsyncCommand* filesocket = new AsyncCommand (pipe,&socket);
+    co_await filesocket->recvfile(buffer.data(),BUFFSIZE);
     merged=buffer.data();
     //filesocket=nullptr;
-    filesocket.reset(nullptr);
+    //a filesocket.reset(nullptr);
     pclose(pipe);
 
     merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());

@@ -5,18 +5,18 @@
 
 #include "block_syscall.hh"
 
-class Socket;
+class AsyncCommand;
 
 class FileReadOperation : public BlockSyscall<FileReadOperation, ssize_t>
 {
 public:
-    FileReadOperation(Socket* socket, void* buffer, std::size_t len);
+    FileReadOperation(AsyncCommand* socket, void* buffer, std::size_t len);
     ~FileReadOperation();
 
     ssize_t syscall();
     void suspend();
 private:
-    Socket* socket;
+    AsyncCommand* socket;
     void* buffer_;
     std::size_t len_;
 };

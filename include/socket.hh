@@ -12,7 +12,7 @@
 #include "file_read_operation.hh"
 #include "task.hh"
 
-class Socket :AsyncFileDescriptor
+class Socket : public AsyncFileDescriptor
 {
 public:
     /* Listen tcp non blocking socket */
@@ -30,21 +30,21 @@ public:
     FileReadOperation recvfile(void* buffer, std::size_t len);
 
 
-    bool resumeRecv()
-    {
-        if (!coroRecv_)
-            return false;
-        coroRecv_.resume();
-        return true;
-    }
+    // bool resumeRecv()
+    // {
+    //     if (!coroRecv_)
+    //         return false;
+    //     coroRecv_.resume();
+    //     return true;
+    // }
 
-    bool resumeSend()
-    {
-        if (!coroSend_)
-            return false;
-        coroSend_.resume();
-        return true;
-    }
+    // bool resumeSend()
+    // {
+    //     if (!coroSend_)
+    //         return false;
+    //     coroSend_.resume();
+    //     return true;
+    // }
 
 private:
     friend SocketAcceptOperation;

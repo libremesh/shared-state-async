@@ -1,8 +1,8 @@
 #include "file_read_operation.hh"
 #include <iostream>
-#include "socket.hh"
+#include "async_command.hh"
 
-FileReadOperation::FileReadOperation(Socket* socket,
+FileReadOperation::FileReadOperation(AsyncCommand* socket,
         void* buffer,
         std::size_t len)
     : BlockSyscall{}

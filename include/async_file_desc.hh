@@ -8,14 +8,11 @@
 #include "block_syscall.hh"
 #include "task.hh"
 #include <string_view>
-#include "async_file_desc.hh"
 #include "socket_accept_operation.hh"
 #include "socket_recv_operation.hh"
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
-#include "socket.hh"
 #include <fcntl.h>
-
 #include <iostream>
 
 class AsyncFileDescriptor
@@ -30,9 +27,9 @@ public:
     , fd_{socket.fd_}
     , io_state_{socket.io_state_}
     , io_new_state_{socket.io_new_state_}
-{
-    socket.fd_ = -1;
-}
+    {
+        socket.fd_ = -1;
+    }
 
     AsyncFileDescriptor(int fd, IOContext& io_context)
     : io_context_ {io_context}
@@ -58,7 +55,7 @@ public:
         return true;
     }
 
-//private:
+//protected:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;

@@ -9,10 +9,12 @@
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
 
+
 /* Just an epoll wrapper */
 //This class will work as dispacher, freeing epool suspended corotasks
 class Socket;
 class AsyncFileDescriptor;
+class AsyncCommand;
 
 class IOContext
 {
@@ -36,6 +38,7 @@ private:
 
     friend AsyncFileDescriptor;
     friend Socket;
+    friend AsyncCommand;
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;

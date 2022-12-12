@@ -72,10 +72,10 @@ std::task<std::shared_ptr<Socket>> Socket::accept()
 
 
 
-FileReadOperation Socket::recvfile(void* buffer, std::size_t len)
-{
-    return FileReadOperation{this, buffer, len};
-}
+// FileReadOperation Socket::recvfile(void* buffer, std::size_t len)
+// {
+//     return FileReadOperation{this, buffer, len};
+// }
 
 SocketRecvOperation Socket::recv(void* buffer, std::size_t len)
 {
