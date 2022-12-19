@@ -41,13 +41,7 @@ AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncF
     std::cout << "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
 }
 
-/*  std::string merged;
-    std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
-    auto pipe = popen(cmd.c_str(), "r");
-    //partir el popen
-    if (!pipe)
-        co_return false;
-*/
+
 
 AsyncCommand::~AsyncCommand()
 {
@@ -55,33 +49,12 @@ AsyncCommand::~AsyncCommand()
     if (fd_ == -1)
         return;
     io_context_.detach(this);
-    pclose(pipe);
     close(fd_);
+    pclose(pipe);
+    
 }
-
-// std::task<std::shared_ptr<AsyncCommand>> AsyncCommand::accept()
-// {
-//     //todo: deberia devolver unique
-//     int fd = co_await AsyncCommandAcceptOperation{this};
-//     if (fd == -1)
-//         throw std::runtime_error{"accept"};
-//         //todo:
-//     std::cout << "aceptando";
-//     co_return std::shared_ptr<AsyncCommand>(new AsyncCommand{fd, io_context_});
-// }
 
 FileReadOperation AsyncCommand::recvfile(void *buffer, std::size_t len)
 {
     return FileReadOperation{this, buffer, len};
 }
-
-// AsyncCommand::AsyncCommand(int fd, IOContext& io_context):AsyncFileDescriptor(fd,io_context)
-//{}
-
-// AsyncCommand::AsyncCommand(int fd, IOContext& io_context)
-//     : io_context_{io_context}
-//     , fd_{fd}
-// {
-//     fcntl(fd_, F_SETFL, O_NONBLOCK);
-//     io_context_.attach(this);
-// }

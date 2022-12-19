@@ -17,7 +17,7 @@ FileReadOperation::FileReadOperation(AsyncCommand* socket,
 FileReadOperation::~FileReadOperation()
 {
     socket->io_context_.unwatchRead(socket);
-    std::cout << "~socket_recv_operation\n";
+    std::cout << "~socket_fileRead_operation\n";
 }
 
 ssize_t FileReadOperation::syscall()

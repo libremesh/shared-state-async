@@ -32,8 +32,10 @@ std::task<bool> inside_loop(Socket &socket)
     merged=buffer.data();
     //filesocket=nullptr;
     filesocket.reset(nullptr);
-    //delete filesocket;
-    //pclose(pipe);
+    
+    //problemade manejode errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
+    //sin esta linea se genera un enter que no se recibe y el programa explota
+    merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
 
     // esto no parece necesario, podria quedarse aqui para siempre  ? 
     // while (nbSend < nbRecv)
@@ -48,7 +50,6 @@ std::task<bool> inside_loop(Socket &socket)
     std::cerr << "DONE (" << nbRecv << "):" << '\n';
     if (nbRecv <= 0)
         co_return false;
-    
     co_return true;
 }
 

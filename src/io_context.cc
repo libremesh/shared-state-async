@@ -90,7 +90,7 @@ void IOContext::unwatchWrite(AsyncFileDescriptor* socket)
 void IOContext::detach(AsyncFileDescriptor* socket)
 {
     struct epoll_event ev;
-    auto io_state = EPOLLIN;
+    auto io_state = EPOLLIN; //solo este ?
     ev.events = io_state;
     std::cout<< "detaching ##" << socket->fd_ << std::endl;
 

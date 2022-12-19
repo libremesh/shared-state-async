@@ -29,34 +29,14 @@ public:
     SocketSendOperation send(void* buffer, std::size_t len);
     FileReadOperation recvfile(void* buffer, std::size_t len);
 
-
-    // bool resumeRecv()
-    // {
-    //     if (!coroRecv_)
-    //         return false;
-    //     coroRecv_.resume();
-    //     return true;
-    // }
-
-    // bool resumeSend()
-    // {
-    //     if (!coroSend_)
-    //         return false;
-    //     coroSend_.resume();
-    //     return true;
-    // }
-
 private:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
- //   IOContext& io_context_;
     FILE * pipe= nullptr;
     friend IOContext;
 
 
     explicit Socket(int fd, IOContext& io_context);
-    //std::coroutine_handle<> coroRecv_;
-    //std::coroutine_handle<> coroSend_;
 };
