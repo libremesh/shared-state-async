@@ -35,7 +35,6 @@ std::task<bool> inside_loop(Socket &socket)
     //delete filesocket;
     //pclose(pipe);
 
-    merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     // esto no parece necesario, podria quedarse aqui para siempre  ? 
     // while (nbSend < nbRecv)
     //{
