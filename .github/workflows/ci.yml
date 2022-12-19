@@ -22,15 +22,6 @@ jobs:
           - toolchain: linux-gcc
             os: ubuntu-latest
             compiler: gcc
-            gcc: 11
-
-          - toolchain: macos-clang
-            os: macos-latest
-            compiler: clang
-
-          - toolchain: windows-msvc
-            os: windows-latest
-            compiler: msvc
 
     steps:
     - name: Checkout Code
