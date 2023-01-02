@@ -18,7 +18,6 @@ public:
     /* Listen tcp non blocking socket */
     Socket(std::string_view port, IOContext& io_context);
     Socket(const Socket&) = delete;
-    Socket(FILE * fd, Socket* socket);
     Socket(Socket&& socket);
 
     ~Socket();
@@ -27,8 +26,6 @@ public:
 
     SocketRecvOperation recv(void* buffer, std::size_t len);
     SocketSendOperation send(void* buffer, std::size_t len);
-    FileReadOperation recvfile(void* buffer, std::size_t len);
-
 private:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;

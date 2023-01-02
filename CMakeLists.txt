@@ -48,6 +48,9 @@ set(SOURCES          # All .cpp files in src/
     src/shared_state_error_code.cc
     src/file_read_operation.cc
     src/async_command.cc
+    src/piped_async_command.cc
+    src/pipe_file_read_operation.cc
+    src/file_write_operation.cc
 )
 set(TESTFILES        # All .cpp files in tests/
     tests/main.cpp

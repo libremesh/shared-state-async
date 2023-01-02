@@ -40,8 +40,8 @@ namespace SharedState
         output.erase(std::remove(output.begin(), output.end(), '\n'), output.cend());
         return pclose(pipe);
     }
-
-    std::string mergestate(std::string arguments, Socket* s)
+/*
+    std::string mergestate(std::string arguments)//, Socket* s)
     {
         std::array<char, 128> buffer;
         std::string result;
@@ -55,7 +55,7 @@ namespace SharedState
         
         begin = std::chrono::high_resolution_clock::now();
          
-        Socket filesocket{pipe,s};
+        //Socket filesocket{pipe,s};
         //ssize_t nbRecv = co_await filesocket.recvfile(buffer.data(),128);
         while (!feof(pipe))
         {
@@ -64,7 +64,7 @@ namespace SharedState
         }
         end = std::chrono::high_resolution_clock::now();
         std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
-        filesocket.~Socket();
+        //filesocket.~Socket();
         auto rc = pclose(pipe);
 
         if (rc == EXIT_SUCCESS)
@@ -76,7 +76,7 @@ namespace SharedState
         result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
-
+*/
 std::string mergestate(std::string arguments)
     {
         std::array<char, 128> buffer;

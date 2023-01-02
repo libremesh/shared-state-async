@@ -1,8 +1,9 @@
 #include "file_read_operation.hh"
 #include <iostream>
 #include "async_command.hh"
+#include "async_file_desc.hh"
 
-FileReadOperation::FileReadOperation(AsyncCommand* socket,
+FileReadOperation::FileReadOperation(AsyncFileDescriptor* socket,
         void* buffer,
         std::size_t len)
     : BlockSyscall{}
@@ -22,17 +23,10 @@ FileReadOperation::~FileReadOperation()
 
 ssize_t FileReadOperation::syscall()
 {
-    std::string result;
-    std::cout << "fgets(" << fileno(socket->pipe) << ", buffer_, len_, 0)\n";
-    while (!feof(socket->pipe))
-    {
-        if (fgets((char *)buffer_, len_, socket->pipe) != nullptr)
-            result += (char *)buffer_;
-    }
-    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
-
-    return 10;
-    //todo: fix this
+    std::cout << "write(" << socket->fd_ << ", buffer_, len_, 0)\n";
+    size_t bytesread = read(socket->fd_, (char *)buffer_, len_);
+    std::cout<<"Read bytes" << bytesread << (char *)buffer_;
+    return bytesread;
 }
 
 void FileReadOperation::suspend()

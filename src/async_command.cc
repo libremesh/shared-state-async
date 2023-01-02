@@ -54,7 +54,7 @@ AsyncCommand::~AsyncCommand()
     
 }
 
-FileReadOperation AsyncCommand::recvfile(void *buffer, std::size_t len)
+PipeFileReadOperation AsyncCommand::recvfile(void *buffer, std::size_t len)
 {
-    return FileReadOperation{this, buffer, len};
+    return PipeFileReadOperation{this, buffer, len};
 }

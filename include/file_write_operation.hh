@@ -7,11 +7,11 @@
 
 class AsyncFileDescriptor;
 
-class FileReadOperation : public BlockSyscall<FileReadOperation, ssize_t>
+class FileWriteOperation : public BlockSyscall<FileWriteOperation, ssize_t>
 {
 public:
-    FileReadOperation(AsyncFileDescriptor* socket, void* buffer, std::size_t len);
-    ~FileReadOperation();
+    FileWriteOperation(AsyncFileDescriptor* socket, void* buffer, std::size_t len);
+    ~FileWriteOperation();
 
     ssize_t syscall();
     void suspend();

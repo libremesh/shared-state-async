@@ -35,21 +35,6 @@ Socket::Socket(std::string_view port, IOContext& io_context)
     io_context_.watchRead(this);
 }
 
-Socket::Socket(FILE * fdFromStream, Socket* socket)
-    :AsyncFileDescriptor((AsyncFileDescriptor)socket->io_context_), pipe(fdFromStream)
-{
-    fd_=fileno(fdFromStream);
-
-    int flags = fcntl(fd_, F_GETFL, 0);
-    //put into "nonblocking mode"
-    fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
-    io_context_.attachreadonly(this);
-    //io_context_.watchRead(this);
-    std::cout<< "Socket created and filedescriptor # " << fd_ << std::endl;
-}
-
-
-
 Socket::~Socket()
 {
     std::cout << "delete the socket(" << fd_ << ")\n";
@@ -70,13 +55,6 @@ std::task<std::shared_ptr<Socket>> Socket::accept()
     co_return std::shared_ptr<Socket>(new Socket{fd, io_context_});
 }
 
-
-
-// FileReadOperation Socket::recvfile(void* buffer, std::size_t len)
-// {
-//     return FileReadOperation{this, buffer, len};
-// }
-
 SocketRecvOperation Socket::recv(void* buffer, std::size_t len)
 {
     return SocketRecvOperation{this, buffer, len};
@@ -88,11 +66,3 @@ SocketSendOperation Socket::send(void* buffer, std::size_t len)
 
 Socket::Socket(int fd, IOContext& io_context):AsyncFileDescriptor(fd,io_context)
 {}
-
-// Socket::Socket(int fd, IOContext& io_context)
-//     : io_context_{io_context}
-//     , fd_{fd}
-// {
-//     fcntl(fd_, F_SETFL, O_NONBLOCK);
-//     io_context_.attach(this);
-// }

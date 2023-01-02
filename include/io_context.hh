@@ -8,6 +8,9 @@
 #include "socket_recv_operation.hh"
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
+#include "file_write_operation.hh"
+#include "pipe_file_read_operation.hh"
+
 
 
 /* Just an epoll wrapper */
@@ -43,6 +46,8 @@ private:
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
+    friend FileWriteOperation;
+    friend PipeFileReadOperation;
     void attach(AsyncFileDescriptor* socket);
     void attachreadonly(AsyncFileDescriptor* socket);
     void watchRead(AsyncFileDescriptor* socket);
