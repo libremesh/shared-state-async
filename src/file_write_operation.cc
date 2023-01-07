@@ -1,5 +1,6 @@
 #include "file_write_operation.hh"
 #include <iostream>
+#include <unistd.h>
 #include "async_command.hh"
 
 FileWriteOperation::FileWriteOperation(AsyncFileDescriptor* socket,

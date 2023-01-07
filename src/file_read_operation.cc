@@ -2,6 +2,8 @@
 #include <iostream>
 #include "async_command.hh"
 #include "async_file_desc.hh"
+#include <unistd.h>
+
 
 FileReadOperation::FileReadOperation(AsyncFileDescriptor* socket,
         void* buffer,
