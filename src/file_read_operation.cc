@@ -25,14 +25,12 @@ ssize_t FileReadOperation::syscall()
 {
     std::cout << "reading(" << socket->fd_ << (char *)buffer_<< len_<< "\n";
     ssize_t bytesread = read(socket->fd_, (char *)buffer_, len_);
-    while (bytesread == -1)
-    {
-        std::cout<< "**** error ****" << strerror(errno) << std::endl;
-        sleep(1);
-        bytesread = read(socket->fd_, (char *)buffer_, len_);
-
-    }
-    
+    // while (bytesread == -1)
+    // {
+    //     std::cout<< "**** error ****" << strerror(errno) << std::endl;
+    //     //sleep(1);
+    //     bytesread = read(socket->fd_, (char *)buffer_, len_);
+    // }  // si lee y no tiene nada se queda bloqueado porque la corrutina se vuelve a suspender
     std::cout<<"Read bytes" << bytesread << "content" << (char *)buffer_;
     return bytesread;
 }
