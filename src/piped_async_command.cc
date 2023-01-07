@@ -5,16 +5,20 @@
 #include <unistd.h>
 #include <vector>
 #include "piped_async_command.hh"
+#include "io_context.hh"
 
 
-PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socket)
+PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socket):PipedAsyncCommand(cmd,socket->io_context_)
+{}
+
+PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
 {
+    std::cout << "PipedAsyncCommand 1 " << cmd << std::endl;
     //      parent        child
     //      fd1[1]        fd1[0]
     //        4 -- fd_w --> 3 
     //      fd2[0]        fd2[1]
     //        5 <-- fd_r -- 6 
-    std::cout<< cmd;
     if (pipe(fd_w) == -1)
     {
         perror("Pipe Failed");
@@ -23,15 +27,23 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socke
     {
         perror("Pipe Failed");
     }
-    async_read_end_fd = new AsyncFileDescriptor(fd_r[0],socket->io_context_);
-    async_write_end_fd = new AsyncFileDescriptor(fd_w[1],socket->io_context_);
+
+    std::cout << "PipedAsyncCommand 2 "<< std::endl;
+    async_read_end_fd = new AsyncFileDescriptor(fd_r[0],context);
+    context.attachReadonly(async_read_end_fd);
+    std::cout << "PipedAsyncCommand 3 "<< std::endl;
+    async_write_end_fd = new AsyncFileDescriptor(fd_w[1],context);
+    std::cout << "PipedAsyncCommand 3.0 "<< std::endl;
+    context.attachWriteOnly(async_write_end_fd);
+    std::cout << "PipedAsyncCommand 4"<< std::endl;
     pid_t cpid = fork();
     if (cpid == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
-
+    std::cout << "PipedAsyncCommand 5 "<< std::endl;
     if (cpid == 0) {    /* Child reads from pipe and writes back as soon as it finishes*/
+        
         close(fd_w[1]); // Close writing end of first pipe
         close(STDIN_FILENO);   //closing stdin
         dup(fd_w[0]);           //replacing stdin with pipe read 
@@ -54,14 +66,15 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socke
         // The first argument to execvp should be the same as the
         // first element in argc
         execvp(argc.data()[0],argc.data());
-        perror("execvp of cat failed");
+        perror("execvp of \"cat\" failed");
         exit(1);
     }
+    std::cout << "PipedAsyncCommand 6 "<< std::endl;
+
 }
 
 PipedAsyncCommand::~PipedAsyncCommand()
 {
-
 }
 
 FileReadOperation PipedAsyncCommand::readpipe(void *buffer, std::size_t len)

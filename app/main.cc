@@ -6,6 +6,7 @@
 #include <array>
 #include <unistd.h>
 #include "async_command.hh"
+#include "piped_async_command.hh"
 
 
 #define BUFFSIZE 256
@@ -25,14 +26,21 @@ std::task<bool> inside_loop(Socket &socket)
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
-    std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(cmd,&socket);
-    //std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(pipe,&socket);//se puede inicializar el file adentro
+    //std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(cmd,&socket);
+    std::unique_ptr<PipedAsyncCommand> asyncecho = std::make_unique<PipedAsyncCommand>("cat",&socket);
+    std::cout << "asyncecho created (" << socbuffer << "):" << '\n';
+    //PipedAsyncCommand * asyncecho = new PipedAsyncCommand("cat",&socket);
     //AsyncCommand* filesocket = new AsyncCommand (pipe,&socket);
-    co_await filesocket->recvfile(buffer.data(),BUFFSIZE);
-    merged=buffer.data();
-    //filesocket=nullptr;
-    filesocket.reset(nullptr);
+    //co_await filesocket->recvfile(buffer.data(),BUFFSIZE);
+    co_await asyncecho->writepipe(socbuffer,nbRecv);
+    std::cout << "writepipe (" << socbuffer << "):" << '\n';
+    co_await asyncecho->readpipe(buffer.data(),BUFFSIZE);
     
+    merged=buffer.data();
+    std::cout << "readpipe (" << merged << "):" << '\n';
+    //filesocket=nullptr;
+    //filesocket.reset(nullptr);
+    asyncecho.reset(nullptr);
     //problemade manejode errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     //sin esta linea se genera un enter que no se recibe y el programa explota
     merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());

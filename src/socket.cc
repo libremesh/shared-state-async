@@ -39,7 +39,10 @@ Socket::~Socket()
 {
     std::cout << "delete the socket(" << fd_ << ")\n";
     if (fd_ == -1)
+    {
+        std::cout << " socket(" << fd_ << ") already deletedddddddddd \n";
         return;
+    }
     io_context_.detach(this);
     close(fd_);
 }

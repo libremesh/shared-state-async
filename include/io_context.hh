@@ -11,13 +11,12 @@
 #include "file_write_operation.hh"
 #include "pipe_file_read_operation.hh"
 
-
-
 /* Just an epoll wrapper */
 //This class will work as dispacher, freeing epool suspended corotasks
 class Socket;
 class AsyncFileDescriptor;
 class AsyncCommand;
+class PipedAsyncCommand;
 
 class IOContext
 {
@@ -33,7 +32,7 @@ public:
 
     void run();
 private:
-    constexpr static std::size_t max_events = 10;
+    constexpr static std::size_t max_events = 20;
     const int fd_; //iocontext epool fd
 
     // Fill it by watchRead / watchWrite
@@ -48,8 +47,10 @@ private:
     friend FileReadOperation;
     friend FileWriteOperation;
     friend PipeFileReadOperation;
+    friend PipedAsyncCommand;
     void attach(AsyncFileDescriptor* socket);
-    void attachreadonly(AsyncFileDescriptor* socket);
+    void attachReadonly(AsyncFileDescriptor* socket);
+    void attachWriteOnly(AsyncFileDescriptor* socket);
     void watchRead(AsyncFileDescriptor* socket);
     void unwatchRead(AsyncFileDescriptor* socket);
     void watchWrite(AsyncFileDescriptor* socket);

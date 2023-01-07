@@ -17,7 +17,7 @@ AsyncCommand::AsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)
     int flags = fcntl(fd_, F_GETFL, 0);
     // put into "nonblocking mode"
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
-    io_context_.attachreadonly(this);
+    io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
     std::cout << "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
 }
@@ -36,7 +36,7 @@ AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncF
     int flags = fcntl(fd_, F_GETFL, 0);
     // put into "nonblocking mode"
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
-    io_context_.attachreadonly(this);
+    io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
     std::cout << "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
 }

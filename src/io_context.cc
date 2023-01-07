@@ -31,7 +31,7 @@ void IOContext::run()
             if (epoll_ctl(fd_, EPOLL_CTL_MOD, socket->fd_, &ev) == -1)
             {
                 std::cout<< "error" << strerror(errno);
-                perror("File deletion failed");
+                perror("processedSockets newstate failed");
                 throw std::runtime_error{"epoll_ctl: mod "+ errno};
                 //todo: eliminate
             }
@@ -42,6 +42,7 @@ void IOContext::run()
 
 void IOContext::attach(AsyncFileDescriptor* socket)
 {
+    std::cout<<"ataching ..." << std::endl;
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ev.events = io_state;
@@ -51,16 +52,34 @@ void IOContext::attach(AsyncFileDescriptor* socket)
     socket->io_state_ = io_state;
 }
 
-void IOContext::attachreadonly(AsyncFileDescriptor* socket)
+void IOContext::attachReadonly(AsyncFileDescriptor* socket)
 {
     struct epoll_event ev;
-    auto io_state = EPOLLIN;
+    auto io_state = EPOLLIN| EPOLLET;;
     ev.events = io_state;
     ev.data.ptr = socket;
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
     socket->io_state_ = io_state;
-    std::cout << "successfully attached # " <<  socket->fd_ << std::endl;;
+    std::cout << "successfully attached for reading # " <<  socket->fd_ << std::endl;;
+}
+
+void IOContext::attachWriteOnly(AsyncFileDescriptor* socket)
+{
+    std::cout << "about to attach a fd for writing events# " <<  socket->fd_ << std::endl;;
+    struct epoll_event ev;
+    auto io_state = EPOLLOUT | EPOLLET;
+    ev.events = io_state;
+    ev.data.ptr = socket;
+    std::cout << fcntl(socket->fd_, F_GETFL) << " flags"<< std::endl;
+    if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1){
+        std::cout << "error attaching # " <<  socket->fd_ << std::endl;
+        std::cout<< "error" << strerror(errno);
+        perror("attachWriteOnly failed");
+        //throw std::runtime_error{"epoll_ctl: attach"};
+        }
+    socket->io_state_ = io_state;
+    std::cout << "successfully attached for writing events# " <<  socket->fd_ << std::endl;;
 }
 
 void IOContext::watchRead(AsyncFileDescriptor* socket)
@@ -98,6 +117,5 @@ void IOContext::detach(AsyncFileDescriptor* socket)
         perror("epoll_ctl: detach");
         exit(EXIT_FAILURE);
     }
-    socket->fd_=-1;
     processedSockets.erase(socket);
 }

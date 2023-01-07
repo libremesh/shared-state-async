@@ -12,20 +12,28 @@ FileReadOperation::FileReadOperation(AsyncFileDescriptor* socket,
     , len_{len}
 {
     socket->io_context_.watchRead(socket);
-    std::cout << "socket_fileRead_operation created\n";
+    std::cout << "fileRead_operation created\n";
 }
 
 FileReadOperation::~FileReadOperation()
 {
     socket->io_context_.unwatchRead(socket);
-    std::cout << "~socket_fileRead_operation\n";
+    std::cout << "~fileRead_operation\n";
 }
 
 ssize_t FileReadOperation::syscall()
 {
-    std::cout << "write(" << socket->fd_ << ", buffer_, len_, 0)\n";
-    size_t bytesread = read(socket->fd_, (char *)buffer_, len_);
-    std::cout<<"Read bytes" << bytesread << (char *)buffer_;
+    std::cout << "reading(" << socket->fd_ << ", buffer_, len_, 0)\n";
+    ssize_t bytesread = read(socket->fd_, (char *)buffer_, len_);
+    while (bytesread == -1)
+    {
+        std::cout<< "**** error ****" << strerror(errno) << std::endl;
+        sleep(1);
+        bytesread = read(socket->fd_, (char *)buffer_, len_);
+
+    }
+    
+    std::cout<<"Read bytes" << bytesread << "content" << (char *)buffer_;
     return bytesread;
 }
 

@@ -19,6 +19,7 @@ public:
     /* Listen tcp non blocking socket */
     PipedAsyncCommand(const PipedAsyncCommand&) = delete;
     PipedAsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
+    PipedAsyncCommand(std::string cmd, IOContext& context);
     ~PipedAsyncCommand();
 
     FileReadOperation readpipe(void* buffer, std::size_t len);
