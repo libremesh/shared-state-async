@@ -1,5 +1,5 @@
-# An example script to connect to Google using socket
-# programming in Python
+'''Probar algo mas grnade que el buffer del fd de salida'''
+
 import socket # for socket
 import sys
 import time

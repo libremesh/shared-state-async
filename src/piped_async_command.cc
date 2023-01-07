@@ -27,21 +27,15 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
     {
         perror("Pipe Failed");
     }
-
-    std::cout << "PipedAsyncCommand 2 "<< std::endl;
     async_read_end_fd = new AsyncFileDescriptor(fd_r[0],context);
     context.attachReadonly(async_read_end_fd);
-    std::cout << "PipedAsyncCommand 3 "<< std::endl;
     async_write_end_fd = new AsyncFileDescriptor(fd_w[1],context);
-    std::cout << "PipedAsyncCommand 3.0 "<< std::endl;
     context.attachWriteOnly(async_write_end_fd);
-    std::cout << "PipedAsyncCommand 4"<< std::endl;
     pid_t cpid = fork();
     if (cpid == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
-    std::cout << "PipedAsyncCommand 5 "<< std::endl;
     if (cpid == 0) {    /* Child reads from pipe and writes back as soon as it finishes*/
         
         close(fd_w[1]); // Close writing end of first pipe
@@ -60,7 +54,7 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
         std::vector<char*> argc;
         // const_cast is needed because execvp prototype wants an
         // array of char*, not const char*.
-        argc.emplace_back(const_cast<char*>("cat"));
+        argc.emplace_back(const_cast<char*>(cmd.data()));
         // NULL terminate
         argc.push_back(nullptr);
         // The first argument to execvp should be the same as the

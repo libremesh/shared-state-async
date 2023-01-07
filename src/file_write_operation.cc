@@ -23,15 +23,8 @@ FileWriteOperation::~FileWriteOperation()
 
 ssize_t FileWriteOperation::syscall()
 {
-    static char a[2] = "\n";
-    std::cout << "write(" << socket->fd_ << "," << (char *)buffer_<< "," << len_<< "\n";
-    if(len_ == 0)
-    {
-        buffer_ = &a;
-        len_ = 2;
-    }
+    std::cout << "write(" << socket->fd_ << "," << (char *)buffer_<< "," << len_<< ")\n";
     ssize_t bytes_writen=write(socket->fd_, (char *)buffer_, len_);
-    //close(socket->fd_);
     return bytes_writen;
 }
 
