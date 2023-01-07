@@ -30,7 +30,7 @@ void IOContext::run()
             ev.data.ptr = socket;
             if (epoll_ctl(fd_, EPOLL_CTL_MOD, socket->fd_, &ev) == -1)
             {
-                std::cout<< "error" << strerror(errno);
+                std::cout<< "error" << strerror(errno) << socket->fd_;
                 perror("processedSockets newstate failed");
                 throw std::runtime_error{"epoll_ctl: mod "+ errno};
                 //todo: eliminate
@@ -54,6 +54,7 @@ void IOContext::attach(AsyncFileDescriptor* socket)
 
 void IOContext::attachReadonly(AsyncFileDescriptor* socket)
 {
+    std::cout<<"ataching RO ..." << socket->fd_ <<std::endl;
     struct epoll_event ev;
     auto io_state = EPOLLIN| EPOLLET;;
     ev.events = io_state;
@@ -66,7 +67,7 @@ void IOContext::attachReadonly(AsyncFileDescriptor* socket)
 
 void IOContext::attachWriteOnly(AsyncFileDescriptor* socket)
 {
-    std::cout << "about to attach a fd for writing events# " <<  socket->fd_ << std::endl;;
+    std::cout<<"ataching WO ..." << socket->fd_ <<std::endl;
     struct epoll_event ev;
     auto io_state = EPOLLOUT | EPOLLET;
     ev.events = io_state;
@@ -108,12 +109,7 @@ void IOContext::unwatchWrite(AsyncFileDescriptor* socket)
 
 void IOContext::detach(AsyncFileDescriptor* socket)
 {
-    struct epoll_event ev;
-    auto io_state = EPOLLIN; //solo este ?
-    ev.events = io_state;
-    std::cout<< "detaching ##" << socket->fd_ << std::endl;
-
-    if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, &ev) == -1) {
+    if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, nullptr) == -1) {
         perror("epoll_ctl: detach");
         exit(EXIT_FAILURE);
     }

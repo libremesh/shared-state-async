@@ -23,7 +23,7 @@ FileReadOperation::~FileReadOperation()
 
 ssize_t FileReadOperation::syscall()
 {
-    std::cout << "reading(" << socket->fd_ << ", buffer_, len_, 0)\n";
+    std::cout << "reading(" << socket->fd_ << (char *)buffer_<< len_<< "\n";
     ssize_t bytesread = read(socket->fd_, (char *)buffer_, len_);
     while (bytesread == -1)
     {

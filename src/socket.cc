@@ -68,4 +68,6 @@ SocketSendOperation Socket::send(void* buffer, std::size_t len)
 }
 
 Socket::Socket(int fd, IOContext& io_context):AsyncFileDescriptor(fd,io_context)
-{}
+{
+    io_context_.attach(this);
+}

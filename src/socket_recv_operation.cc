@@ -22,7 +22,7 @@ SocketRecvOperation::~SocketRecvOperation()
 
 ssize_t SocketRecvOperation::syscall()
 {
-    std::cout << "recv(" << socket->fd_ << ", buffer_, len_, 0)\n";
+    std::cout << "recv(" << socket->fd_ << (char *)buffer_<< len_<< "\n";
     return recv(socket->fd_, buffer_, len_, 0);
 }
 
