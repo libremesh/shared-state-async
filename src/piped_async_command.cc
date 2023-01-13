@@ -6,6 +6,7 @@
 #include <vector>
 #include "piped_async_command.hh"
 #include "io_context.hh"
+#include <sys/wait.h>
 
 
 PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socket):PipedAsyncCommand(cmd,socket->io_context_)
@@ -13,7 +14,7 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socke
 
 PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
 {
-    std::cout << "PipedAsyncCommand 1 " << cmd << std::endl;
+    std::cout << "PipedAsyncCommand construction " << cmd << std::endl;
     //      parent        child
     //      fd1[1]        fd1[0]
     //        4 -- fd_w --> 3 
@@ -27,10 +28,10 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
     {
         perror("Pipe Failed");
     }
-    async_read_end_fd = new AsyncFileDescriptor(fd_r[0],context);
-    context.attachReadonly(async_read_end_fd);
-    async_write_end_fd = new AsyncFileDescriptor(fd_w[1],context);
-    context.attachWriteOnly(async_write_end_fd);
+    async_read_end_fd = std::make_shared<AsyncFileDescriptor>(fd_r[0],context);
+    context.attachReadonly(async_read_end_fd.get());
+    async_write_end_fd = std::make_shared<AsyncFileDescriptor>(fd_w[1],context);
+    context.attachWriteOnly(async_write_end_fd.get());
     pid_t cpid = fork();
     if (cpid == -1) {
         perror("fork");
@@ -52,8 +53,6 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
         
         //emulate an echo command by reading the contents of the pipe using cat
         std::vector<char*> argc;
-        // const_cast is needed because execvp prototype wants an
-        // array of char*, not const char*.
         argc.emplace_back(const_cast<char*>(cmd.data()));
         // NULL terminate
         argc.push_back(nullptr);
@@ -63,12 +62,17 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext& context)
         perror("execvp of \"cat\" failed");
         exit(1);
     }
-    std::cout << "PipedAsyncCommand 6 "<< std::endl;
-
+    close(fd_r[1]);
+    close(fd_w[0]);
+    std::cout << "PipedAsyncCommand creation finished "<< std::endl;
+    
 }
 
 PipedAsyncCommand::~PipedAsyncCommand()
 {
+    async_read_end_fd.reset();
+    async_write_end_fd.reset();
+    wait(NULL); //this is important to prevent zombi process
 }
 
 FileReadOperation PipedAsyncCommand::readpipe(void *buffer, std::size_t len)
