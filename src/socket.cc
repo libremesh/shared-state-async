@@ -37,17 +37,18 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 
 Socket::~Socket()
 {
-    std::cout << "delete the socket(" << fd_ << ")\n";
+    std::cout << "------delete the socket(" << fd_ << ")\n";
     if (fd_ == -1)
     {
-        std::cout << " socket(" << fd_ << ") already deletedddddddddd \n";
+        std::cout << " socket(" << fd_ << ") already deleted \n";
         return;
     }
     io_context_.detach(this);
     close(fd_);
+    fd_ = -1;
 }
 
-std::task<std::shared_ptr<Socket>> Socket::accept()
+cppcoro::task<std::unique_ptr<Socket>> Socket::accept()
 {
     //todo: deberia devolver unique 
     int fd = co_await SocketAcceptOperation{this};
@@ -55,7 +56,9 @@ std::task<std::shared_ptr<Socket>> Socket::accept()
         throw std::runtime_error{"accept"};
         //todo:
     std::cout << "aceptando";
-    co_return std::shared_ptr<Socket>(new Socket{fd, io_context_});
+    auto sharedsock = std::make_unique<Socket>(fd, io_context_);
+    //std::cout << "+++ socket 1 "<< fd <<" use count "<< sharedsock.use_count()<< std::endl;
+    co_return sharedsock;
 }
 
 SocketRecvOperation Socket::recv(void* buffer, std::size_t len)

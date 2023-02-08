@@ -5,7 +5,8 @@
 #include <unistd.h>
 
 
-FileReadOperation::FileReadOperation(AsyncFileDescriptor* socket,
+
+FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket,
         void* buffer,
         std::size_t len)
     : BlockSyscall{}
@@ -13,31 +14,41 @@ FileReadOperation::FileReadOperation(AsyncFileDescriptor* socket,
     , buffer_{buffer}
     , len_{len}
 {
-    socket->io_context_.watchRead(socket);
-    std::cout << "fileRead_operation created\n";
+        std::cout << __PRETTY_FUNCTION__ << " " <<  std::endl;
+
+    socket->io_context_.watchRead(socket.get());
+    std::cout << "FileReadOperation created\n";
 }
 
 FileReadOperation::~FileReadOperation()
 {
-    socket->io_context_.unwatchRead(socket);
-    std::cout << "~fileRead_operation\n";
+        std::cout << __PRETTY_FUNCTION__ << " " <<  std::endl;
+
+    socket->io_context_.unwatchRead(socket.get());
+    std::cout << "~FileReadOperation\n";
 }
 
 ssize_t FileReadOperation::syscall()
 {
-    std::cout << "reading(" << socket->fd_ << (char *)buffer_<< len_<< "\n";
+        std::cout << __PRETTY_FUNCTION__ << " " <<  std::endl;
+
+    std::cout << "FileReadOperation reading(" << socket->fd_ << (char *)buffer_<< len_<< "\n";
     ssize_t bytesread = read(socket->fd_, (char *)buffer_, len_);
-    // while (bytesread == -1)
-    // {
-    //     std::cout<< "**** error ****" << strerror(errno) << std::endl;
-    //     //sleep(1);
-    //     bytesread = read(socket->fd_, (char *)buffer_, len_);
-    // }  // si lee y no tiene nada se queda bloqueado porque la corrutina se vuelve a suspender
-    std::cout<<"Read bytes" << bytesread << "content" << (char *)buffer_;
+    /* this method is invoked at least once but the pipe is not free. 
+     * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
+     * and then suspend the execution until a new notification arrives
+    */
+    if (bytesread == -1)
+    {
+         std::cout<< "**** error ****" << strerror(errno) << std::endl;
+    }
+    std::cout<<"Read "<< bytesread << " bytes" << std::endl;
     return bytesread;
 }
 
 void FileReadOperation::suspend()
 {
+        std::cout << __PRETTY_FUNCTION__ << " " <<  std::endl;
+
     socket->coroRecv_ = awaitingCoroutine_;
 }

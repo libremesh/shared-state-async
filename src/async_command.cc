@@ -45,7 +45,7 @@ AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncF
 
 AsyncCommand::~AsyncCommand()
 {
-    std::cout << "delete the AsyncCommand(" << fd_ << ")\n";
+    std::cout << "------ delete the AsyncCommand(" << fd_ << ")\n";
     if (fd_ == -1)
         return;
     io_context_.detach(this);

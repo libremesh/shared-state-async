@@ -1,6 +1,8 @@
 #include "io_context.hh"
 #include "socket.hh"
-#include "task.hh"
+//#include "task.hh"
+#include <vector>
+#include "task.hpp"
 #include "sharedstate.hh"
 #include <iostream>
 #include <array>
@@ -14,7 +16,7 @@
 /// @brief coro in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
 /// @param socket
 /// @return true if everything goes fine
-std::task<bool> inside_loop(Socket &socket)
+cppcoro::task<bool> inside_loop(Socket &socket)
 {
     char socbuffer[BUFFSIZE] = {0};
     // TODO: lo que no entra en el buffer se procesa como otro mensaje...
@@ -24,29 +26,21 @@ std::task<bool> inside_loop(Socket &socket)
         co_return false;
     }
     // ssize_t nbSend = 0;
-    //  TODO: crear una task que invoque al shstate empezar por invocar echo.????
     std::cout << "RECIVING (" << socbuffer << "):" << '\n';
-    // std::string merged = SharedState::mergestate(buffer,&socket);
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
-    // std::unique_ptr<AsyncCommand> filesocket = std::make_unique<AsyncCommand>(cmd,&socket);
     std::unique_ptr<PipedAsyncCommand> asyncecho = std::make_unique<PipedAsyncCommand>("cat", &socket);
-    std::cout << "asyncecho created (" << socbuffer << "):" << '\n';
-    // co_await filesocket->recvfile(buffer.data(),BUFFSIZE);
     co_await asyncecho->writepipe(socbuffer, nbRecv);
     std::cout << "writepipe (" << socbuffer << "):" << '\n';
     co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     merged = buffer.data();
     std::cout << "readpipe (" << merged << "):" << '\n';
-    // filesocket=nullptr;
-    // filesocket.reset(nullptr);
     asyncecho.reset(nullptr);
-    // problemade manejode errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
+    // problemade manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     // sin esta linea se genera un enter que no se recibe y el programa explota
     merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     size_t nbSend = 0;
-
     while (nbSend < merged.size()) //probar y hacer un pull request al creador
     {
         std::cout << "SENDING (" << merged << "):" << '\n';
@@ -60,10 +54,10 @@ std::task<bool> inside_loop(Socket &socket)
     }
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
     std::cout << "DONE (" << nbRecv << "):" << '\n';
-    co_return true;
+    co_return false;
 }
 
-std::task<> echo_socket(std::shared_ptr<Socket> socket)
+cppcoro::task<bool> echo_socket(std::unique_ptr<Socket> socket)
 {
     bool run = true;
     while (run)
@@ -72,17 +66,26 @@ std::task<> echo_socket(std::shared_ptr<Socket> socket)
         run = co_await inside_loop(*socket);
         std::cout << "END\n";
     }
+    socket.reset(nullptr);
+    co_return true;
 }
 
-std::task<> accept(Socket &listen)
-{
+cppcoro::task<> accept(Socket &listen)
+{  
+    //std::vector<cppcoro::task<void>> tasks;
     while (true)
     {
+        std::cout << "beg accept\n";
         auto socket = co_await listen.accept();
-        auto t = echo_socket(socket);
+        auto t = echo_socket(std::move(socket));
+        //co_await echo_socket(std::move(socket));
         t.resume();
+        //tasks.push_back(t);
+        std::cout << "end accept\n";
+        //cuando sale del loop destruye la task pero la coro no termina... 
     }
 }
+
 
 int main()
 {

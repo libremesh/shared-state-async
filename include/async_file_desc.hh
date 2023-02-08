@@ -6,7 +6,6 @@
 #include <string_view>
 #include "io_context.hh"
 #include "block_syscall.hh"
-#include "task.hh"
 #include <string_view>
 #include "socket_accept_operation.hh"
 #include "socket_recv_operation.hh"
@@ -42,17 +41,20 @@ public:
 
     ~AsyncFileDescriptor()
     {
-        std::cout << "delete the AsyncFileDescriptor(" << fd_ << ")\n";
+        std::cout << "------delete the AsyncFileDescriptor(" << fd_ << ")\n";
         if (fd_ == -1)
             return;
         io_context_.detach(this);
-        //close(fd_); //useless since detach is writing -1
+        close(fd_); 
     }
 
     bool resumeRecv()
     {
         if (!coroRecv_)
+        {
+            std::cout<<" nada que resumir en receive " << std::endl;
             return false;
+        }
         coroRecv_.resume();
         return true;
     }
@@ -60,7 +62,10 @@ public:
     bool resumeSend()
     {
         if (!coroSend_)
+        {
+            std::cout<<" nada que resumir en el envio " << std::endl;
             return false;
+        }
         coroSend_.resume();
         return true;
     }

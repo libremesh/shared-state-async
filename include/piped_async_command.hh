@@ -8,8 +8,8 @@
 #include "io_context.hh"
 #include "file_read_operation.hh"
 #include "file_write_operation.hh"
-#include "task.hh"
 #include "socket.hh"
+
 
 
 /// @brief PipedAsyncCommand implementation using popen or pipe fork excec
@@ -29,6 +29,7 @@ private:
     friend FileReadOperation;
     friend AsyncFileDescriptor;
     friend Socket;
+    // we need two file descriptors to interact with the forked process
     //      parent        child
     //      fd1[1]        fd1[0]
     //        4 -- fd_W --> 3 
@@ -37,8 +38,8 @@ private:
     int fd_w[2];
     int fd_r[2]; 
     
-    AsyncFileDescriptor *async_read_end_fd;
-    AsyncFileDescriptor *async_write_end_fd;
+    std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
+    std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
 
 };
 
