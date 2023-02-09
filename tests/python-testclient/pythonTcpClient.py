@@ -24,14 +24,16 @@ try:
     # Look for the response
     amount_received = 0
     amount_expected = len(message)
-    
+    data=""
     while amount_received < amount_expected:
-        data = s.recv(50)
+        data += s.recv(50).decode("utf-8") 
+
         time. sleep(0.4)
         amount_received += len(data)
-        print ( 'received "%s"', data)
+    print ( 'received "%s"', data)
 
 finally:
+    assert(data==message)
     print ('closing socket') 
     s.close()
 
