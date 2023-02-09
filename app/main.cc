@@ -1,6 +1,6 @@
 #include "io_context.hh"
 #include "socket.hh"
-//#include "task.hh"
+// #include "task.hh"
 #include <vector>
 #include "task.hpp"
 #include "sharedstate.hh"
@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include "async_command.hh"
 #include "piped_async_command.hh"
-
 
 #define BUFFSIZE 256
 
@@ -25,7 +24,6 @@ cppcoro::task<bool> inside_loop(Socket &socket)
     {
         co_return false;
     }
-    // ssize_t nbSend = 0;
     std::cout << "RECIVING (" << socbuffer << "):" << '\n';
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
@@ -41,7 +39,7 @@ cppcoro::task<bool> inside_loop(Socket &socket)
     // sin esta linea se genera un enter que no se recibe y el programa explota
     merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     size_t nbSend = 0;
-    while (nbSend < merged.size()) //probar y hacer un pull request al creador
+    while (nbSend < merged.size()) // probar y hacer un pull request al creador
     {
         std::cout << "SENDING (" << merged << "):" << '\n';
         ssize_t res = co_await socket.send(&(merged.data()[nbSend]), merged.size() - nbSend);
@@ -71,21 +69,19 @@ cppcoro::task<bool> echo_socket(std::unique_ptr<Socket> socket)
 }
 
 cppcoro::task<> accept(Socket &listen)
-{  
-    //std::vector<cppcoro::task<void>> tasks;
+{
     while (true)
     {
-        std::cout << "beg accept\n";
+        std::cout << "begin accept\n";
         auto socket = co_await listen.accept();
         auto t = echo_socket(std::move(socket));
-        //co_await echo_socket(std::move(socket));
+        t.make_disposable();
         t.resume();
-        //tasks.push_back(t);
         std::cout << "end accept\n";
-        //cuando sale del loop destruye la task pero la coro no termina... 
+        // when the loop ends the task t is destroyed, if the task is not
+        // disposable te promise type and al the resources are freed
     }
 }
-
 
 int main()
 {
