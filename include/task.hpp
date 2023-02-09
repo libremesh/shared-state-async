@@ -359,7 +359,7 @@ namespace cppcoro
 			}
 #endif
 		};
-
+		
 	public:
 		task() noexcept
 			: m_coroutine(nullptr)
@@ -388,15 +388,15 @@ namespace cppcoro
 			std::cout << __PRETTY_FUNCTION__ << std::endl;
 			if (m_coroutine)
 			{
-				std::cout << "have you finished ? " << m_coroutine.done() << std::endl;
-				if (m_coroutine.done())
+				std::cout << "have you finished ? " << m_coroutine.done() << "task disposable = " << m_is_disposable << std::endl;
+				if (m_coroutine.done() || !m_is_disposable)
 				{
 					m_coroutine.destroy();
 					std::cout << "acabo de destruir la m_coro" << std::endl;
 				}
 				else
 				{
-					std::cout << "todavia no termino...no destruir la m_coro" << std::endl;
+					std::cout << "no destruir la m_coro" << std::endl;
 				}
 			}
 		}
@@ -489,8 +489,17 @@ namespace cppcoro
 			return awaitable{m_coroutine};
 		}
 
+		/// @brief enables the destruction of the task but not the underling m_coroutine context
+		/// the task reference can be deleted after the task has ben resumed.
+		void make_disposable()
+		{
+			m_is_disposable=true;
+		}
+		
+
 	private:
 		std::coroutine_handle<promise_type> m_coroutine;
+		bool m_is_disposable=false;
 	};
 
 	namespace detail
