@@ -48,7 +48,7 @@ Socket::~Socket()
     fd_ = -1;
 }
 
-cppcoro::task<std::unique_ptr<Socket>> Socket::accept()
+std::task<std::unique_ptr<Socket>> Socket::accept()
 {
     //todo: deberia devolver unique 
     int fd = co_await SocketAcceptOperation{this};

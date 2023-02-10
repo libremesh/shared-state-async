@@ -97,24 +97,23 @@ namespace std
                             std::cout << __PRETTY_FUNCTION__ << " #" << handle_.promise().number << std::endl;
 
         }
-        ~task()
-        {
-            std::cout << "task destroy " << std::endl;
-            std::cout << __PRETTY_FUNCTION__ <<  std::endl;
-
-            if (handle_)
-            {
-                std::cout << "efective task #" << handle_.promise().number <<"  destroy, done ? " << handle_.done() << std::endl;
-                //if(handle_.done())
-                //{
-                    handle_.destroy();
-                //}
-            }
-            else
-            {
-                std::cout << "no hanle" << std::endl;
-            }
-        }
+		~task()
+		{
+			std::cout << __PRETTY_FUNCTION__ << std::endl;
+			if (handle_)
+			{
+				std::cout << "have you finished ? " << handle_.done() << ", task disposable = " << m_is_disposable << std::endl;
+				if (handle_.done() || !m_is_disposable)
+				{
+					handle_.destroy();
+					std::cout << "acabo de destruir la m_coro" << std::endl;
+				}
+				else
+				{
+					std::cout << "no destruir la m_coro" << std::endl;
+				}
+			}
+		}
 
         bool await_ready() { return false; }
         T await_resume();
@@ -128,7 +127,17 @@ namespace std
         {
             handle_.resume();
         }
+
+		/// @brief enables the destruction of the task but not the underling m_coroutine context
+		/// the task reference can be deleted after the task has ben resumed.
+		void make_disposable()
+		{
+			m_is_disposable=true;
+		}
+
         coroutine_handle<promise_type> handle_;
+        bool m_is_disposable=false;
+
     };
 
     template <typename T>

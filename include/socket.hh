@@ -10,8 +10,8 @@
 #include "socket_recv_operation.hh"
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
-//#include "task.hh"
-#include "task.hpp"
+#include "task.hh"
+//#include "task.hpp"
 
 class Socket : public AsyncFileDescriptor
 {
@@ -23,7 +23,7 @@ public:
 
     ~Socket();
 
-    cppcoro::task<std::unique_ptr<Socket>> accept();
+    std::task<std::unique_ptr<Socket>> accept();
 
     SocketRecvOperation recv(void* buffer, std::size_t len);
     SocketSendOperation send(void* buffer, std::size_t len);

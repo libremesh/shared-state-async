@@ -11,7 +11,10 @@ void IOContext::run()
         std::cout << "esperando en el epoll" << std::endl;
         auto nfds = epoll_wait(fd_, events, max_events, -1);
         if (nfds == -1)
+            {
+                
             throw std::runtime_error{"epoll_wait"};
+            }
 
         for (int n = 0; n < nfds; ++n)
         {

@@ -37,7 +37,7 @@ private:
     //        5 <-- fd_r -- 6 
     int fd_w[2];
     int fd_r[2]; 
-    
+    pid_t forked_proces_id;
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
 
