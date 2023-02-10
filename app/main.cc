@@ -1,8 +1,7 @@
 #include "io_context.hh"
 #include "socket.hh"
-// #include "task.hh"
-#include <vector>
-#include "task.hpp"
+#include "task.hh"
+//#include "task.hpp"
 #include "sharedstate.hh"
 #include <iostream>
 #include <array>
@@ -15,7 +14,7 @@
 /// @brief coro in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
 /// @param socket
 /// @return true if everything goes fine
-cppcoro::task<bool> inside_loop(Socket &socket)
+std::task<bool> inside_loop(Socket &socket)
 {
     char socbuffer[BUFFSIZE] = {0};
     // TODO: lo que no entra en el buffer se procesa como otro mensaje...
@@ -55,7 +54,7 @@ cppcoro::task<bool> inside_loop(Socket &socket)
     co_return false;
 }
 
-cppcoro::task<bool> echo_socket(std::unique_ptr<Socket> socket)
+std::task<bool> echo_socket(std::unique_ptr<Socket> socket)
 {
     bool run = true;
     while (run)
@@ -68,7 +67,7 @@ cppcoro::task<bool> echo_socket(std::unique_ptr<Socket> socket)
     co_return true;
 }
 
-cppcoro::task<> accept(Socket &listen)
+std::task<> accept(Socket &listen)
 {
     while (true)
     {
