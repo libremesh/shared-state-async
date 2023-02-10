@@ -11,7 +11,6 @@
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
 #include "task.hh"
-//#include "task.hpp"
 
 class Socket : public AsyncFileDescriptor
 {
