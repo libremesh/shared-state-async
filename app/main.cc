@@ -1,3 +1,24 @@
+/*
+ * Shared State
+ *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the
+ * Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 #include "io_context.hh"
 #include "socket.hh"
 #include "task.hh"
@@ -54,6 +75,7 @@ std::task<bool> inside_loop(Socket &socket)
     co_return false;
 }
 
+// TODO: Use more descriptive name
 std::task<bool> echo_socket(std::unique_ptr<Socket> socket)
 {
     bool run = true;
@@ -69,17 +91,18 @@ std::task<bool> echo_socket(std::unique_ptr<Socket> socket)
 
 std::task<> accept(Socket &listen)
 {
-    while (true)
-    {
-        std::cout << "begin accept\n";
-        auto socket = co_await listen.accept();
-        auto t = echo_socket(std::move(socket));
-        t.make_disposable();
-        t.resume();
-        std::cout << "end accept\n";
-        // when the loop ends the task t is destroyed, if the task is not
-        // disposable te promise type and al the resources are freed
-    }
+	while(true)
+	{
+		std::cout << "begin accept\n";
+		auto socket = co_await listen.accept();
+
+		/* Going out of scope the returned task is destroyed, we need to
+		 * detach the coroutine oterwise it will be abruptly stopped too before
+		 * finishing the job */
+		echo_socket(std::move(socket)).detach();
+
+		std::cout << "end accept\n";
+	}
 }
 
 int main()

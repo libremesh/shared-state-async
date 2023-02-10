@@ -38,3 +38,7 @@ covbuild/
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
+
+# Qt Creator
+CMakeLists.txt.user
+

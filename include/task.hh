@@ -1,12 +1,28 @@
+/*
+ * Shared State
+ *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the
+ * Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 #pragma once
-
-// A simple version of cppcoro::task working with g++10
 
 #include <coroutine>
 #include <iostream>
 #include <atomic>
-
-
 
 namespace std
 {
@@ -40,6 +56,8 @@ namespace std
                 bool await_ready() noexcept { return false; }
                 void await_resume() noexcept {}
 
+				/** TODO: me seems a very compressed name, what does it stands
+				 *  for ? */
                 template <typename promise_type>
                 void await_suspend(coroutine_handle<promise_type> me) noexcept
                 {
@@ -82,30 +100,30 @@ namespace std
     }
 
     template <typename T = void>
-    struct task
+	struct [[nodiscard]] task
     {
         using promise_type = detail::promise_type<T>;
         task()
-            : handle_{nullptr}
+		    : mCoroutineHandle{nullptr}
         {
                             std::cout << __PRETTY_FUNCTION__ << " #" << std::endl;
 
         }
         task(coroutine_handle<promise_type> handle)
-            : handle_{handle}
+		    : mCoroutineHandle{handle}
         {
-                            std::cout << __PRETTY_FUNCTION__ << " #" << handle_.promise().number << std::endl;
+			                std::cout << __PRETTY_FUNCTION__ << " #" << mCoroutineHandle.promise().number << std::endl;
 
         }
 		~task()
 		{
 			std::cout << __PRETTY_FUNCTION__ << std::endl;
-			if (handle_)
+			if (mCoroutineHandle)
 			{
-				std::cout << "have you finished ? " << handle_.done() << ", task disposable = " << m_is_disposable << std::endl;
-				if (handle_.done() || !m_is_disposable)
+				std::cout << "have you finished ? " << mCoroutineHandle.done() << ", task disposable = " << mDetached << std::endl;
+				if (mCoroutineHandle.done() || !mDetached)
 				{
-					handle_.destroy();
+					mCoroutineHandle.destroy();
 					std::cout << "acabo de destruir la m_coro" << std::endl;
 				}
 				else
@@ -119,32 +137,47 @@ namespace std
         T await_resume();
         void await_suspend(coroutine_handle<> waiter)
         {
-            handle_.promise().waiter = waiter;
-            handle_.resume();
+			mCoroutineHandle.promise().waiter = waiter;
+			mCoroutineHandle.resume();
         }
 
         void resume()
         {
-            handle_.resume();
+			mCoroutineHandle.resume();
         }
 
-		/// @brief enables the destruction of the task but not the underling m_coroutine context
-		/// the task reference can be deleted after the task has ben resumed.
-		void make_disposable()
+		/** @brief Resume and detach the task from the underlying coroutine.
+		 *  After calling this method the coroutine can keep running even after
+		 *  the task destruction. If this method has been called the task
+		 *  destructor doesn't destroy the coroutine if it hasn't finished yet.
+		 *  @warning This need to be used with special care. Detaching the task
+		 *  from the coroutine means that the caller loose control over the
+		 *  coroutine lifetime. This can be useful for long lived coroutines who
+		 *  can deal with it's own lifetime such as the one which process
+		 *  requests from a single socket.
+		 *
+		 *  TODO: explain who will destroy the coroutine in case of detach.
+		 */
+		void detach()
 		{
-			m_is_disposable=true;
+			mDetached = true;
+			resume();
 		}
 
-        coroutine_handle<promise_type> handle_;
-        bool m_is_disposable=false;
+	private:
+		coroutine_handle<promise_type> mCoroutineHandle;
 
-    };
+		/** Internal state representing if the coroutine is detached or not.
+		 *  TODO: Make sure it doesn't need to be std::atomic
+		 */
+		bool mDetached = false;
+	};
 
     template <typename T>
     T task<T>::await_resume()
     {
         // usar move para && y en caso de que no lo sea no hay problema pues no lo afecta
-        return std::move(handle_.promise().result);
+		return std::move(mCoroutineHandle.promise().result);
     }
     template <>
     inline void task<void>::await_resume() {}
