@@ -38,7 +38,7 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, AsyncFileDescriptor *socke
 
 PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext &context)
 {
-    std::cout << "PipedAsyncCommand construction " << cmd << std::endl;
+    RS_DBG0("")<< "PipedAsyncCommand construction " << cmd << std::endl;
     //      parent        child
     //      fd1[1]        fd1[0]
     //        4 -- fd_w --> 3
@@ -47,19 +47,22 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext &context)
     if (pipe(fd_w) == -1)
     {
         perror("Pipe Failed");
+        RS_FATAL("");
     }
     if (pipe(fd_r) == -1)
     {
         perror("Pipe Failed");
+        RS_FATAL("");
     }
     async_read_end_fd = std::make_shared<AsyncFileDescriptor>(fd_r[0], context);
     context.attachReadonly(async_read_end_fd.get());
     async_write_end_fd = std::make_shared<AsyncFileDescriptor>(fd_w[1], context);
     context.attachWriteOnly(async_write_end_fd.get());
     pid_t proces_id = fork();
-    std::cout << "forked process ---- " << proces_id << "........................... " << std::endl;
+    RS_DBG0("")<< "forked process ---- " << proces_id << "........................... " << std::endl;
     if (proces_id == -1)
     {
+        RS_FATAL("");
         perror("fork failed-------------");
         exit(EXIT_FAILURE);
     }
@@ -92,7 +95,7 @@ PipedAsyncCommand::PipedAsyncCommand(std::string cmd, IOContext &context)
     forked_proces_id = proces_id;
     close(fd_r[1]);
     close(fd_w[0]);
-    std::cout << "PipedAsyncCommand creation finished " << std::endl;
+    RS_DBG0("")<< "PipedAsyncCommand creation finished " << std::endl;
 }
 
 PipedAsyncCommand::~PipedAsyncCommand()
@@ -106,19 +109,19 @@ PipedAsyncCommand::~PipedAsyncCommand()
     // wait pid returns -1 may be the process is not yet dead
 
     pid_t cpid = waitpid(forked_proces_id, NULL, WNOHANG);
-    std::cout << "wait returned                              : " << cpid << " but waiting for " << forked_proces_id << std::endl;
+    RS_DBG0("")<< "wait returned                              : " << cpid << " but waiting for " << forked_proces_id << std::endl;
     if (cpid == 0)
     {
         // some times with simultaneous clients the prcess does not die.
         // it is necesarry to kill it.
         int killret = kill(forked_proces_id, SIGKILL);
         cpid = waitpid(forked_proces_id, NULL, WNOHANG);
-        std::cout << "kill returned " << killret << " wait returned                              : " << cpid << " but waiting for " << forked_proces_id << std::endl;
+        RS_DBG0("")<< "kill returned " << killret << " wait returned                              : " << cpid << " but waiting for " << forked_proces_id << std::endl;
     }
     while (cpid == 0 || cpid == -1)
     {
         cpid = waitpid(forked_proces_id, NULL, WNOHANG);
-        std::cout << "wait returned                              : " << cpid << " but waiting for " << forked_proces_id << std::endl;
+        RS_DBG0("")<< "wait returned                              : " << cpid << " but waiting for " << forked_proces_id << std::endl;
     }
 
     // waitng for process of the group woks but waits for the previous process.

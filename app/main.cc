@@ -30,6 +30,8 @@
 #include <unistd.h>
 #include "async_command.hh"
 #include "piped_async_command.hh"
+#include "debug/rsdebuglevel2.h"
+
 
 #define BUFFSIZE 256
 
@@ -45,46 +47,46 @@ std::task<bool> inside_loop(Socket &socket)
     {
         co_return false;
     }
-    std::cout << "RECIVING (" << socbuffer << "):" << '\n';
+    RS_DBG0("")<< "RECIVING (" << socbuffer << "):" << std::endl;
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
     std::unique_ptr<PipedAsyncCommand> asyncecho = std::make_unique<PipedAsyncCommand>("cat", &socket);
     co_await asyncecho->writepipe(socbuffer, nbRecv);
-    std::cout << "writepipe (" << socbuffer << "):" << '\n';
+    RS_DBG0("")<< "writepipe (" << socbuffer << "):" << std::endl;
     co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     merged = buffer.data();
-    std::cout << "readpipe (" << merged << "):" << '\n';
+    RS_DBG0("")<< "readpipe (" << merged << "):" << std::endl;
     asyncecho.reset(nullptr);
-    // problemade manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
+    // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     // sin esta linea se genera un enter que no se recibe y el programa explota
     merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     size_t nbSend = 0;
     while (nbSend < merged.size()) // probar y hacer un pull request al creador
     {
-        std::cout << "SENDING (" << merged << "):" << '\n';
+        RS_DBG0("")<< "SENDING (" << merged << "):" << std::endl;
         ssize_t res = co_await socket.send(&(merged.data()[nbSend]), merged.size() - nbSend);
         if (res <= 0)
         {
-            std::cout << "DONE (" << nbRecv << "):" << '\n';
+            RS_DBG0("")<< "DONE (" << nbRecv << "):" << std::endl;
             co_return false;
         }
         nbSend += res;
     }
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
-    std::cout << "DONE (" << nbRecv << "):" << '\n';
+    RS_DBG0("")<< "DONE (" << nbRecv << "):" << std::endl;
     co_return false;
 }
 
 // TODO: Use more descriptive name
-std::task<bool> echo_socket(std::unique_ptr<Socket> socket)
+std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
 {
     bool run = true;
     while (run)
     {
-        std::cout << "BEGIN\n";
+        RS_DBG0("")<< "BEGIN";
         run = co_await inside_loop(*socket);
-        std::cout << "END\n";
+        RS_DBG0("")<< "END";
     }
     socket.reset(nullptr);
     co_return true;
@@ -94,15 +96,15 @@ std::task<> accept(Socket &listen)
 {
 	while(true)
 	{
-		std::cout << "begin accept\n";
+		RS_DBG0("")<< "begin accept";
 		auto socket = co_await listen.accept();
 
 		/* Going out of scope the returned task is destroyed, we need to
 		 * detach the coroutine oterwise it will be abruptly stopped too before
 		 * finishing the job */
-		echo_socket(std::move(socket)).detach();
+		client_socket_handler(std::move(socket)).detach();
 
-		std::cout << "end accept\n";
+		RS_DBG0("")<< "end accept";
 	}
 }
 

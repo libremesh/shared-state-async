@@ -55,14 +55,14 @@ public:
     : io_context_ {io_context}
     , fd_{fd}
     {
-        std::cout << "AsyncFileDescriptor " << fd << "Created" << std::endl;
+        RS_DBG0("")<< "AsyncFileDescriptor " << fd << "Created" << std::endl;
         fcntl(fd_, F_SETFL, O_NONBLOCK);
         //io_context_.attach(this);
     }
 
     ~AsyncFileDescriptor()
     {
-        std::cout << "------delete the AsyncFileDescriptor(" << fd_ << ")\n";
+        RS_DBG0("")<< "------delete the AsyncFileDescriptor(" << fd_ << ")\n";
         if (fd_ == -1)
             return;
         io_context_.detach(this);

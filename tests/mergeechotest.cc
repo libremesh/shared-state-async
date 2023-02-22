@@ -33,7 +33,7 @@ TEST_CASE("returnmerge")
 {
   std::string original = "mensajeaverificar";
   std::string merged = SharedState::mergestate(original);
-  std::cout << merged << original << "--------------------------------------------------------------" << std::endl;
+  RS_DBG0("")<< merged << original << "--------------------------------------------------------------" << std::endl;
   CHECK(original.size() == merged.size());
   CHECK(original == merged);
 }
@@ -43,7 +43,7 @@ TEST_CASE("parametrizedmerge")
   std::string original = "mensajeaverificar";
   std::string merged;
   SharedState::mergestate(original, merged);
-  std::cout << merged << original;
+  RS_DBG0("")<< merged << original;
   CHECK(original.size() == merged.size());
   CHECK(original == merged);
 }
@@ -85,7 +85,7 @@ void verificarExpectedWillFail(std::string original)
 //   asyncecho.get()->writepipe(original.data(),original.length());
 //   asyncecho.get()->readpipe(socbuffer,256);
 //   std::string merged(socbuffer);
-//   std::cout << merged << " --- " << original;
+//   RS_DBG0("")<< merged << " --- " << original;
 //   CHECK(original.size() == merged.size());
 //   CHECK(original == merged);
 

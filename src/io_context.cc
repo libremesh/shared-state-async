@@ -29,7 +29,7 @@ void IOContext::run()
     struct epoll_event ev, events[max_events];
     for (;;)
     {
-        std::cout << "esperando en el epoll" << std::endl;
+        RS_DBG0("")<< "esperando en el epoll" << std::endl;
         auto nfds = epoll_wait(fd_, events, max_events, -1);
         if (nfds == -1)
             {
@@ -43,12 +43,12 @@ void IOContext::run()
 
             if (events[n].events & EPOLLIN)
             {
-                std::cout << "llamando en in" << std::endl;
+                RS_DBG0("")<< "llamando en in" << std::endl;
                 socket->resumeRecv();
             }
             if (events[n].events & EPOLLOUT)
             {
-                std::cout << "llamando en out" << std::endl;
+                RS_DBG0("")<< "llamando en out" << std::endl;
 
                 socket->resumeSend();
             }
@@ -62,7 +62,7 @@ void IOContext::run()
             ev.data.ptr = socket;
             if (epoll_ctl(fd_, EPOLL_CTL_MOD, socket->fd_, &ev) == -1)
             {
-                std::cout << "error" << strerror(errno) << socket->fd_;
+                RS_FATAL("")<< "error" << strerror(errno) << socket->fd_;
                 perror("processedSockets new state failed");
                 // throw std::runtime_error{"epoll_ctl: mod "+ errno};
                 // todo: eliminate
@@ -74,7 +74,7 @@ void IOContext::run()
 
 void IOContext::attach(AsyncFileDescriptor *socket)
 {
-    std::cout << "ataching ..." << std::endl;
+    RS_DBG0("")<< "ataching ..." << std::endl;
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ev.events = io_state;
@@ -86,7 +86,7 @@ void IOContext::attach(AsyncFileDescriptor *socket)
 
 void IOContext::attachReadonly(AsyncFileDescriptor *socket)
 {
-    std::cout << "ataching RO ..." << socket->fd_ << std::endl;
+    RS_DBG0("")<< "ataching RO ..." << socket->fd_ << std::endl;
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ;
@@ -95,27 +95,27 @@ void IOContext::attachReadonly(AsyncFileDescriptor *socket)
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
     socket->io_state_ = io_state;
-    std::cout << "successfully attached for reading # " << socket->fd_ << std::endl;
+    RS_DBG0("")<< "successfully attached for reading # " << socket->fd_ << std::endl;
     ;
 }
 
 void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
 {
-    std::cout << "ataching WO ..." << socket->fd_ << std::endl;
+    RS_DBG0("")<< "ataching WO ..." << socket->fd_ << std::endl;
     struct epoll_event ev;
     auto io_state = EPOLLOUT | EPOLLET;
     ev.events = io_state;
     ev.data.ptr = socket;
-    std::cout << fcntl(socket->fd_, F_GETFL) << " flags" << std::endl;
+    RS_DBG0("")<< fcntl(socket->fd_, F_GETFL) << " flags" << std::endl;
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
     {
-        std::cout << "error attaching # " << socket->fd_ << std::endl;
-        std::cout << "error" << strerror(errno);
+        RS_FATAL("")<< "error attaching # " << socket->fd_ << std::endl;
+        RS_FATAL("")<< "error" << strerror(errno);
         perror("attachWriteOnly failed");
         // throw std::runtime_error{"epoll_ctl: attach"};
     }
     socket->io_state_ = io_state;
-    std::cout << "successfully attached for writing events# " << socket->fd_ << std::endl;
+    RS_DBG0("")<< "successfully attached for writing events# " << socket->fd_ << std::endl;
     ;
 }
 
@@ -147,7 +147,8 @@ void IOContext::detach(AsyncFileDescriptor *socket)
 {
     if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, nullptr) == -1)
     {
-        perror("epoll_ctl: detach");
+        //TODO: fix
+        RS_FATAL("epoll_ctl: detach");
         exit(EXIT_FAILURE);
     }
     processedSockets.erase(socket);

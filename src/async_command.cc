@@ -40,7 +40,7 @@ AsyncCommand::AsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
-    std::cout << "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
+    RS_DBG0("")<< "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
 }
 
 AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncFileDescriptor(socket->io_context_)
@@ -59,14 +59,14 @@ AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncF
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
-    std::cout << "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
+    RS_DBG0("")<< "AsyncCommand created and filedescriptor # " << fd_ << std::endl;
 }
 
 
 
 AsyncCommand::~AsyncCommand()
 {
-    std::cout << "------ delete the AsyncCommand(" << fd_ << ")\n";
+    RS_DBG0("")<< "------ delete the AsyncCommand(" << fd_ << ")\n";
     if (fd_ == -1)
         return;
     io_context_.detach(this);

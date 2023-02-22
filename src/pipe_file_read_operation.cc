@@ -32,19 +32,19 @@ PipeFileReadOperation::PipeFileReadOperation(AsyncCommand* socket,
     , len_{len}
 {
     socket->io_context_.watchRead(socket);
-    std::cout << "socket_fileRead_operation created\n";
+    RS_DBG0("")<< "socket_fileRead_operation created\n";
 }
 
 PipeFileReadOperation::~PipeFileReadOperation()
 {
     socket->io_context_.unwatchRead(socket);
-    std::cout << "~socket_fileRead_operation\n";
+    RS_DBG0("")<< "~socket_fileRead_operation\n";
 }
 
 ssize_t PipeFileReadOperation::syscall()
 {
     std::string result;
-    std::cout << "fgets(" << fileno(socket->pipe) << ", buffer_, len_, 0)\n";
+    RS_DBG0("")<< "fgets(" << fileno(socket->pipe) << ", buffer_, len_, 0)\n";
     while (!feof(socket->pipe))
     {
         if (fgets((char *)buffer_, len_, socket->pipe) != nullptr)

@@ -32,23 +32,20 @@ namespace std
     struct task;
     namespace detail
     {
-        static size_t total_;            
+        static size_t total_;
         template <typename T>
         struct promise_type_base
         {
             size_t number;
             promise_type_base()
             {
-                total_=total_+1;
+                total_ = total_ + 1;
                 number = total_;
-                std::cout << __PRETTY_FUNCTION__ << " #" << number << std::endl;
-
+                RS_DBG0("") << " #" << number << std::endl;
             }
             ~promise_type_base()
             {
-                std::cout << number << " -- Promise: dtor\n";
-                std::cout << __PRETTY_FUNCTION__ << " #" << number << std::endl;
-
+                RS_DBG0("") << number << " -- Promise: dtor" << std::endl;
             }
             coroutine_handle<> waiter; // who waits on this coroutine
             task<T> get_return_object();
@@ -58,17 +55,17 @@ namespace std
                 bool await_ready() noexcept { return false; }
                 void await_resume() noexcept {}
 
-				/** TODO: me seems a very compressed name, what does it stands
-				 *  for ? */
+                /** TODO: me seems a very compressed name, what does it stands
+                 *  for ? */
                 template <typename promise_type>
                 void await_suspend(coroutine_handle<promise_type> me) noexcept
                 {
                     if (me.promise().waiter)
                         me.promise().waiter.resume();
                     else
-					{
-						me.destroy();
-					}
+                    {
+                        me.destroy();
+                    }
                 }
             };
             auto final_suspend() noexcept
@@ -102,84 +99,81 @@ namespace std
     }
 
     template <typename T = void>
-	struct [[nodiscard]] task
+    struct [[nodiscard]] task
     {
         using promise_type = detail::promise_type<T>;
         task()
-		    : mCoroutineHandle{nullptr}
+            : mCoroutineHandle{nullptr}
         {
-                            std::cout << __PRETTY_FUNCTION__ << " #" << std::endl;
-
+            RS_DBG0("") <<  " #" << std::endl;
         }
         task(coroutine_handle<promise_type> handle)
-		    : mCoroutineHandle{handle}
+            : mCoroutineHandle{handle}
         {
-			                std::cout << __PRETTY_FUNCTION__ << " #" << mCoroutineHandle.promise().number << std::endl;
-
+            RS_DBG0("") << " #" << mCoroutineHandle.promise().number << std::endl;
         }
-		~task()
-		{
-			std::cout << __PRETTY_FUNCTION__ << std::endl;
-			if (mCoroutineHandle)
-			{
-				std::cout << "have you finished ? " << mCoroutineHandle.done() << ", task disposable = " << mDetached << std::endl;
-				if (mCoroutineHandle.done() || !mDetached)
-				{
-					mCoroutineHandle.destroy();
-					std::cout << "acabo de destruir la m_coro" << std::endl;
-				}
-				else
-				{
-					std::cout << "no destruir la m_coro" << std::endl;
-				}
-			}
-		}
+        ~task()
+        {
+            RS_DBG0("") ;
+            if (mCoroutineHandle)
+            {
+                RS_DBG0("") << "have you finished ? " << mCoroutineHandle.done() << ", task disposable = " << mDetached << std::endl;
+                if (mCoroutineHandle.done() || !mDetached)
+                {
+                    mCoroutineHandle.destroy();
+                    RS_DBG0("") << "i've just destroyed m_coro" << std::endl;
+                }
+                else
+                {
+                    RS_DBG0("") << "do not destroy coro" << std::endl;
+                }
+            }
+        }
 
         bool await_ready() { return false; }
         T await_resume();
         void await_suspend(coroutine_handle<> waiter)
         {
-			mCoroutineHandle.promise().waiter = waiter;
-			mCoroutineHandle.resume();
+            mCoroutineHandle.promise().waiter = waiter;
+            mCoroutineHandle.resume();
         }
 
         void resume()
         {
-			mCoroutineHandle.resume();
+            mCoroutineHandle.resume();
         }
 
-		/** @brief Resume and detach the task from the underlying coroutine.
-		 *  After calling this method the coroutine can keep running even after
-		 *  the task destruction. If this method has been called the task
-		 *  destructor doesn't destroy the coroutine if it hasn't finished yet.
-		 *  @warning This need to be used with special care. Detaching the task
-		 *  from the coroutine means that the caller loose control over the
-		 *  coroutine lifetime. This can be useful for long lived coroutines who
-		 *  can deal with it's own lifetime such as the one which process
-		 *  requests from a single socket.
-		 *
-		 *  TODO: explain who will destroy the coroutine in case of detach.
-		 */
-		void detach()
-		{
-			mDetached = true;
-			resume();
-		}
+        /** @brief Resume and detach the task from the underlying coroutine.
+         *  After calling this method the coroutine can keep running even after
+         *  the task destruction. If this method has been called the task
+         *  destructor doesn't destroy the coroutine if it hasn't finished yet.
+         *  @warning This need to be used with special care. Detaching the task
+         *  from the coroutine means that the caller loose control over the
+         *  coroutine lifetime. This can be useful for long lived coroutines who
+         *  can deal with it's own lifetime such as the one which process
+         *  requests from a single socket.
+         *
+         *  TODO: explain who will destroy the coroutine in case of detach.
+         */
+        void detach()
+        {
+            mDetached = true;
+            resume();
+        }
 
-	private:
-		coroutine_handle<promise_type> mCoroutineHandle;
+    private:
+        coroutine_handle<promise_type> mCoroutineHandle;
 
-		/** Internal state representing if the coroutine is detached or not.
-		 *  TODO: Make sure it doesn't need to be std::atomic
-		 */
-		bool mDetached = false;
-	};
+        /** Internal state representing if the coroutine is detached or not.
+         *  TODO: Make sure it doesn't need to be std::atomic
+         */
+        bool mDetached = false;
+    };
 
     template <typename T>
     T task<T>::await_resume()
     {
-        // usar move para && y en caso de que no lo sea no hay problema pues no lo afecta
-		return std::move(mCoroutineHandle.promise().result);
+        return std::move(mCoroutineHandle.promise().result);
     }
     template <>
     inline void task<void>::await_resume() {}

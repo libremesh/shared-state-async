@@ -28,31 +28,25 @@ SocketSendOperation::SocketSendOperation(Socket *socket,
                                          std::size_t len)
     : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
 {
-    std::cout << __PRETTY_FUNCTION__ << " " << std::endl;
-
     socket->io_context_.watchWrite(socket);
-    std::cout << "socket_send_operation\n";
+    RS_DBG0("")<< "socket_send_operation\n";
 }
 
 SocketSendOperation::~SocketSendOperation()
 {
-    std::cout << __PRETTY_FUNCTION__ << " " << std::endl;
-
     socket->io_context_.unwatchWrite(socket);
-    std::cout << "~socket_send_operation\n";
+    RS_DBG0("")<< "~socket_send_operation\n";
 }
 
 ssize_t SocketSendOperation::syscall()
 {
-    std::cout << __PRETTY_FUNCTION__ << " " << std::endl;
-
-    std::cout << "send(" << socket->fd_ << "content" << (char *)buffer_ << "ammount" << len_ << ")\n";
+    RS_DBG0("")<< "send(" << socket->fd_ << "content" << (char *)buffer_ << "ammount" << len_ << ")\n";
     return send(socket->fd_, buffer_, len_, 0);
 }
 
 void SocketSendOperation::suspend()
 {
-    std::cout << __PRETTY_FUNCTION__ << " " << std::endl;
+    RS_DBG0("")<< __PRETTY_FUNCTION__ << " " << std::endl;
 
     socket->coroSend_ = awaitingCoroutine_;
 }

@@ -26,7 +26,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-
 #include <iostream>
 
 Socket::Socket(std::string_view port, IOContext& io_context)
@@ -42,12 +41,14 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 
     getaddrinfo(NULL, port.data(), &hints, &res);
     fd_ = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    //todo: error ?
     int opt;
     setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
     if (bind(fd_, res->ai_addr, res->ai_addrlen) == -1)
-        throw std::runtime_error{"bind"};
-        //todo: fix
+    {
+        //rs_error_bubble_or_exit(std::errc::address_in_use,nullptr);
+        RS_FATAL(std::errc::address_in_use, " bind ...");     
+		exit(std::error_condition(std::errc::address_in_use).value()); 
+    }
     listen(fd_, 8);
     //todo:error check
     fcntl(fd_, F_SETFL, O_NONBLOCK);
@@ -57,10 +58,10 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 
 Socket::~Socket()
 {
-    std::cout << "------delete the socket(" << fd_ << ")\n";
+    RS_DBG0("")<< "------delete the socket(" << fd_ << ")\n";
     if (fd_ == -1)
     {
-        std::cout << " socket(" << fd_ << ") already deleted \n";
+        RS_WARN("")<< " socket(" << fd_ << ") already deleted \n";
         return;
     }
     io_context_.detach(this);
@@ -73,11 +74,15 @@ std::task<std::unique_ptr<Socket>> Socket::accept()
     //todo: deberia devolver unique 
     int fd = co_await SocketAcceptOperation{this};
     if (fd == -1)
-        throw std::runtime_error{"accept"};
-        //todo:
-    std::cout << "aceptando";
+    {
+        //throw std::runtime_error{"accept"};
+        //rs_error_bubble_or_exit(std::errc::address_in_use,nullptr);
+        RS_FATAL(std::errc::address_in_use, " accept ...");     
+		exit(std::error_condition(std::errc::address_in_use).value()); 
+    }
+    RS_DBG0("")<< "aceptando";
     auto sharedsock = std::make_unique<Socket>(fd, io_context_);
-    //std::cout << "+++ socket 1 "<< fd <<" use count "<< sharedsock.use_count()<< std::endl;
+    //RS_DBG0("")<< "+++ socket 1 "<< fd <<" use count "<< sharedsock.use_count()<< std::endl;
     co_return sharedsock;
 }
 

@@ -70,7 +70,7 @@ namespace SharedState
         auto begin = std::chrono::high_resolution_clock::now();
         auto pipe = popen(cmd.c_str(), "r");
         auto end = std::chrono::high_resolution_clock::now();
-        std::cout << "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
+        RS_DBG0("")<< "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
         if (!pipe)
             throw std::runtime_error("popen() failed!");
         
@@ -106,7 +106,7 @@ std::string mergestate(std::string arguments)
         auto begin = std::chrono::high_resolution_clock::now();
         auto pipe = popen(cmd.c_str(), "r");
         auto end = std::chrono::high_resolution_clock::now();
-        std::cout << "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
+        RS_DBG0("")<< "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
         if (!pipe)
             throw std::runtime_error("popen() failed!");
         
