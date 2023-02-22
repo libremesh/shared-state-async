@@ -26,45 +26,39 @@
 #include <system_error>
 
 #ifdef __ANDROID__
-#	include <android/log.h>
+#include <android/log.h>
 #else // def __ANDROID__
-#	include <iostream>
-#	include <chrono>
-#	include <iomanip>
+#include <iostream>
+#include <chrono>
+#include <iomanip>
 #endif // def __ANDROID__
-
-
-#include "util/rsjson.h"
-#include "util/rsmacrosugar.hpp"
-
 
 #ifdef __ANDROID__
 enum class RsLoggerCategories
 {
-	DEBUG   = ANDROID_LOG_DEBUG,
-	INFO    = ANDROID_LOG_INFO,
+	DEBUG = ANDROID_LOG_DEBUG,
+	INFO = ANDROID_LOG_INFO,
 	WARNING = ANDROID_LOG_WARN,
-	ERROR   = ANDROID_LOG_ERROR,
-	FATAL   = ANDROID_LOG_FATAL
+	ERROR = ANDROID_LOG_ERROR,
+	FATAL = ANDROID_LOG_FATAL
 };
-#else // def __ANDROID__
+#else  // def __ANDROID__
 enum class RsLoggerCategories
 {
-	DEBUG   = 'D',
-	INFO    = 'I',
+	DEBUG = 'D',
+	INFO = 'I',
 	WARNING = 'W',
-	ERROR   = 'E',
-	FATAL   = 'F'
+	ERROR = 'E',
+	FATAL = 'F'
 };
 #endif // def __ANDROID__
 
-
 /** Stream helper for std::error_condition */
-std::ostream &operator<<(std::ostream& out, const std::error_condition& err);
+std::ostream &operator<<(std::ostream &out, const std::error_condition &err);
 
 /** Provide unkown error message for all error categories to avoid duplicating
  * the message around */
-std::string rsErrorNotInCategory(int errNum, const std::string& categoryName);
+std::string rsErrorNotInCategory(int errNum, const std::string &categoryName);
 
 /** Convert C errno codes to modern C++11 std::error_condition, this is quite
  * useful to use toghether with C functions used around the code like `malloc`,
@@ -83,7 +77,7 @@ struct t_RsLogger : std::ostringstream
 	 * reduces binary size as paramethers of suppressed calls are not evaluated
 	 * and literally disappear in preprocessing fase @see RsDbg */
 	template <typename... Args>
-	explicit inline t_RsLogger(Args&&... args)
+	explicit inline t_RsLogger(Args &&...args)
 	{
 		setPrefix();
 
@@ -91,7 +85,7 @@ struct t_RsLogger : std::ostringstream
 		 * template arguments and feed our own stream without recursion
 		 * see https://stackoverflow.com/a/27375675 */
 		using expander = int[];
-		(void) expander {0, (void((*this) << std::forward<Args>(args)), 0)...};
+		(void)expander{0, (void((*this) << std::forward<Args>(args)), 0)...};
 	}
 
 	/** Dump buffer stream to log */
@@ -99,9 +93,9 @@ struct t_RsLogger : std::ostringstream
 	{
 #ifdef __ANDROID__
 		__android_log_write(
-		            static_cast<int>(CATEGORY),
-		            "RetroShare", str().c_str() );
-#else // def __ANDROID__
+			static_cast<int>(CATEGORY),
+			"RetroShare", str().c_str());
+#else  // def __ANDROID__
 		(*this) << std::endl;
 		std::cerr << str();
 #endif // def __ANDROID__
@@ -110,8 +104,10 @@ struct t_RsLogger : std::ostringstream
 
 private:
 #ifdef __ANDROID__
-	inline void setPrefix() {}
-#else // def __ANDROID__
+	inline void setPrefix()
+	{
+	}
+#else  // def __ANDROID__
 	void setPrefix()
 	{
 		using namespace std::chrono;
@@ -119,12 +115,11 @@ private:
 		const auto sec = time_point_cast<seconds>(now);
 		const auto msec = duration_cast<milliseconds>(now - sec);
 		(*this) << static_cast<char>(CATEGORY) << " "
-		        << sec.time_since_epoch().count() << "."
-		        << std::setfill('0') << std::setw(3) << msec.count() << " ";
+				<< sec.time_since_epoch().count() << "."
+				<< std::setfill('0') << std::setw(3) << msec.count() << " ";
 	}
 #endif // def __ANDROID__
 };
-
 
 /**
  * Comfortable debug message logging, supports both variadic style and chaining
@@ -185,7 +180,6 @@ using RsErr = t_RsLogger<RsLoggerCategories::ERROR>;
 using RsFatal = t_RsLogger<RsLoggerCategories::FATAL>;
 #define RS_FATAL(...) RsFatal(__PRETTY_FUNCTION__, " ", __VA_ARGS__)
 
-
 /**
  * Keeps compatible syntax with RsDbg but explicitely do nothing in a way that
  * any modern compiler should be smart enough to optimize out all the function
@@ -194,23 +188,25 @@ using RsFatal = t_RsLogger<RsLoggerCategories::FATAL>;
 struct RsNoDbg
 {
 	inline RsNoDbg() = default;
-	template <typename... Args> inline explicit RsNoDbg(Args...) {}
+	template <typename... Args>
+	inline explicit RsNoDbg(Args...) {}
 
 	/** This match most of the types, but might be not enough for templated
 	 * types */
-	template<typename T>
-	inline RsNoDbg& operator<<(const T&) { return *this; }
+	template <typename T>
+	inline RsNoDbg &operator<<(const T &) { return *this; }
 
 	/// needed for manipulators and things like std::endl
-	inline RsNoDbg& operator<<(std::ostream& (*/*pf*/)(std::ostream&))
-	{ return *this; }
+	inline RsNoDbg &operator<<(std::ostream &(* /*pf*/)(std::ostream &))
+	{
+		return *this;
+	}
 
 	/** Do nothing. Just for code compatibility with other logging classes */
 	inline void flush() {}
 };
 
-
-//From https://codereview.stackexchange.com/a/165162
+// From https://codereview.stackexchange.com/a/165162
 /**
  * @brief hex_dump: Send Hexadecimal Dump to stream
  * @param os: Output Stream
@@ -236,8 +232,8 @@ struct RsNoDbg
  * a double
  * 49 92 24 49 92 24 09 40  | I.$I.$.@
  */
-std::ostream& hex_dump(std::ostream& os, const void *buffer,
-                       std::size_t bufsize, bool showPrintableChars = true);
+std::ostream &hex_dump(std::ostream &os, const void *buffer,
+					   std::size_t bufsize, bool showPrintableChars = true);
 
 /**
  * @brief The hexDump struct
@@ -245,11 +241,13 @@ std::ostream& hex_dump(std::ostream& os, const void *buffer,
  * const char test[] = "abcdef123456\0zyxwvu987654Edward";
  * RsDbg()<<hexDump(test, sizeof(test))<<std::endl;
  */
-struct hexDump {
+struct hexDump
+{
 	const void *buffer;
 	std::size_t bufsize;
 	hexDump(const void *buf, std::size_t bufsz) : buffer{buf}, bufsize{bufsz} {}
-	friend std::ostream &operator<<(std::ostream &out, const hexDump &hd) {
+	friend std::ostream &operator<<(std::ostream &out, const hexDump &hd)
+	{
 		return hex_dump(out, hd.buffer, hd.bufsize, true);
 	}
 };
@@ -268,118 +266,14 @@ struct hexDump {
  *	will be handled with a fatal report end then exiting here
  * @param ... optional additional information you want to be printed toghether
  *	with the error report when is fatal (aka not bubbled up) */
-#define rs_error_bubble_or_exit(p_error_condition, p_bubble_storage, ... ) \
-	if(p_bubble_storage) \
-    { \
-	    *p_bubble_storage = p_error_condition; \
-	} \
-	else \
-    { \
-	    RS_FATAL(p_error_condition, " " RS_OPT_VA_ARGS(__VA_ARGS__)); \
-	    print_stacktrace(); \
-	    exit(std::error_condition(p_error_condition).value()); \
+#define rs_error_bubble_or_exit(p_error_condition, p_bubble_storage, ...) \
+	if (p_bubble_storage)                                                 \
+	{                                                                     \
+		*p_bubble_storage = p_error_condition;                            \
+	}                                                                     \
+	else                                                                  \
+	{                                                                     \
+		RS_FATAL(p_error_condition, " " RS_OPT_VA_ARGS(__VA_ARGS__));     \
+		print_stacktrace();                                               \
+		exit(std::error_condition(p_error_condition).value());            \
 	}
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-/// All the following lines are DEPRECATED!!
-
-#include "util/rsdeprecate.h"
-
-/**
- * Set local context debug level.
- * Avoid copy pasting boilerplate code around @see RsDbg for usage details
- */
-#define RS_SET_CONTEXT_DEBUG_LEVEL(level) \
-	RS_CONCAT_MACRO(RS_SET_CONTEXT_DEBUG_LEVEL, level)
-
-// A bunch of boilerplate, but just in one place
-#define RS_SET_CONTEXT_DEBUG_LEVEL0 \
-	using Dbg1 RS_DEPRECATED_FOR(RS_DBG1) = RsNoDbg; \
-	using Dbg2 RS_DEPRECATED_FOR(RS_DBG2) = RsNoDbg; \
-	using Dbg3 RS_DEPRECATED_FOR(RS_DBG3) = RsNoDbg; \
-	using Dbg4 RS_DEPRECATED_FOR(RS_DBG4) = RsNoDbg;
-#define RS_SET_CONTEXT_DEBUG_LEVEL1 \
-	using Dbg1 RS_DEPRECATED_FOR(RS_DBG1) = RsDbg; \
-	using Dbg2 RS_DEPRECATED_FOR(RS_DBG2) = RsNoDbg; \
-	using Dbg3 RS_DEPRECATED_FOR(RS_DBG3) = RsNoDbg; \
-	using Dbg4 RS_DEPRECATED_FOR(RS_DBG4) = RsNoDbg;
-#define RS_SET_CONTEXT_DEBUG_LEVEL2 \
-	using Dbg1 RS_DEPRECATED_FOR(RS_DBG1) = RsDbg; \
-	using Dbg2 RS_DEPRECATED_FOR(RS_DBG2) = RsDbg; \
-	using Dbg3 RS_DEPRECATED_FOR(RS_DBG3) = RsNoDbg; \
-	using Dbg4 RS_DEPRECATED_FOR(RS_DBG4) = RsNoDbg;
-#define RS_SET_CONTEXT_DEBUG_LEVEL3 \
-	using Dbg1 RS_DEPRECATED_FOR(RS_DBG1) = RsDbg; \
-	using Dbg2 RS_DEPRECATED_FOR(RS_DBG2) = RsDbg; \
-	using Dbg3 RS_DEPRECATED_FOR(RS_DBG3) = RsDbg; \
-	using Dbg4 RS_DEPRECATED_FOR(RS_DBG4) = RsNoDbg;
-#define RS_SET_CONTEXT_DEBUG_LEVEL4 \
-	using Dbg1 RS_DEPRECATED_FOR(RS_DBG1) = RsDbg; \
-	using Dbg2 RS_DEPRECATED_FOR(RS_DBG2) = RsDbg; \
-	using Dbg3 RS_DEPRECATED_FOR(RS_DBG3) = RsDbg; \
-	using Dbg4 RS_DEPRECATED_FOR(RS_DBG4) = RsDbg;
-
-namespace RsLog {
-    enum RS_DEPRECATED_FOR("RS_ERR, RS_DBG, RS_DBG3...") logLvl {
-		None	= -1,
-		Default	=  0,
-		Alert	=  1,
-		Error	=  3,
-		Warning	=  5,
-		Debug_Alert	=  6,
-		Debug_Basic	=  8,
-		Debug_All	= 10
-	};
-
-	// this struct must be provided by the caller (to rslog())
-	struct RS_DEPRECATED_FOR("RS_ERR, RS_DBG, RS_DBG3...") logInfo {
-		// module specific log lvl
-		logLvl lvl;
-		// module name (displayed in log)
-		const std::string name;
-	};
-}
-
-RS_DEPRECATED_FOR("RS_ERR, RS_DBG, RS_DBG3...")
-int setDebugCrashMode(const char *cfile);
-
-RS_DEPRECATED_FOR("RS_ERR, RS_DBG, RS_DBG3...")
-int setDebugFile(const char *fname);
-
-RS_DEPRECATED_FOR("RS_ERR, RS_DBG, RS_DBG3...")
-int setOutputLevel(RsLog::logLvl lvl);
-
-RS_DEPRECATED_FOR("RS_ERR, RS_DBG, RS_DBG3...")
-void rslog(const RsLog::logLvl lvl, RsLog::logInfo *info, const std::string &msg);
-
-
-/*
- * retaining old #DEFINES and functions for backward compatibility.
- */
-
-#define RSL_NONE     	RsLog::None
-#define RSL_ALERT     	RsLog::Alert
-#define RSL_ERROR	RsLog::Error
-#define RSL_WARNING	RsLog::Warning
-#define RSL_DEBUG_ALERT	RsLog::Debug_Alert
-#define RSL_DEBUG_BASIC	RsLog::Debug_Basic
-#define RSL_DEBUG_ALL	RsLog::Debug_Basic
-
-//int pqioutput(unsigned int lvl, int zone, std::string msg);
-#define pqioutput rslog
-
-#define PQL_NONE   	RSL_NONE     	
-#define PQL_ALERT 	RSL_ALERT     
-#define PQL_ERROR 	RSL_ERROR
-#define PQL_WARNING 	RSL_WARNING
-#define PQL_DEBUG_ALERT RSL_DEBUG_ALERT 
-#define PQL_DEBUG_BASIC	RSL_DEBUG_BASIC
-#define PQL_DEBUG_ALL 	RSL_DEBUG_ALL
-
-/// All the lines before are DEPRECATED!!
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////

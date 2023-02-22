@@ -21,22 +21,22 @@
 
 // #pragma once // This is commented out on purpose!
 
-#include <util/rsdebug.h>
+#include <debug/rsdebug.h>
 
-#undef  RS_DEBUG_LEVEL
+#undef RS_DEBUG_LEVEL
 #define RS_DEBUG_LEVEL 1
 
-#undef  RS_DBG0
+#undef RS_DBG0
 #define RS_DBG0(...) RsDbg(__PRETTY_FUNCTION__, " ", __VA_ARGS__)
 
-#undef  RS_DBG1
+#undef RS_DBG1
 #define RS_DBG1(...) RsDbg(__PRETTY_FUNCTION__, " ", __VA_ARGS__)
 
-#undef  RS_DBG2
+#undef RS_DBG2
 #define RS_DBG2(...) RsNoDbg()
 
-#undef  RS_DBG3
+#undef RS_DBG3
 #define RS_DBG3(...) RsNoDbg()
 
-#undef  RS_DBG4
+#undef RS_DBG4
 #define RS_DBG4(...) RsNoDbg()
