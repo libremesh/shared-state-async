@@ -27,10 +27,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
+#include "debug/rsdebuglevel2.h"
+#include <errno.h>
+
 
 Socket::Socket(std::string_view port, IOContext& io_context)
     : AsyncFileDescriptor(io_context) 
-    //: io_context_{io_context} //non static data_member initialization
 {
     struct addrinfo hints, *res;
 
@@ -45,12 +47,9 @@ Socket::Socket(std::string_view port, IOContext& io_context)
     setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
     if (bind(fd_, res->ai_addr, res->ai_addrlen) == -1)
     {
-        //rs_error_bubble_or_exit(std::errc::address_in_use,nullptr);
-        RS_FATAL(std::errc::address_in_use, " bind ...");     
-		exit(std::error_condition(std::errc::address_in_use).value()); 
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
     }
     listen(fd_, 8);
-    //todo:error check
     fcntl(fd_, F_SETFL, O_NONBLOCK);
     io_context_.attach(this);
     io_context_.watchRead(this);
@@ -71,19 +70,14 @@ Socket::~Socket()
 
 std::task<std::unique_ptr<Socket>> Socket::accept()
 {
-    //todo: deberia devolver unique 
     int fd = co_await SocketAcceptOperation{this};
     if (fd == -1)
     {
-        //throw std::runtime_error{"accept"};
-        //rs_error_bubble_or_exit(std::errc::address_in_use,nullptr);
-        RS_FATAL(std::errc::address_in_use, " accept ...");     
-		exit(std::error_condition(std::errc::address_in_use).value()); 
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
     }
     RS_DBG0("")<< "aceptando";
-    auto sharedsock = std::make_unique<Socket>(fd, io_context_);
-    //RS_DBG0("")<< "+++ socket 1 "<< fd <<" use count "<< sharedsock.use_count()<< std::endl;
-    co_return sharedsock;
+    auto clientsocket = std::make_unique<Socket>(fd, io_context_);
+    co_return clientsocket;
 }
 
 SocketRecvOperation Socket::recv(void* buffer, std::size_t len)

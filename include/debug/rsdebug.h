@@ -53,6 +53,8 @@ enum class RsLoggerCategories
 };
 #endif // def __ANDROID__
 
+#define RS_OPT_VA_ARGS(...) , ##__VA_ARGS__
+
 /** Stream helper for std::error_condition */
 std::ostream &operator<<(std::ostream &out, const std::error_condition &err);
 
@@ -274,6 +276,5 @@ struct hexDump
 	else                                                                  \
 	{                                                                     \
 		RS_FATAL(p_error_condition, " " RS_OPT_VA_ARGS(__VA_ARGS__));     \
-		print_stacktrace();                                               \
 		exit(std::error_condition(p_error_condition).value());            \
 	}

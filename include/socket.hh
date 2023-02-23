@@ -57,4 +57,5 @@ private:
     friend FileReadOperation;
     FILE *pipe = nullptr;
     friend IOContext;
+    std::error_condition* minul = nullptr;
 };
