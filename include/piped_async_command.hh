@@ -29,24 +29,38 @@
 #include "io_context.hh"
 #include "file_read_operation.hh"
 #include "file_write_operation.hh"
+#include "dying_process_wait_operation.hh"
 #include "socket.hh"
 
 
 
-/// @brief PipedAsyncCommand implementation using popen or pipe fork excec
+/// @brief PipedAsyncCommand implementation using pipe fork excec
 class PipedAsyncCommand
 {
+    
 public:
-    /* Listen tcp non blocking socket */
-    PipedAsyncCommand(const PipedAsyncCommand&) = delete;
-    PipedAsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
-    PipedAsyncCommand(std::string cmd, IOContext& context);
+    friend std::unique_ptr<PipedAsyncCommand> std::make_unique<PipedAsyncCommand>();
+    static std::unique_ptr<PipedAsyncCommand> factory(std::string cmd, AsyncFileDescriptor* socket,std::error_condition &err)
+    {
+        auto retptr = std::make_unique<PipedAsyncCommand>();
+        err=retptr->init(cmd,socket->io_context_);
+        if (err == std::errc())
+        {    
+            return retptr;
+        }
+        return nullptr;
+    }
+
     ~PipedAsyncCommand();
 
     FileReadOperation readpipe(void* buffer, std::size_t len);
     FileWriteOperation writepipe(void* buffer, std::size_t len);
+    DyingProcessWaitOperation whaitforprocesstodie();
 
 private:
+    std::error_condition init(std::string cmd, IOContext &context);
+    PipedAsyncCommand(const PipedAsyncCommand&) = delete;
+    PipedAsyncCommand();
     friend FileReadOperation;
     friend AsyncFileDescriptor;
     friend Socket;
@@ -58,9 +72,11 @@ private:
     //        5 <-- fd_r -- 6 
     int fd_w[2];
     int fd_r[2]; 
-    pid_t forked_proces_id;
+    pid_t forked_proces_id=-1;
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
+    std::shared_ptr<AsyncFileDescriptor> async_process_wait_fd;
+
 
 };
 

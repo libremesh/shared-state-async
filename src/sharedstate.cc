@@ -58,7 +58,7 @@ namespace SharedState
                 output.insert(output.end(), std::begin(buffer), std::next(std::begin(buffer), count));
             }
         } while (count > 0);
-        output.erase(std::remove(output.begin(), output.end(), '\n'), output.cend());
+        //output.erase(std::remove(output.begin(), output.end(), '\n'), output.cend());
         return pclose(pipe);
     }
 /*
@@ -94,7 +94,7 @@ namespace SharedState
         else if (rc == EXIT_FAILURE)
         { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
         }
-        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        //result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
 */
@@ -127,7 +127,7 @@ std::string mergestate(std::string arguments)
         else if (rc == EXIT_FAILURE)
         { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
         }
-        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        //result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
     std::optional<std::string> optMergeState(std::string arguments)
@@ -159,7 +159,7 @@ std::string mergestate(std::string arguments)
             std::cerr << "error on merge";
             return {};
         }
-        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        //result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
     
@@ -191,7 +191,7 @@ std::string mergestate(std::string arguments)
         {
             return tl::unexpected<std::error_condition> (make_error_condition(SharedStateErrorCode::OpenPipeError));
         }
-        result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+        //result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
         return result;
     }
     

@@ -50,10 +50,8 @@ ssize_t PipeFileReadOperation::syscall()
         if (fgets((char *)buffer_, len_, socket->pipe) != nullptr)
             result += (char *)buffer_;
     }
-    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
-
+//    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
     return 10;
-    //todo: fix this
 }
 
 void PipeFileReadOperation::suspend()

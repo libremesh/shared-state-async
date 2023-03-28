@@ -30,6 +30,7 @@
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
 #include "file_write_operation.hh"
+#include "dying_process_wait_operation.hh"
 #include "pipe_file_read_operation.hh"
 
 /* Just an epoll wrapper */
@@ -69,6 +70,7 @@ private:
     friend FileWriteOperation;
     friend PipeFileReadOperation;
     friend PipedAsyncCommand;
+    friend DyingProcessWaitOperation;
     void attach(AsyncFileDescriptor* socket);
     void attachReadonly(AsyncFileDescriptor* socket);
     void attachWriteOnly(AsyncFileDescriptor* socket);

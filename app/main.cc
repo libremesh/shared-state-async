@@ -50,17 +50,23 @@ std::task<bool> inside_loop(Socket &socket)
     RS_DBG0("")<< "RECIVING (" << socbuffer << "):" << std::endl;
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
-    std::string cmd = "sleep 1 && echo '" + std::string(socbuffer) + "'";
-    std::unique_ptr<PipedAsyncCommand> asyncecho = std::make_unique<PipedAsyncCommand>("cat", &socket);
+    std::string cmd = "cat";
+    std::error_condition err;
+    std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
+    if (err != std::errc())
+    {
+        asyncecho.reset(nullptr);
+        co_return false;
+    }
     co_await asyncecho->writepipe(socbuffer, nbRecv);
     RS_DBG0("")<< "writepipe (" << socbuffer << "):" << std::endl;
     co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
+    
     merged = buffer.data();
     RS_DBG0("")<< "readpipe (" << merged << "):" << std::endl;
-    asyncecho.reset(nullptr);
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     // sin esta linea se genera un enter que no se recibe y el programa explota
-    merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
+    //merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     size_t nbSend = 0;
     while (nbSend < merged.size()) // probar y hacer un pull request al creador
     {
@@ -75,6 +81,8 @@ std::task<bool> inside_loop(Socket &socket)
     }
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
     RS_DBG0("")<< "DONE (" << nbRecv << "):" << std::endl;
+    co_await asyncecho->whaitforprocesstodie();
+    asyncecho.reset(nullptr);
     co_return false;
 }
 

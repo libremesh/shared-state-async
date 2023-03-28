@@ -51,6 +51,7 @@ set(SOURCES          # All .cpp files in src/
     src/piped_async_command.cc
     src/pipe_file_read_operation.cc
     src/file_write_operation.cc
+    src/dying_process_wait_operation.cc
     src/debug/rsdebug.cc
 )
 set(TESTFILES        # All .cpp files in tests/
@@ -87,7 +88,7 @@ set_target_properties(
       PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS YES
+        #CXX_EXTENSIONS YES
 )
 
 # Set up tests (see tests/CMakeLists.txt).
