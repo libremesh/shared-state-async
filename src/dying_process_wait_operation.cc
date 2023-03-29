@@ -46,7 +46,7 @@ pid_t DyingProcessWaitOperation::syscall()
     if (cpid == 0 || cpid == -1)
     {
         // just in case kill the process.
-        int killret = kill(pid, SIGKILL);
+        kill(pid, SIGKILL);
         cpid = -1; // if the state has not changed wait returns 0...but corrutine expects -1
     }
     else if (cpid == pid)

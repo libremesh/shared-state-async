@@ -14,36 +14,8 @@ sudo apt install doxygen lcov build-essential gdb cmake
 
 
 ## Structure
-``` text
-.
-├── CMakeLists.txt
-├── app
-│   └── main.cc
-├── include
-│   ├── example.h
-│   ├── exampleConfig.h.in (TODO: review)
-│   └── ...
-├── src
-│   └── example.cpp
-└── tests
-    ├── dummy.cpp
-    └── main.cpp
-```
-
-Sources go in [src/](src/), header files in [include/](include/), main programs in [app/](app), and
-tests go in [tests/](tests/) (compiled to `unit_tests` by default).
-
-If you want to add a new executable, say `app/hello.cpp`, you only need to add the following two lines to [CMakeLists.txt](CMakeLists.txt):
-
-``` cmake
-add_executable(main app/main.cpp)   # Name of exec. and location of file.
-target_link_libraries(main PRIVATE ${LIBRARY_NAME})  # Link the executable to lib built from src/*.cpp (if it uses it).
-```
 
 You can find `main` executable in [app/main.cc](app/main.cpp) under the `Build` section in [CMakeLists.txt](CMakeLists.txt).
-If the executable you made does not use the library in [src/](src), then only the first line is needed.
-
-
 
 ## Building, Testing and Running
 
@@ -55,8 +27,14 @@ Example:
 > mkdir build && cd build
 > cmake .. -DCMAKE_BUILD_TYPE=[Debug | Coverage | Release]
 > make
+
+For testing, first start the main executable and then run the python test script in another console
+
 > ./main         # Runs the main executable
 > python3 ../tests/python-testclient/pythonTcpClient.py #runs a sample python client 
+
+For unit testing folow this instructions
+
 > make test      # Makes and runs the tests.
 > make coverage  # Makes and runs the tests, then Generates a coverage report. (requires "cmake .. -DCMAKE_BUILD_TYPE=Coverage")
 > make doc       # Generate html documentation.
