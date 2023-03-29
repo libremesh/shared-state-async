@@ -25,12 +25,9 @@
 #include "async_command.hh"
 
 FileWriteOperation::FileWriteOperation(std::shared_ptr<AsyncFileDescriptor> socket,
-        void* buffer,
-        std::size_t len)
-    : BlockSyscall{}
-    , socket{socket}
-    , buffer_{buffer}
-    , len_{len}
+                                       uint8_t *buffer,
+                                       std::size_t len)
+    : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
 {
     socket->io_context_.watchWrite(socket.get());
     RS_DBG0("FileWriteOperation created\n");
@@ -44,19 +41,19 @@ FileWriteOperation::~FileWriteOperation()
 
 ssize_t FileWriteOperation::syscall()
 {
-    RS_DBG0("FileWriteOperation write(" , socket->fd_ , "," , (char *)buffer_,"," , len_, ")\n");
-    ssize_t bytes_writen=write(socket->fd_, (char *)buffer_, len_);
+    RS_DBG0("FileWriteOperation write(", socket->fd_, ",", (char *)buffer_, ",", len_, ")\n");
+    ssize_t bytes_writen = write(socket->fd_, (char *)buffer_, len_);
     if (bytes_writen == -1)
     {
-        RS_ERR("**** error ****" , strerror(errno) );
+        RS_ERR("**** error ****", strerror(errno));
     }
-    RS_DBG0("bytes_writen" , bytes_writen );
+    RS_DBG0("bytes_writen", bytes_writen);
     return bytes_writen;
 }
 
 void FileWriteOperation::suspend()
 {
-        RS_DBG0(__PRETTY_FUNCTION__ );
+    RS_DBG0(__PRETTY_FUNCTION__);
 
     socket->coroSend_ = awaitingCoroutine_;
 }

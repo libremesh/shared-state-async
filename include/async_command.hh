@@ -42,7 +42,7 @@ public:
     AsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
     ~AsyncCommand();
 
-    PipeFileReadOperation recvfile(void* buffer, std::size_t len);
+    PipeFileReadOperation recvfile(uint8_t* buffer, std::size_t len);
 
 
 private:

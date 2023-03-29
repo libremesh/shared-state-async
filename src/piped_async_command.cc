@@ -47,7 +47,7 @@ PipedAsyncCommand::PipedAsyncCommand()
 
 std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context)
 {
-    RS_DBG0("PipedAsyncCommand construction ",cmd);
+    RS_DBG0("PipedAsyncCommand construction ", cmd);
     //      parent        child
     //      fd1[1]        fd1[0]
     //        4 -- fd_w --> 3
@@ -68,7 +68,7 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     async_write_end_fd = std::make_shared<AsyncFileDescriptor>(fd_w[1], context);
     context.attachWriteOnly(async_write_end_fd.get());
     pid_t proces_id = fork();
-    RS_DBG0("forked process ---- ", proces_id ,"........................... " );
+    RS_DBG0("forked process ---- ", proces_id, "........................... ");
     if (proces_id == -1)
     {
         RS_ERR("failed to fork the process");
@@ -104,15 +104,15 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     int pid_fd = pidfd_open(forked_proces_id, 0);
     if (pid_fd == -1)
     {
-       RS_ERR("pidfd_open failed, you wont be able to wait for the dying process");
-       return rs_errno_to_condition(errno);
+        RS_ERR("pidfd_open failed, you wont be able to wait for the dying process");
+        return rs_errno_to_condition(errno);
     }
     async_process_wait_fd = std::make_shared<AsyncFileDescriptor>(pid_fd, context);
     context.attachReadonly(async_process_wait_fd.get());
-    
+
     close(fd_r[1]);
     close(fd_w[0]);
-    RS_DBG0("PipedAsyncCommand creation finished " );
+    RS_DBG0("PipedAsyncCommand creation finished ");
     return std::error_condition();
 }
 
@@ -121,20 +121,19 @@ PipedAsyncCommand::~PipedAsyncCommand()
     async_read_end_fd.reset();
     async_write_end_fd.reset();
     async_process_wait_fd.reset();
-    
 }
 
-FileReadOperation PipedAsyncCommand::readpipe(void *buffer, std::size_t len)
+FileReadOperation PipedAsyncCommand::readpipe(uint8_t *buffer, std::size_t len)
 {
     return FileReadOperation{async_read_end_fd, buffer, len};
 }
 
-FileWriteOperation PipedAsyncCommand::writepipe(void *buffer, std::size_t len)
+FileWriteOperation PipedAsyncCommand::writepipe(uint8_t *buffer, std::size_t len)
 {
     return FileWriteOperation{async_write_end_fd, buffer, len};
 }
 
 DyingProcessWaitOperation PipedAsyncCommand::whaitforprocesstodie()
 {
-    return DyingProcessWaitOperation{async_process_wait_fd,forked_proces_id};
+    return DyingProcessWaitOperation{async_process_wait_fd, forked_proces_id};
 }

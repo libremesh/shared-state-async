@@ -46,8 +46,8 @@ public:
 
     std::task<std::unique_ptr<Socket>> accept();
 
-    SocketRecvOperation recv(void *buffer, std::size_t len);
-    SocketSendOperation send(void *buffer, std::size_t len);
+    SocketRecvOperation recv(uint8_t *buffer, std::size_t len);
+    SocketSendOperation send(uint8_t *buffer, std::size_t len);
     explicit Socket(int fd, IOContext &io_context);
 
 private:
@@ -57,5 +57,5 @@ private:
     friend FileReadOperation;
     FILE *pipe = nullptr;
     friend IOContext;
-    std::error_condition* minul = nullptr;
+    std::error_condition *minul = nullptr;
 };

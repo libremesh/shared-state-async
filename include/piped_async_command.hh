@@ -53,8 +53,8 @@ public:
 
     ~PipedAsyncCommand();
 
-    FileReadOperation readpipe(void* buffer, std::size_t len);
-    FileWriteOperation writepipe(void* buffer, std::size_t len);
+    FileReadOperation readpipe(uint8_t* buffer, std::size_t len);
+    FileWriteOperation writepipe(uint8_t* buffer, std::size_t len);
     DyingProcessWaitOperation whaitforprocesstodie();
 
 private:

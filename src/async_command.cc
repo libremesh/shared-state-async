@@ -40,10 +40,10 @@ AsyncCommand::AsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
-    RS_DBG0("AsyncCommand created and filedescriptor # ", fd_ );
+    RS_DBG0("AsyncCommand created and filedescriptor # ", fd_);
 }
 
-AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncFileDescriptor(socket->io_context_)
+AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket) : AsyncFileDescriptor(socket->io_context_)
 {
     pipe = popen(cmd.c_str(), "r");
     // partir el popen
@@ -51,7 +51,7 @@ AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncF
     {
         RS_ERR("we have a problem... you don't have a pipe");
     }
-        
+
     fd_ = fileno(pipe);
 
     int flags = fcntl(fd_, F_GETFL, 0);
@@ -59,23 +59,20 @@ AsyncCommand::AsyncCommand(std::string cmd, AsyncFileDescriptor *socket): AsyncF
     fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
-    RS_DBG0("AsyncCommand created and filedescriptor # ", fd_ );
+    RS_DBG0("AsyncCommand created and filedescriptor # ", fd_);
 }
-
-
 
 AsyncCommand::~AsyncCommand()
 {
-    RS_DBG0("------ delete the AsyncCommand(" , fd_ );
+    RS_DBG0("------ delete the AsyncCommand(", fd_);
     if (fd_ == -1)
         return;
     io_context_.detach(this);
     close(fd_);
     pclose(pipe);
-    
 }
 
-PipeFileReadOperation AsyncCommand::recvfile(void *buffer, std::size_t len)
+PipeFileReadOperation AsyncCommand::recvfile(uint8_t *buffer, std::size_t len)
 {
     return PipeFileReadOperation{this, buffer, len};
 }

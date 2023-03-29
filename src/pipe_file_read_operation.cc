@@ -24,7 +24,7 @@
 #include "async_command.hh"
 
 PipeFileReadOperation::PipeFileReadOperation(AsyncCommand* socket,
-        void* buffer,
+        uint8_t* buffer,
         std::size_t len)
     : BlockSyscall{}
     , socket{socket}

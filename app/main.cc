@@ -42,13 +42,13 @@ std::task<bool> inside_loop(Socket &socket)
 {
     char socbuffer[BUFFSIZE] = {0};
     // TODO: lo que no entra en el buffer se procesa como otro mensaje...
-    ssize_t nbRecv = co_await socket.recv(socbuffer, (sizeof socbuffer) - 1);
+    ssize_t nbRecv = co_await socket.recv((uint8_t*)socbuffer, (sizeof socbuffer) - 1);
     if (nbRecv <= 0)
     {
         co_return false;
     }
     RS_DBG0("RECIVING (" , socbuffer , "):" );
-    std::array<char, BUFFSIZE> buffer;
+    std::array<uint8_t, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "cat";
     std::error_condition err;
@@ -58,11 +58,11 @@ std::task<bool> inside_loop(Socket &socket)
         asyncecho.reset(nullptr);
         co_return false;
     }
-    co_await asyncecho->writepipe(socbuffer, nbRecv);
+    co_await asyncecho->writepipe((uint8_t*)socbuffer, nbRecv);
     RS_DBG0("writepipe (" , socbuffer , "):" );
     co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     
-    merged = buffer.data();
+    merged = (char *)buffer.data();
     RS_DBG0("readpipe (" , merged , "):" );
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     // sin esta linea se genera un enter que no se recibe y el programa explota
@@ -71,7 +71,7 @@ std::task<bool> inside_loop(Socket &socket)
     while (nbSend < merged.size()) // probar y hacer un pull request al creador
     {
         RS_DBG0("SENDING (" , merged , "):" );
-        ssize_t res = co_await socket.send(&(merged.data()[nbSend]), merged.size() - nbSend);
+        ssize_t res = co_await socket.send((uint8_t*)&(merged.data()[nbSend]), merged.size() - nbSend);
         if (res <= 0)
         {
             RS_DBG0("DONE (" , nbRecv , "):" );

@@ -31,13 +31,13 @@ class AsyncCommand;
 class PipeFileReadOperation : public BlockSyscall<PipeFileReadOperation, ssize_t>
 {
 public:
-    PipeFileReadOperation(AsyncCommand* socket, void* buffer, std::size_t len);
+    PipeFileReadOperation(AsyncCommand* socket, uint8_t* buffer, std::size_t len);
     ~PipeFileReadOperation();
 
     ssize_t syscall();
     void suspend();
 private:
     AsyncCommand* socket;
-    void* buffer_;
+    uint8_t* buffer_;
     std::size_t len_;
 };
