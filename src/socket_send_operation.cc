@@ -29,24 +29,24 @@ SocketSendOperation::SocketSendOperation(Socket *socket,
     : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
 {
     socket->io_context_.watchWrite(socket);
-    RS_DBG0("")<< "socket_send_operation\n";
+    RS_DBG0("socket_send_operation\n");
 }
 
 SocketSendOperation::~SocketSendOperation()
 {
     socket->io_context_.unwatchWrite(socket);
-    RS_DBG0("")<< "~socket_send_operation\n";
+    RS_DBG0("~socket_send_operation\n");
 }
 
 ssize_t SocketSendOperation::syscall()
 {
-    RS_DBG0("")<< "send(" << socket->fd_ << "content" << (char *)buffer_ << "ammount" << len_ << ")\n";
+    RS_DBG0("send(" , socket->fd_ , " content " , (char *)buffer_ ," ammount " , len_ ,")");
     return send(socket->fd_, buffer_, len_, 0);
 }
 
 void SocketSendOperation::suspend()
 {
-    RS_DBG0("")<< __PRETTY_FUNCTION__ << " " << std::endl;
+    RS_DBG0(__PRETTY_FUNCTION__  );
 
     socket->coroSend_ = awaitingCoroutine_;
 }

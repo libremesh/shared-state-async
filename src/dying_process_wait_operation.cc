@@ -30,19 +30,19 @@ DyingProcessWaitOperation::DyingProcessWaitOperation(std::shared_ptr<AsyncFileDe
 {
     socket->io_context_.watchRead(socket.get());
     pid = process_to_wait;
-    RS_DBG0("") << "FileWriteOperation created\n";
+    RS_DBG0("FileWriteOperation created\n");
 }
 
 DyingProcessWaitOperation::~DyingProcessWaitOperation()
 {
     socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("") << "~FileWriteOperation\n";
+    RS_DBG0("~FileWriteOperation\n");
 }
 
 pid_t DyingProcessWaitOperation::syscall()
 {
     pid_t cpid = waitpid(pid, NULL, WNOHANG);
-    RS_DBG0("wait returned ") << cpid << "errno "<< errno;
+    RS_DBG0("wait returned ", cpid ,"errno ", errno);
     if (cpid == 0 || cpid == -1)
     {
         // just in case kill the process.
@@ -51,13 +51,13 @@ pid_t DyingProcessWaitOperation::syscall()
     }
     else if (cpid == pid)
     {
-        RS_DBG0("Successful wait returned process id") << cpid;
+        RS_DBG0("Successful wait returned process id", cpid);
     }
     return cpid;
 }
 
 void DyingProcessWaitOperation::suspend()
 {
-    RS_DBG0("") << __PRETTY_FUNCTION__ << " " << std::endl;
+    RS_DBG0(__PRETTY_FUNCTION__ );
     socket->coroRecv_ = awaitingCoroutine_;
 }

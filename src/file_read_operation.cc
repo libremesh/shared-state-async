@@ -35,18 +35,18 @@ FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket
     , len_{len}
 {
     socket->io_context_.watchRead(socket.get());
-    RS_DBG0("") << "FileReadOperation created\n";
+    RS_DBG0("FileReadOperation created");
 }
 
 FileReadOperation::~FileReadOperation()
 {
     socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("") << "~FileReadOperation\n";
+    RS_DBG0("~FileReadOperation");
 }
 
 ssize_t FileReadOperation::syscall()
 {
-    RS_DBG0("FileReadOperation reading(") << socket->fd_ << (char *)buffer_ << len_ << std::endl;
+    RS_DBG0("FileReadOperation reading(", socket->fd_ , (char *)buffer_ ,len_ );
     ssize_t bytesread = read(socket->fd_, (char *)buffer_, len_);
     /* this method is invoked at least once but the pipe is not free.
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
@@ -54,14 +54,14 @@ ssize_t FileReadOperation::syscall()
      */
     if (bytesread == -1)
     {
-        RS_WARN("**** warning ****") << strerror(errno) << std::endl;
+        RS_WARN("**** warning ****" ,strerror(errno) );
     }
-    RS_DBG0("Read ") << bytesread << " bytes" << std::endl;
+    RS_DBG0("Read ", bytesread , " bytes" );
     return bytesread;
 }
 
 void FileReadOperation::suspend()
 {
-    RS_DBG0("");
+    RS_DBG0("#");
     socket->coroRecv_ = awaitingCoroutine_;
 }

@@ -47,7 +47,7 @@ PipedAsyncCommand::PipedAsyncCommand()
 
 std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context)
 {
-    RS_DBG0("") << "PipedAsyncCommand construction " << cmd << std::endl;
+    RS_DBG0("PipedAsyncCommand construction ",cmd);
     //      parent        child
     //      fd1[1]        fd1[0]
     //        4 -- fd_w --> 3
@@ -68,10 +68,10 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     async_write_end_fd = std::make_shared<AsyncFileDescriptor>(fd_w[1], context);
     context.attachWriteOnly(async_write_end_fd.get());
     pid_t proces_id = fork();
-    RS_DBG0("") << "forked process ---- " << proces_id << "........................... " << std::endl;
+    RS_DBG0("forked process ---- ", proces_id ,"........................... " );
     if (proces_id == -1)
     {
-        RS_FATAL("failed to fork the process");
+        RS_ERR("failed to fork the process");
         return rs_errno_to_condition(errno);
     }
     if (proces_id == 0)
@@ -101,18 +101,18 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
         exit(1);
     }
     forked_proces_id = proces_id;
-    int pid_fd = pidfd_open(proces_id, 0);
+    int pid_fd = pidfd_open(forked_proces_id, 0);
     if (pid_fd == -1)
     {
-        perror("pidfd_open");
-        exit(EXIT_FAILURE);
+       RS_ERR("pidfd_open failed, you wont be able to wait for the dying process");
+       return rs_errno_to_condition(errno);
     }
     async_process_wait_fd = std::make_shared<AsyncFileDescriptor>(pid_fd, context);
     context.attachReadonly(async_process_wait_fd.get());
     
     close(fd_r[1]);
     close(fd_w[0]);
-    RS_DBG0("") << "PipedAsyncCommand creation finished " << std::endl;
+    RS_DBG0("PipedAsyncCommand creation finished " );
     return std::error_condition();
 }
 

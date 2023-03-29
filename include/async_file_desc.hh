@@ -39,41 +39,38 @@ class AsyncFileDescriptor
 {
 public:
     /* Listen tcp non blocking socket */
-    AsyncFileDescriptor(IOContext& io_context): io_context_{io_context} 
-    {}
-    AsyncFileDescriptor(const AsyncFileDescriptor&) = delete;
-    AsyncFileDescriptor(AsyncFileDescriptor&& socket)
-    : io_context_{socket.io_context_}
-    , fd_{socket.fd_}
-    , io_state_{socket.io_state_}
-    , io_new_state_{socket.io_new_state_}
+    AsyncFileDescriptor(IOContext &io_context) : io_context_{io_context}
+    {
+    }
+    AsyncFileDescriptor(const AsyncFileDescriptor &) = delete;
+    AsyncFileDescriptor(AsyncFileDescriptor &&socket)
+        : io_context_{socket.io_context_}, fd_{socket.fd_}, io_state_{socket.io_state_}, io_new_state_{socket.io_new_state_}
     {
         socket.fd_ = -1;
     }
 
-    AsyncFileDescriptor(int fd, IOContext& io_context)
-    : io_context_ {io_context}
-    , fd_{fd}
+    AsyncFileDescriptor(int fd, IOContext &io_context)
+        : io_context_{io_context}, fd_{fd}
     {
-        RS_DBG0("")<< "AsyncFileDescriptor " << fd << "Created" << std::endl;
+        RS_DBG0("AsyncFileDescriptor ", fd, "Created");
         fcntl(fd_, F_SETFL, O_NONBLOCK);
-        //io_context_.attach(this);
+        // io_context_.attach(this);
     }
 
     ~AsyncFileDescriptor()
     {
-        RS_DBG0("")<< "------delete the AsyncFileDescriptor(" << fd_ << ")\n";
+        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n");
         if (fd_ == -1)
             return;
         io_context_.detach(this);
-        close(fd_); 
+        close(fd_);
     }
 
     bool resumeRecv()
     {
         if (!coroRecv_)
         {
-            std::cout<<" nada que resumir en receive " << std::endl;
+            RS_DBG0(" nada que resumir en receive ");
             return false;
         }
         coroRecv_.resume();
@@ -84,24 +81,23 @@ public:
     {
         if (!coroSend_)
         {
-            std::cout<<" nada que resumir en el envio " << std::endl;
+            RS_DBG0("- nada que resumir en el envio ");
             return false;
         }
         coroSend_.resume();
         return true;
     }
 
-//protected:
+    // protected:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
     friend IOContext;
-    IOContext& io_context_;
+    IOContext &io_context_;
     int fd_ = -1;
     uint32_t io_state_ = 0;
     uint32_t io_new_state_ = 0;
-    
 
     std::coroutine_handle<> coroRecv_;
     std::coroutine_handle<> coroSend_;

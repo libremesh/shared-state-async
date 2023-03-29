@@ -32,18 +32,18 @@ SocketRecvOperation::SocketRecvOperation(Socket* socket,
     , len_{len}
 {
     socket->io_context_.watchRead(socket);
-    RS_DBG0("")<< "socket_recv_operation\n";
+    RS_DBG0("socket_recv_operation\n)");
 }
 
 SocketRecvOperation::~SocketRecvOperation()
 {
     socket->io_context_.unwatchRead(socket);
-    RS_DBG0("")<< "~socket_recv_operation\n";
+    RS_DBG0("~socket_recv_operation\n");
 }
 
 ssize_t SocketRecvOperation::syscall()
 {
-    RS_DBG0("")<< "recv(" << socket->fd_ << "content" << (char *)buffer_<< "ammount" << len_<< ")\n";
+    RS_DBG0("recv(" , socket->fd_ , "content" , (char *)buffer_, "ammount" , len_, ")\n");
     ssize_t bytesread =recv(socket->fd_, buffer_, len_, 0);
     /* this method is invoked at least once but the socket is not free. 
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
@@ -51,9 +51,9 @@ ssize_t SocketRecvOperation::syscall()
     */
     if (bytesread == -1)
     {
-        RS_WARN ("**** error ****") << strerror(errno) << std::endl;
+        RS_WARN ("**** error ****", strerror(errno) );
     }
-    RS_DBG0("")<<"recv "<< bytesread  << std::endl;
+    RS_DBG0("recv ", bytesread  );
     return bytesread;
 }
 

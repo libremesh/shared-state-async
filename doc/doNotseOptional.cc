@@ -30,7 +30,7 @@ int main()
     auto beast = create(true);
     if (beast)
     {
-        std::cout << "contextualy converted to bool and created correctly. I am "<< *beast << beast.value() << std::endl;
+        std::cout << "contextualy converted to bool and created correctly. I am "<< *beast << beast.value() );
 
     }
     //
@@ -41,16 +41,16 @@ int main()
     beast = create(false);
     if (!beast)
     {
-        std::cout << "create(false) . I am "<< *beast << std::endl;
+        std::cout << "create(false) . I am "<< *beast );
         try
         {
             /* code */
-            std::cout << "wrongly created. I am "<< beast.value() << std::endl;
+            std::cout << "wrongly created. I am "<< beast.value() );
 
         }
         catch(const std::exception& e)
         {
-            std::cout << std::endl << "++ a shot in the foot ++"<< std::endl;;
+            std::cout << std::endl << "++ a shot in the foot ++");;
             std::cout << e.what() << '\n';
             std::cout << std::endl << "exception " << std::endl ;
         }
@@ -61,16 +61,16 @@ int main()
     auto biggerBeast = create(false);
     if (!biggerBeast)
     {
-        std::cout << "create bigger beast (false) . I am "<< *biggerBeast << std::endl;
+        std::cout << "create bigger beast (false) . I am "<< *biggerBeast );
         try
         {
             /* code */
-            std::cout << "access value of wrongly created. I am "<< biggerBeast.value() << std::endl;
+            std::cout << "access value of wrongly created. I am "<< biggerBeast.value() );
 
         }
         catch(const std::exception& e)
         {
-            std::cout << std::endl << "++ a shot in the foot ++"<< std::endl;;
+            std::cout << std::endl << "++ a shot in the foot ++");;
             std::cout << e.what() << '\n';
             std::cout << std::endl << "exception ";
         }

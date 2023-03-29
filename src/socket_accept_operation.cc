@@ -27,20 +27,20 @@ SocketAcceptOperation::SocketAcceptOperation(Socket *socket)
     : BlockSyscall{}, socket{socket}
 {
     socket->io_context_.watchRead(socket);
-    RS_DBG0("")<< "socket_accept_operation\n";
+    RS_DBG0("socket_accept_operation\n)");
 }
 
 SocketAcceptOperation::~SocketAcceptOperation()
 {
     socket->io_context_.unwatchRead(socket);
-    RS_DBG0("")<< "~socket_accept_operation\n";
+    RS_DBG0("~socket_accept_operation\n");
 }
 
 int SocketAcceptOperation::syscall()
 {
     struct sockaddr_storage their_addr;
     socklen_t addr_size = sizeof their_addr;
-    RS_DBG0("")<< "accept(" << socket->fd_ << ", ...)" << std::endl;
+    RS_DBG0("accept(" , socket->fd_ , ", ...)" );
     return accept(socket->fd_, (struct sockaddr *)&their_addr, &addr_size);
 }
 

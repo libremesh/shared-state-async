@@ -57,10 +57,10 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 
 Socket::~Socket()
 {
-    RS_DBG0("")<< "------delete the socket(" << fd_ << ")\n";
+    RS_DBG0("------delete the socket(" , fd_ , ")\n");
     if (fd_ == -1)
     {
-        RS_WARN("")<< " socket(" << fd_ << ") already deleted \n";
+        RS_WARN(" socket(" , fd_ , ") already deleted \n");
         return;
     }
     io_context_.detach(this);
@@ -75,7 +75,7 @@ std::task<std::unique_ptr<Socket>> Socket::accept()
     {
         rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
     }
-    RS_DBG0("")<< "aceptando";
+    RS_DBG0("aceptando");
     auto clientsocket = std::make_unique<Socket>(fd, io_context_);
     co_return clientsocket;
 }

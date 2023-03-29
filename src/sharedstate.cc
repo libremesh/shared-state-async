@@ -70,7 +70,7 @@ namespace SharedState
         auto begin = std::chrono::high_resolution_clock::now();
         auto pipe = popen(cmd.c_str(), "r");
         auto end = std::chrono::high_resolution_clock::now();
-        RS_DBG0("")<< "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
+        RS_DBG0(""popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() );        
         if (!pipe)
             throw std::runtime_error("popen() failed!");
         
@@ -84,7 +84,7 @@ namespace SharedState
                 result += buffer.data();
         }
         end = std::chrono::high_resolution_clock::now();
-        std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
+        std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() );
         //filesocket.~Socket();
         auto rc = pclose(pipe);
 
@@ -106,7 +106,7 @@ std::string mergestate(std::string arguments)
         auto begin = std::chrono::high_resolution_clock::now();
         auto pipe = popen(cmd.c_str(), "r");
         auto end = std::chrono::high_resolution_clock::now();
-        RS_DBG0("")<< "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;        
+        RS_DBG0("popen..:" , std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() );        
         if (!pipe)
             throw std::runtime_error("popen() failed!");
         
@@ -118,7 +118,7 @@ std::string mergestate(std::string arguments)
                 result += buffer.data();
         }
         end = std::chrono::high_resolution_clock::now();
-        std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
+        RS_DBG0("fgets..:" ,std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() );
         auto rc = pclose(pipe);
 
         if (rc == EXIT_SUCCESS)

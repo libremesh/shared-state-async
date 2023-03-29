@@ -41,11 +41,11 @@ namespace std
             {
                 total_ = total_ + 1;
                 number = total_;
-                RS_DBG0("") << " #" << number << std::endl;
+                RS_DBG0(" #", number );
             }
             ~promise_type_base()
             {
-                RS_DBG0("") << number << " -- Promise: dtor" << std::endl;
+                RS_DBG0( number ," -- Promise: dtor" );
             }
             coroutine_handle<> waiter; // who waits on this coroutine
             task<T> get_return_object();
@@ -105,27 +105,27 @@ namespace std
         task()
             : mCoroutineHandle{nullptr}
         {
-            RS_DBG0("") <<  " #" << std::endl;
+            RS_DBG0("#");
         }
         task(coroutine_handle<promise_type> handle)
             : mCoroutineHandle{handle}
         {
-            RS_DBG0("") << " #" << mCoroutineHandle.promise().number << std::endl;
+            RS_DBG0(" #" , mCoroutineHandle.promise().number );
         }
         ~task()
         {
             RS_DBG0("") ;
             if (mCoroutineHandle)
             {
-                RS_DBG0("") << "have you finished ? " << mCoroutineHandle.done() << ", task disposable = " << mDetached << std::endl;
+                RS_DBG0("have you finished ? " ,mCoroutineHandle.done() , ", task disposable = " , mDetached );
                 if (mCoroutineHandle.done() || !mDetached)
                 {
                     mCoroutineHandle.destroy();
-                    RS_DBG0("") << "i've just destroyed m_coro" << std::endl;
+                    RS_DBG0("i've just destroyed m_coro" );
                 }
                 else
                 {
-                    RS_DBG0("") << "do not destroy coro" << std::endl;
+                    RS_DBG0("do not destroy coro" );
                 }
             }
         }

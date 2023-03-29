@@ -47,7 +47,7 @@ std::task<bool> inside_loop(Socket &socket)
     {
         co_return false;
     }
-    RS_DBG0("")<< "RECIVING (" << socbuffer << "):" << std::endl;
+    RS_DBG0("RECIVING (" , socbuffer , "):" );
     std::array<char, BUFFSIZE> buffer;
     std::string merged;
     std::string cmd = "cat";
@@ -59,28 +59,28 @@ std::task<bool> inside_loop(Socket &socket)
         co_return false;
     }
     co_await asyncecho->writepipe(socbuffer, nbRecv);
-    RS_DBG0("")<< "writepipe (" << socbuffer << "):" << std::endl;
+    RS_DBG0("writepipe (" , socbuffer , "):" );
     co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     
     merged = buffer.data();
-    RS_DBG0("")<< "readpipe (" << merged << "):" << std::endl;
+    RS_DBG0("readpipe (" , merged , "):" );
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     // sin esta linea se genera un enter que no se recibe y el programa explota
     //merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     size_t nbSend = 0;
     while (nbSend < merged.size()) // probar y hacer un pull request al creador
     {
-        RS_DBG0("")<< "SENDING (" << merged << "):" << std::endl;
+        RS_DBG0("SENDING (" , merged , "):" );
         ssize_t res = co_await socket.send(&(merged.data()[nbSend]), merged.size() - nbSend);
         if (res <= 0)
         {
-            RS_DBG0("")<< "DONE (" << nbRecv << "):" << std::endl;
+            RS_DBG0("DONE (" , nbRecv , "):" );
             co_return false;
         }
         nbSend += res;
     }
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
-    RS_DBG0("")<< "DONE (" << nbRecv << "):" << std::endl;
+    RS_DBG0("DONE (" , nbRecv , "):" );
     co_await asyncecho->whaitforprocesstodie();
     asyncecho.reset(nullptr);
     co_return false;
@@ -92,9 +92,9 @@ std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
     bool run = true;
     while (run)
     {
-        RS_DBG0("")<< "BEGIN";
+        RS_DBG0("BEGIN");
         run = co_await inside_loop(*socket);
-        RS_DBG0("")<< "END";
+        RS_DBG0("END");
     }
     socket.reset(nullptr);
     co_return true;
@@ -104,7 +104,7 @@ std::task<> accept(Socket &listen)
 {
 	while(true)
 	{
-		RS_DBG0("")<< "begin accept";
+		RS_DBG0("begin accept");
 		auto socket = co_await listen.accept();
 
 		/* Going out of scope the returned task is destroyed, we need to
@@ -112,7 +112,7 @@ std::task<> accept(Socket &listen)
 		 * finishing the job */
 		client_socket_handler(std::move(socket)).detach();
 
-		RS_DBG0("")<< "end accept";
+		RS_DBG0("end accept");
 	}
 }
 
