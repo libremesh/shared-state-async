@@ -128,7 +128,7 @@ FileReadOperation PipedAsyncCommand::readpipe(uint8_t *buffer, std::size_t len)
     return FileReadOperation{async_read_end_fd, buffer, len};
 }
 
-FileWriteOperation PipedAsyncCommand::writepipe(uint8_t *buffer, std::size_t len)
+FileWriteOperation PipedAsyncCommand::writepipe(const uint8_t *buffer, std::size_t len)
 {
     return FileWriteOperation{async_write_end_fd, buffer, len};
 }

@@ -24,7 +24,7 @@
 #include "socket.hh"
 
 SocketSendOperation::SocketSendOperation(Socket *socket,
-                                         void *buffer,
+                                         const void *buffer,
                                          std::size_t len)
     : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
 {
