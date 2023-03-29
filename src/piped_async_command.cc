@@ -113,7 +113,7 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     close(fd_r[1]);
     close(fd_w[0]);
     RS_DBG0("") << "PipedAsyncCommand creation finished " << std::endl;
-    return std::make_error_condition(std::errc());
+    return std::error_condition();
 }
 
 PipedAsyncCommand::~PipedAsyncCommand()
