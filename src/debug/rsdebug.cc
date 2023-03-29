@@ -43,7 +43,7 @@ std::error_condition rs_errno_to_condition(int errno_code)
 	return std::make_error_condition(static_cast<std::errc>(errno_code));
 }
 
-std::ostream &hex_dump(std::ostream &os, const void *buffer,
+std::ostream &hex_dump(std::ostream &os, const uint8_t*buffer,
 					   std::size_t bufsize, bool showPrintableChars /*= true*/)
 {
 	if (buffer == nullptr)

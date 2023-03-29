@@ -31,7 +31,7 @@ class Socket;
 class SocketSendOperation : public BlockSyscall<SocketSendOperation, ssize_t>
 {
 public:
-    SocketSendOperation(Socket *socket,const void *buffer, std::size_t len);
+    SocketSendOperation(Socket *socket,const uint8_t*buffer, std::size_t len);
     ~SocketSendOperation();
 
     ssize_t syscall();
@@ -39,6 +39,6 @@ public:
 
 private:
     Socket *socket;
-    const void *buffer_;
+    const uint8_t*buffer_;
     std::size_t len_;
 };
