@@ -27,19 +27,19 @@ Example:
 > mkdir build && cd build
 > cmake .. -DCMAKE_BUILD_TYPE=[Debug | Coverage | Release]
 > make
-
+```
 For testing, first start the main executable and then run the python test script in another console
-
+``` bash
 > ./main         # Runs the main executable
 > python3 ../tests/python-testclient/pythonTcpClient.py #runs a sample python client 
-
+```
 For unit testing folow this instructions
 
+``` bash
 > make test      # Makes and runs the tests.
 > make coverage  # Makes and runs the tests, then Generates a coverage report. (requires "cmake .. -DCMAKE_BUILD_TYPE=Coverage")
 > make doc       # Generate html documentation.
 > ./unit_tests -s #runs unittests with details
-
 > 
 ```
 
