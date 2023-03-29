@@ -25,13 +25,13 @@
 void print_debug_message()
 {
   std::string original = "mensaje a verificar";
-  RS_DBG0(" cout replacement " << "variable2";
-  RS_DBG0("Hello 0 ", "my debug ", original) << " message " << "variable2";
-  RS_DBG1("Hello 1 ", "my debug ", original) << " message " << "variable2";
-  RS_DBG2("Hello 2 ", "my debug ", original) << " message " << "variable2";
+  RS_DBG0(" cout replacement " , "variable2");
+  RS_DBG0("Hello 0 ", "my debug ", original, " message " , "variable2");
+  RS_DBG1("Hello 1 ", "my debug ", original , " message " , "variable2");
+  RS_DBG2("Hello 2 ", "my debug ", original , " message " , "variable2");
   //since "rsdebuglevel2.h" is included the following lines wont print anything
-  RS_DBG3("Hello 3 ", "my debug ", original) << " message " << "variable2";
-  RS_DBG4("Hello 4 ", "my debug ", original) << " message " << "variable2";
+  RS_DBG3("Hello 3 ", "my debug ", original , " message " , "variable2");
+  RS_DBG4("Hello 4 ", "my debug ", original , " message " , "variable2");
 }
 
 /*
