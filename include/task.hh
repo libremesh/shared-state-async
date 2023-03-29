@@ -152,8 +152,8 @@ namespace std
          *  coroutine lifetime. This can be useful for long lived coroutines who
          *  can deal with it's own lifetime such as the one which process
          *  requests from a single socket.
-         *
-         *  TODO: explain who will destroy the coroutine in case of detach.
+         *  In detached mode, the coroutine will be self destroyed after the 
+         *  final suspend method has been invoked.
          */
         void detach()
         {

@@ -128,7 +128,7 @@ namespace SharedState
         else if (rc == EXIT_FAILURE)
         { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
         }
-        
+
         result = std::regex_replace(result, std::regex("\\r\\n|\\r|\\n"), "");
         return result;
     }

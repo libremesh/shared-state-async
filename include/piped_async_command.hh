@@ -32,20 +32,18 @@
 #include "dying_process_wait_operation.hh"
 #include "socket.hh"
 
-
-
 /// @brief PipedAsyncCommand implementation using pipe fork excec
 class PipedAsyncCommand
 {
-    
+
 public:
     friend std::unique_ptr<PipedAsyncCommand> std::make_unique<PipedAsyncCommand>();
-    static std::unique_ptr<PipedAsyncCommand> factory(std::string cmd, AsyncFileDescriptor* socket,std::error_condition &err)
+    static std::unique_ptr<PipedAsyncCommand> factory(std::string cmd, AsyncFileDescriptor *socket, std::error_condition &err)
     {
         auto retptr = std::make_unique<PipedAsyncCommand>();
-        err=retptr->init(cmd,socket->io_context_);
+        err = retptr->init(cmd, socket->io_context_);
         if (err == std::errc())
-        {    
+        {
             return retptr;
         }
         return nullptr;
@@ -53,30 +51,27 @@ public:
 
     ~PipedAsyncCommand();
 
-    FileReadOperation readpipe(uint8_t* buffer, std::size_t len);
-    FileWriteOperation writepipe(const uint8_t* buffer, std::size_t len);
+    FileReadOperation readpipe(uint8_t *buffer, std::size_t len);
+    FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
     DyingProcessWaitOperation whaitforprocesstodie();
 
 private:
     std::error_condition init(std::string cmd, IOContext &context);
-    PipedAsyncCommand(const PipedAsyncCommand&) = delete;
+    PipedAsyncCommand(const PipedAsyncCommand &) = delete;
     PipedAsyncCommand();
     friend FileReadOperation;
     friend AsyncFileDescriptor;
     friend Socket;
-    // we need two file descriptors to interact with the forked process
-    //      parent        child
-    //      fd1[1]        fd1[0]
-    //        4 -- fd_W --> 3 
-    //      fd2[0]        fd2[1]
-    //        5 <-- fd_r -- 6 
+    /// we need two file descriptors to interact with the forked process
+    ///      parent        child
+    ///      fd1[1]        fd1[0]
+    ///        4 -- fd_W --> 3
+    ///      fd2[0]        fd2[1]
+    ///        5 <-- fd_r -- 6
     int fd_w[2];
-    int fd_r[2]; 
-    pid_t forked_proces_id=-1;
+    int fd_r[2];
+    pid_t forked_proces_id = -1;
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_process_wait_fd;
-
-
 };
-
