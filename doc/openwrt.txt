@@ -17,16 +17,24 @@ CONFIG_TARGET_ath79_generic=y
 CONFIG_TARGET_ath79_generic_DEVICE_tplink_tl-wdr3600-v1=y
 CONFIG_GCC_VERSION="10.2.0"
 
+openwrt22.03$ make -j$(nproc) defconfig download clean world 
+
+
+openwrt22.03$ scp bin/targets/ath79/generic/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin  root@192.168.1.1:/tmp
+
+sysupgrade -v /tmp/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin 
+
 
 https://openwrt.org/docs/guide-developer/helloworld/chapter1
 https://openwrt.org/docs/guide-developer/helloworld/chapter2
 https://openwrt.org/docs/guide-developer/helloworld/chapter3
 https://openwrt.org/docs/guide-developer/helloworld/chapter4
 https://openwrt.org/docs/guide-developer/helloworld/chapter5
-do not forget to select the module in the make menuconfig ... 
-
+----do not forget to select the module in the make menuconfig----
 
 https://github.com/mwarning/openwrt-examples 
 
-make package/sharedstate/compile -j1 V=sc
+make package/shared-state-async-server/compile -j1 V=sc
+
+
 

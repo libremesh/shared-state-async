@@ -13,7 +13,8 @@ except socket.error as err:
 # default port for socket
 port = 3490
 # connecting to the server
-s.connect(("127.0.0.1", port))
+s.connect(("192.168.1.1", port))
+#s.connect(("127.0.0.1", port))
 try:
     
     # Send data
