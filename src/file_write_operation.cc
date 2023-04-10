@@ -22,12 +22,12 @@
 #include "file_write_operation.hh"
 #include <iostream>
 #include <unistd.h>
-#include "async_command.hh"
+#include "async_file_desc.hh"
 
 FileWriteOperation::FileWriteOperation(std::shared_ptr<AsyncFileDescriptor> socket,
                                        const uint8_t *buffer,
-                                       std::size_t len)
-    : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
+                                       std::size_t len, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}, socket{socket}, buffer_{buffer}, len_{len}
 {
     socket->io_context_.watchWrite(socket.get());
     RS_DBG0("FileWriteOperation created\n");

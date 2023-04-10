@@ -47,7 +47,7 @@ Socket::Socket(std::string_view port, IOContext& io_context)
     setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
     if (bind(fd_, res->ai_addr, res->ai_addrlen) == -1)
     {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),errorcontainer);
     }
     listen(fd_, 8);
     fcntl(fd_, F_SETFL, O_NONBLOCK);
@@ -70,19 +70,25 @@ Socket::~Socket()
 
 std::task<std::unique_ptr<Socket>> Socket::accept()
 {
-    int fd = co_await SocketAcceptOperation{this};
-    if (fd == -1)
+    
+    int fd = co_await SocketAcceptOperation{this}; //in case of failure the app will exit
+    /*
+    std::shared_ptr error_info = std::make_shared<std::error_condition>();
+    //in case of failure, error_info wil have information about the problem.
+    int fd = co_await SocketAcceptOperation{this,error_info}; 
+    if (*error_info.get() != std::errc())
     {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
-    }
+        RS_FATAL(" error...",error_info->value()," ",error_info->message());
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),errorcontainer);
+    }*/
     RS_DBG0("aceptando");
     auto clientsocket = std::make_unique<Socket>(fd, io_context_);
     co_return clientsocket;
 }
 
-SocketRecvOperation Socket::recv(uint8_t* buffer, std::size_t len)
+SocketRecvOperation Socket::recv(uint8_t* buffer, std::size_t len,std::shared_ptr<std::error_condition> ec)
 {
-    return SocketRecvOperation{this, buffer, len};
+    return SocketRecvOperation{this, buffer, len,ec};
 }
 SocketSendOperation Socket::send(uint8_t* buffer, std::size_t len)
 {

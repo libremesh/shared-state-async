@@ -12,8 +12,8 @@ template <typename SyscallOpt, typename ReturnValue>
 class BlockSyscall // Awaiter
 {
 public:
-    BlockSyscall(std::shared_ptr<std::error_condition> ec = nullptr)
-        : haveSuspend_{false}, errorconditionstorage_{ec}
+    BlockSyscall(std::shared_ptr<std::error_condition> ec)
+        : haveSuspend_{false}, errorConditionStorage_{ec}
 
     {
         RS_DBG0("haveSuspend_");
@@ -36,20 +36,20 @@ public:
             returnValue_ == -1 && (errno == EAGAIN || errno == EWOULDBLOCK);
         if (haveSuspend_)
         {
+            /// haveSuspend_ true returns control to the caller/resumer of the current coroutine
             RS_WARN("...suspendiendo ... por un -1");
             static_cast<SyscallOpt *>(this)->suspend();
-            // the haveSuspend_ true returns control to the caller/resumer of the current coroutine
         }
         else if (returnValue_ == -1)
         {
-            /// the haveSuspend_ false resumes the current coroutine. but the system call has failed..
-            /// the caller has to be notified
+            /// haveSuspend_ false but returnValue -1 resumes the current coroutine. 
+            /// but the system call has failed..the caller has to be notified
             rs_error_bubble_or_exit(
-                rs_errno_to_condition(errno), errorconditionstorage_,
+                rs_errno_to_condition(errno), errorConditionStorage_,
                 "A syscall has failed");
         }
+        // the haveSuspend_ false resumes the current coroutine. (doesn't suspend)
         return haveSuspend_;
-        // the haveSuspend_ false resumes the current coroutine.
     }
 
     ReturnValue await_resume()
@@ -59,13 +59,14 @@ public:
             returnValue_ = static_cast<SyscallOpt *>(this)->syscall();
         return returnValue_;
     }
-    // derived clases must implement these methods
-    // virtual ssize_t syscall() = 0;
-    // virtual void suspend() = 0;
+    
+    // derived classes MUST implement these methods
+    virtual ReturnValue syscall() = 0;
+    virtual void suspend() = 0;
 
 protected:
     bool haveSuspend_;
-    std::shared_ptr<std::error_condition> errorconditionstorage_;
+    std::shared_ptr<std::error_condition> errorConditionStorage_;
     std::coroutine_handle<> awaitingCoroutine_;
     ReturnValue returnValue_;
 };

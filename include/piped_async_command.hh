@@ -32,7 +32,12 @@
 #include "dying_process_wait_operation.hh"
 #include "socket.hh"
 
-/// @brief PipedAsyncCommand implementation using pipe fork excec
+/**
+ * @brief AsyncCommand implementation using pipe fork excec and dual pipes
+ * this implementation is fully async supporting async reading, writing and waiting 
+ * for the child process to die. 
+ *  
+ */
 class PipedAsyncCommand
 {
 

@@ -33,7 +33,7 @@ class Socket;
 class SocketAcceptOperation : public BlockSyscall<SocketAcceptOperation, int>
 {
 public:
-    SocketAcceptOperation(Socket *socket);
+    SocketAcceptOperation(Socket *socket,std::shared_ptr<std::error_condition> ec=nullptr);
     ~SocketAcceptOperation();
 
     int syscall();

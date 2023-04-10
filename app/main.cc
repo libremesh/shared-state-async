@@ -28,17 +28,16 @@
 #include <iostream>
 #include <array>
 #include <unistd.h>
-#include "async_command.hh"
 #include "piped_async_command.hh"
 #include "debug/rsdebuglevel2.h"
 
 
 #define BUFFSIZE 256
 
-/// @brief coro in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
+/// @brief task in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
 /// @param socket
 /// @return true if everything goes fine
-std::task<bool> inside_loop(Socket &socket)
+std::task<bool> echo_loop(Socket &socket)
 {
     char socbuffer[BUFFSIZE] = {0};
     // TODO: lo que no entra en el buffer se procesa como otro mensaje...
@@ -66,7 +65,6 @@ std::task<bool> inside_loop(Socket &socket)
     RS_DBG0("readpipe (" , merged , "):" );
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
     // sin esta linea se genera un enter que no se recibe y el programa explota
-    //merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
     size_t nbSend = 0;
     while (nbSend < merged.size()) // probar y hacer un pull request al creador
     {
@@ -93,7 +91,7 @@ std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
     while (run)
     {
         RS_DBG0("BEGIN");
-        run = co_await inside_loop(*socket);
+        run = co_await echo_loop(*socket);
         RS_DBG0("END");
     }
     socket.reset(nullptr);

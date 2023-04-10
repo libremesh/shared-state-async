@@ -27,7 +27,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "async_command.hh"
+#include "popen_async_command.hh"
 #include <iostream>
 
 AsyncCommand::AsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)

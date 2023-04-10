@@ -49,13 +49,13 @@ PipedAsyncCommand::PipedAsyncCommand()
  * Initializes the object
  *
  * This is a factory method it must be called for every object.
- * @warning remember to call "whaitforprocesstodie" after using the object to 
- * prevent zombi process creation. 
+ * @warning remember to call "whaitforprocesstodie" after using the object to
+ * prevent zombi process creation.
  *
- * @param cmd a copy of the command to be executed asynchronously. This 
- * parameter is an explicit copy, it wont be a large string and it is a secure 
+ * @param cmd a copy of the command to be executed asynchronously. This
+ * parameter is an explicit copy, it wont be a large string and it is a secure
  * way to send the parameter for detachable coroutines.
- * @return error_condition indicating success or the cause of the initialization 
+ * @return error_condition indicating success or the cause of the initialization
  * failure.
  */
 std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context)
@@ -89,7 +89,6 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     }
     if (process_id == 0)
     { /* Child reads from pipe and writes back as soon as it finishes*/
-
         close(fd_w[1]);      /// Close writing end of first pipe
         close(STDIN_FILENO); /// closing stdin
         dup(fd_w[0]);        /// replacing stdin with pipe read
@@ -102,7 +101,6 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
         dup(fd_r[1]);         /// replacing stdout with pipe write
         close(fd_r[1]);
 
-        
         std::vector<char *> argc;
         argc.emplace_back(const_cast<char *>(cmd.data()));
         /// NULL terminate the command line
@@ -110,7 +108,7 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
         // The first argument to execvp should be the same as the
         // first element in argc
         execvp(argc.data()[0], argc.data());
-        RS_ERR("execvp of \"cmd\" failed");
+        RS_FATAL("execvp failed ", argc.data());
         exit(1);
     }
     forked_proces_id = process_id;
@@ -148,8 +146,8 @@ FileWriteOperation PipedAsyncCommand::writepipe(const uint8_t *buffer, std::size
 
 /**
  * Asynchronously waits for a process to die.
- * @warning if tis method is not called the forked process will be 
- * a zombi. 
+ * @warning if this method is not called the forked process will be
+ * a zombi.
  */
 DyingProcessWaitOperation PipedAsyncCommand::whaitforprocesstodie()
 {

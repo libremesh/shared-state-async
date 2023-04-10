@@ -25,8 +25,8 @@
 
 SocketSendOperation::SocketSendOperation(Socket *socket,
                                          const uint8_t*buffer,
-                                         std::size_t len)
-    : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
+                                         std::size_t len, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}, socket{socket}, buffer_{buffer}, len_{len}
 {
     socket->io_context_.watchWrite(socket);
     RS_DBG0("socket_send_operation\n");

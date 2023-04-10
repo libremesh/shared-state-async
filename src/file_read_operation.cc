@@ -21,15 +21,14 @@
  */
 #include "file_read_operation.hh"
 #include <iostream>
-#include "async_command.hh"
 #include "async_file_desc.hh"
 #include <unistd.h>
 #include "debug/rsdebuglevel2.h"
 
 FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket,
                                      uint8_t *buffer,
-                                     std::size_t len)
-    : BlockSyscall{}
+                                     std::size_t len, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}
     , socket{socket}
     , buffer_{buffer}
     , len_{len}

@@ -31,7 +31,7 @@
 #include "file_read_operation.hh"
 #include "file_write_operation.hh"
 #include "dying_process_wait_operation.hh"
-#include "pipe_file_read_operation.hh"
+#include "popen_file_read_operation.hh"
 
 /* Just an epoll wrapper */
 //This class will work as dispacher, freeing epool suspended corotasks

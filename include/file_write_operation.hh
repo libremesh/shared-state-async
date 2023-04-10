@@ -31,7 +31,7 @@ class AsyncFileDescriptor;
 class FileWriteOperation : public BlockSyscall<FileWriteOperation, ssize_t>
 {
 public:
-    FileWriteOperation(std::shared_ptr<AsyncFileDescriptor> socket, const uint8_t* buffer, std::size_t len);
+    FileWriteOperation(std::shared_ptr<AsyncFileDescriptor> socket, const uint8_t* buffer, std::size_t len, std::shared_ptr<std::error_condition> ec=nullptr);
     ~FileWriteOperation();
 
     ssize_t syscall();
