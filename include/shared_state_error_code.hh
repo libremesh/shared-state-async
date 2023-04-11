@@ -25,6 +25,10 @@
 namespace SharedState
 {
 
+  /**
+   * @brief possible interesting error codes
+   *
+   */
   enum class SharedStateErrorCode
   {
     // no 0

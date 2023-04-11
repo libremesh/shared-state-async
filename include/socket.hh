@@ -34,10 +34,13 @@
 #include "task.hh"
 #include "debug/rsdebug.h"
 
+/**
+ * @brief Listen tcp non blocking socket
+ * 
+ */
 class Socket : public AsyncFileDescriptor
 {
 public:
-    /* Listen tcp non blocking socket */
     Socket(std::string_view port, IOContext &io_context);
     Socket(const Socket &) = delete;
     Socket(Socket &&socket);

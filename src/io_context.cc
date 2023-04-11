@@ -23,7 +23,11 @@
 #include <stdexcept>
 #include "async_file_desc.hh"
 
-// Epoll handler and notification
+/**
+ * @brief Epoll handler and notification
+ * this methods blocks until a the os rises a notification and forwards it
+ * to the suspended blocksyscall.
+ */
 void IOContext::run()
 {
     struct epoll_event ev, events[max_events];
@@ -34,8 +38,7 @@ void IOContext::run()
         if (nfds == -1)
         {
 
-            RS_FATAL("error" ,strerror(errno) , fd_);
-            perror("processedSockets new state failed");
+            RS_FATAL("error", strerror(errno), fd_);
         }
 
         for (int n = 0; n < nfds; ++n)
@@ -73,6 +76,11 @@ void IOContext::run()
     }
 }
 
+/**
+ * @brief Attaches a file descriptor to an available for "read" operations.
+ * 
+ * @param socket 
+ */
 void IOContext::attach(AsyncFileDescriptor *socket)
 {
     RS_DBG0("ataching");
@@ -88,9 +96,14 @@ void IOContext::attach(AsyncFileDescriptor *socket)
     socket->io_state_ = io_state;
 }
 
+/**
+ * @brief Attaches a file descriptor to an available for "read" operations.
+ * 
+ * @param socket 
+ */
 void IOContext::attachReadonly(AsyncFileDescriptor *socket)
 {
-    RS_DBG0("ataching RO ..." , socket->fd_ );
+    RS_DBG0("ataching RO ...", socket->fd_);
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ;
@@ -99,56 +112,85 @@ void IOContext::attachReadonly(AsyncFileDescriptor *socket)
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for reading # " ,socket->fd_ );
+    RS_DBG0("successfully attached for reading # ", socket->fd_);
     ;
 }
 
+/**
+ * @brief Attaches a file descriptor to an available for "write" operations.
+ * 
+ * @param socket 
+ */
 void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
 {
-    RS_DBG0("ataching WO ..." , socket->fd_ );
+    RS_DBG0("ataching WO ...", socket->fd_);
     struct epoll_event ev;
     auto io_state = EPOLLOUT | EPOLLET;
     ev.events = io_state;
     ev.data.ptr = socket;
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
     {
-        RS_FATAL("error attaching # " , socket->fd_ );
+        RS_FATAL("error attaching # ", socket->fd_);
         perror("attachWriteOnly failed");
         // throw std::runtime_error{"epoll_ctl: attach"};
     }
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for writing events# " , socket->fd_ );
+    RS_DBG0("successfully attached for writing events# ", socket->fd_);
 }
 
+/**
+ * @brief used to update the type of epool subscription to enable reading
+ * 
+ * @param socket 
+ */
 void IOContext::watchRead(AsyncFileDescriptor *socket)
 {
     socket->io_new_state_ = socket->io_state_ | EPOLLIN;
     processedSockets.insert(socket);
 }
 
+/**
+ * @brief used to stop epool notifications for reading events
+ * 
+ * @param socket 
+ */
 void IOContext::unwatchRead(AsyncFileDescriptor *socket)
 {
     socket->io_new_state_ = socket->io_state_ & ~EPOLLIN;
     processedSockets.insert(socket);
 }
 
+/**
+ * @brief used to update the type of epool subscription to enable writing
+ * 
+ * @param socket 
+ */
 void IOContext::watchWrite(AsyncFileDescriptor *socket)
 {
     socket->io_new_state_ = socket->io_state_ | EPOLLOUT;
     processedSockets.insert(socket);
 }
 
+/**
+ * @brief used to stop epool notifications for writing events
+ * 
+ * @param socket 
+ */
 void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 {
     socket->io_new_state_ = socket->io_state_ & ~EPOLLOUT;
     processedSockets.insert(socket);
 }
 
+/**
+ * @brief Remove an async file descriptor from the notification list
+ * 
+ * @param socket 
+ */
 void IOContext::detach(AsyncFileDescriptor *socket)
 {
     if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, nullptr) == -1)
     {
-        // TODO: fix
         RS_FATAL("epoll_ctl: detach");
         exit(EXIT_FAILURE);
     }

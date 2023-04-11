@@ -27,7 +27,10 @@
 #include "block_syscall.hh"
 
 class Socket;
-
+/**
+ * @brief Implements an asynchronous Socket Send Operation
+ * 
+ */
 class SocketSendOperation : public BlockSyscall<SocketSendOperation, ssize_t>
 {
 public:

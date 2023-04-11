@@ -28,6 +28,10 @@
 
 class Socket;
 
+/**
+ * @brief Implements an asynchronous Socket Receive Operation
+ * 
+ */
 class SocketRecvOperation : public BlockSyscall<SocketRecvOperation, ssize_t>
 {
 public:

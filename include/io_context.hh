@@ -33,13 +33,18 @@
 #include "dying_process_wait_operation.hh"
 #include "popen_file_read_operation.hh"
 
-/* Just an epoll wrapper */
-//This class will work as dispacher, freeing epool suspended corotasks
 class Socket;
 class AsyncFileDescriptor;
 class AsyncCommand;
 class PipedAsyncCommand;
 
+/**
+ * This class works work as dispacher, notifying suspended blocksyscall when 
+ * ready to be activated. blocksyscalls must suscribe to this class in order 
+ * to be notified.
+ * 
+ * @brief This class is an Just an epoll wrapper 
+ */
 class IOContext
 {
 public:

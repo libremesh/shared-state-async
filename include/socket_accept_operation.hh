@@ -30,6 +30,10 @@
 
 class Socket;
 
+/**
+ * @brief Implements an asynchronous Socket Accept Operation
+ * 
+ */
 class SocketAcceptOperation : public BlockSyscall<SocketAcceptOperation, int>
 {
 public:

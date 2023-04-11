@@ -29,7 +29,7 @@
 class AsyncCommand;
 
 /**
- * @brief 
+ * @brief Pipe Read Operation
  * 
  */
 class PipeFileReadOperation : public BlockSyscall<PipeFileReadOperation, ssize_t>
