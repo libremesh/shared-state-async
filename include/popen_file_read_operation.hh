@@ -26,22 +26,22 @@
 #include"popen_file_read_operation.hh"
 #include "block_syscall.hh"
 
-class AsyncCommand;
+class PopenAsyncCommand;
 
 /**
  * @brief Pipe Read Operation
  * 
  */
-class PipeFileReadOperation : public BlockSyscall<PipeFileReadOperation, ssize_t>
+class PopenFileReadOperation : public BlockSyscall<PopenFileReadOperation, ssize_t>
 {
 public:
-    PipeFileReadOperation(AsyncCommand* socket, uint8_t* buffer, std::size_t len,std::shared_ptr<std::error_condition> ec=nullptr);
-    ~PipeFileReadOperation();
+    PopenFileReadOperation(PopenAsyncCommand* socket, uint8_t* buffer, std::size_t len,std::shared_ptr<std::error_condition> ec=nullptr);
+    ~PopenFileReadOperation();
 
     ssize_t syscall();
     void suspend();
 private:
-    AsyncCommand* socket;
+    PopenAsyncCommand* socket;
     uint8_t* buffer_;
     std::size_t len_;
 };

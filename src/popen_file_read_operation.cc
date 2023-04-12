@@ -23,7 +23,7 @@
 #include <iostream>
 #include "popen_async_command.hh"
 
-PipeFileReadOperation::PipeFileReadOperation(AsyncCommand* socket,
+PopenFileReadOperation::PopenFileReadOperation(PopenAsyncCommand* socket,
         uint8_t* buffer,
         std::size_t len, std::shared_ptr<std::error_condition> ec)
     :BlockSyscall{ec}
@@ -35,13 +35,13 @@ PipeFileReadOperation::PipeFileReadOperation(AsyncCommand* socket,
     RS_DBG0("socket_fileRead_operation created\n");
 }
 
-PipeFileReadOperation::~PipeFileReadOperation()
+PopenFileReadOperation::~PopenFileReadOperation()
 {
     socket->io_context_.unwatchRead(socket);
     RS_DBG0("~socket_fileRead_operation\n");
 }
 
-ssize_t PipeFileReadOperation::syscall()
+ssize_t PopenFileReadOperation::syscall()
 {
     std::string result;
     RS_DBG0("fgets(" , fileno(socket->pipe) );
@@ -54,7 +54,7 @@ ssize_t PipeFileReadOperation::syscall()
     return 10;
 }
 
-void PipeFileReadOperation::suspend()
+void PopenFileReadOperation::suspend()
 {
     socket->coroRecv_ = awaitingCoroutine_;
 }
