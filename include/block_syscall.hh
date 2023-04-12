@@ -8,6 +8,13 @@
 #include "debug/rsdebuglevel2.h"
 #include <errno.h>
 
+
+/**
+ * @brief BlockSyscall is a base class for all kind of asynchronous syscalls
+ * @param SyscallOpt classname of the child class
+ * @param ReturnValue type of the return value of the real syscall
+ * this type must be 
+*/
 template <typename SyscallOpt, typename ReturnValue>
 class BlockSyscall // Awaiter
 {
