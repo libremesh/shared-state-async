@@ -109,7 +109,26 @@ namespace std
     }
 
     /**
-     * @brief basic coroutine task 
+     * @brief Basic coroutine task 
+     * 
+     * Basic coroutine task 
+     * 
+     * after creation of a task
+     * 
+     * "std::task<bool> echo_loop(Socket &socket);"
+     * 
+     * it can be coawaited
+     * 
+     * "bool run = co_await echo_loop(*socket);"
+     * 
+     * or it can be detached (and resumed)
+     * 
+     * echo_loop(std::move(socket)).detach();
+     * 
+     * or just resumed
+     * 
+     * echo_loop(std::move(socket)).resume()
+     * 
      * @note even that is marked as no discard, this task can be 
      * deleted after using the explicit method "detach()" and 
      * ensuring subscription to the io_context. 
@@ -154,7 +173,11 @@ namespace std
             mCoroutineHandle.promise().waiter = waiter;
             mCoroutineHandle.resume();
         }
-
+        
+        /**
+         * @brief starts the execution of the task
+         * 
+         */
         void resume()
         {
             mCoroutineHandle.resume();
