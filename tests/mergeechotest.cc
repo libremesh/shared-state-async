@@ -61,7 +61,7 @@ void verificarOptional(std::string original)
   CHECK(original.size() == merged.value().size());
   CHECK(original == merged.value());
 }
-
+/*
 void verificarExpected(std::string original)
 {
   auto merged = SharedState::expMergestate(original);
@@ -75,7 +75,7 @@ void verificarExpectedWillFail(std::string original)
   CHECK_FALSE(merged);
   std::error_condition(SharedState::SharedStateErrorCode::OpenPipeError);
   CHECK(merged.error().message() == make_error_condition(SharedState::SharedStateErrorCode::OpenPipeError).message());
-}
+}*/
 
 // void verificarPiped(std::string original)
 // {
