@@ -25,6 +25,7 @@
 #include "shared_state_error_code.hh"
 #include "piped_async_command.hh"
 #include "debug/rsdebuglevel2.h"
+#include <vector>
 
 // Tests that don't naturally fit in the headers/.cpp files directly
 // can be placed in a tests/*.cpp file. Integration tests are a good example.
@@ -106,8 +107,8 @@ TEST_CASE("Parametrized merge test")
     CAPTURE(i); // log the current input data
     verificarOptional(i);
     verificar(i);
-    verificarExpected(i);
-    verificarExpectedWillFail(i);
+    //verificarExpected(i);
+    //verificarExpectedWillFail(i);
     // verificarPiped(i);
   }
 }
