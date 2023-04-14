@@ -47,6 +47,7 @@ std::task<bool> echo_loop(Socket &socket)
     char socbuffer[BUFFSIZE] = {0};
     // TODO: lo que no entra en el buffer se procesa como otro mensaje...?
     ssize_t nbRecv = co_await socket.recv((uint8_t*)socbuffer, (sizeof socbuffer) - 1);
+    
     if (nbRecv <= 0) //todo: if the maximum amount has been received copy to a buffer ?
     {
         co_return false; 
