@@ -22,7 +22,7 @@
 #include "sharedstate.hh"
 #include <algorithm>
 #include <optional>
-#include <expected.hpp>
+//#include <expected.hpp>
 #include "shared_state_error_code.hh"
 #include <chrono>
 #include "socket.hh"
@@ -166,6 +166,7 @@ namespace SharedState
         return result;
     }
 
+    /*
     /// @brief error_condition ... > es como error code pero crossplatform
     /// error_code ... es dependiente de plataforma
     /// @param arguments
@@ -195,6 +196,6 @@ namespace SharedState
         }
         result = std::regex_replace(result, std::regex("\\r\\n|\\r|\\n"), "");
         return result;
-    }
+    }*/
 
 }

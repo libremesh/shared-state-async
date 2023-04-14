@@ -34,22 +34,22 @@
  * @brief AsyncCommand implementation using popen.
  * @warning this implementation is under development, you can use piped_async
  */
-class AsyncCommand :AsyncFileDescriptor
+class PopenAsyncCommand :AsyncFileDescriptor
 {
 public:
-    AsyncCommand(const AsyncCommand&) = delete;
-    AsyncCommand(AsyncCommand&& command);
-    AsyncCommand(FILE * fdFromStream, AsyncFileDescriptor* socket);
-    AsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
-    ~AsyncCommand();
+    PopenAsyncCommand(const PopenAsyncCommand&) = delete;
+    PopenAsyncCommand(PopenAsyncCommand&& command);
+    PopenAsyncCommand(FILE * fdFromStream, AsyncFileDescriptor* socket);
+    PopenAsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
+    ~PopenAsyncCommand();
 
-    PipeFileReadOperation recvfile(uint8_t* buffer, std::size_t len);
+    PopenFileReadOperation recvfile(uint8_t* buffer, std::size_t len);
 
 
 private:
-    friend PipeFileReadOperation;
+    friend PopenFileReadOperation;
     FILE * pipe= nullptr;
     friend IOContext;
-    explicit AsyncCommand(int fd, IOContext& io_context);
+    explicit PopenAsyncCommand(int fd, IOContext& io_context);
 
 };

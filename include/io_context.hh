@@ -35,7 +35,7 @@
 
 class Socket;
 class AsyncFileDescriptor;
-class AsyncCommand;
+class PopenAsyncCommand;
 class PipedAsyncCommand;
 
 /**
@@ -67,13 +67,13 @@ private:
 
     friend AsyncFileDescriptor;
     friend Socket;
-    friend AsyncCommand;
+    friend PopenAsyncCommand;
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
     friend FileWriteOperation;
-    friend PipeFileReadOperation;
+    friend PopenFileReadOperation;
     friend PipedAsyncCommand;
     friend DyingProcessWaitOperation;
     void attach(AsyncFileDescriptor* socket);

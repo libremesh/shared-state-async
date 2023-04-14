@@ -109,7 +109,7 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
         // first element in argc
         execvp(argc.data()[0], argc.data());
         RS_FATAL("execvp failed ", argc.data());
-        exit(1);
+        return rs_errno_to_condition(errno);
     }
     forked_proces_id = process_id;
     int pid_fd = pidfd_open(forked_proces_id, 0);

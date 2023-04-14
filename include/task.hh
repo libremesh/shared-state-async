@@ -202,9 +202,12 @@ namespace std
         }
 
     private:
+        /**
+         * the coroutine itself
+        */
         coroutine_handle<promise_type> mCoroutineHandle;
 
-        /** Internal state representing if the coroutine is detached or not.
+        /** Internal state representing if the coroutine is "detached" or not.
          *  TODO: Make sure it doesn't need to be std::atomic
          */
         bool mDetached = false;

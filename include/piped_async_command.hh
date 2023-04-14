@@ -33,10 +33,10 @@
 #include "socket.hh"
 
 /**
- * @brief AsyncCommand implementation using pipe fork excec and dual pipes
- * this implementation is fully async supporting async reading, writing and waiting 
- * for the child process to die. 
- *  
+ * @brief AsyncCommand implementation using fork excec and dual pipes
+ * 
+ * This implementation is fully async supporting async reading, writing and waiting 
+ * for the child process to die.  
  */
 class PipedAsyncCommand
 {
