@@ -129,14 +129,16 @@ std::task<> accept(Socket &listen)
 
 int main()
 {
-    
-RS_DBG0("           _        _            ____                           ");
-RS_DBG0("  _ __    / \\   ___(_)_ __   ___/ ___|  ___ _ ____   _____ _ __ ");
-RS_DBG0(" | '_ \\  / _ \\ / __| | '_ \\ / __\\___ \\ / _ | '__\\ \\ / / _ | '__|");
-RS_DBG0(" | | | |/ ___ \\ __ | | | | | (__ ___) |  __| |   \\ V |  __| |   ");
-RS_DBG0(" |_| |_/_/   \\_|___|_|_| |_|\\___|____/ \\___|_|    \\_/ \\___|_|   ");
-RS_DBG0("                        ver:",PROJECT_VERSION_MAJOR,".",PROJECT_VERSION_MINOR,".",PROJECT_VERSION_PATCH,".",PROJECT_VERSION_TWEAK);
-RS_DBG0("");
+
+RS_DBG0("           ___                         ");
+RS_DBG0("    ____  /   |  _______  ______  _____");
+RS_DBG0("   / __ \\/ /| | / ___/ / / / __ \\/ ___/");
+RS_DBG0("  / / / / ___ |(__  ) /_/ / / / / /__  ");
+RS_DBG0(" /_/ /_/_/  |_/____/\\__, /_/ /_/\\___/  ");
+RS_DBG0("                   /____/              ");
+RS_DBG0("          ver:",PROJECT_VERSION_MAJOR,".",PROJECT_VERSION_MINOR,".",PROJECT_VERSION_PATCH,".",PROJECT_VERSION_TWEAK);
+
+
     IOContext io_context{};
     Socket listen{"3490", io_context};
     auto t = accept(listen);
