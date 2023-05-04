@@ -28,5 +28,25 @@ do not forget to select the module in the make menuconfig ...
 
 https://github.com/mwarning/openwrt-examples 
 
-make package/sharedstate/compile -j1 V=sc
+make package/package_name/compile -j1 V=sc
 
+ping6 ff02::1%enp3s1
+ssh root@fe80::16cc:20ff:feda:4eaa%enp3s1
+fe80::16cc:20ff:feda:4eaa%enp3s1
+
+copy and upgrade
+scp bin/targets/ath79/generic/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin root@192.168.1.1:/tmp
+sysupgrade -v /tmp/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin 
+
+hacer requsync en el local
+invocar shared state sync 
+if104 	local cmd = "uclient-fetch --no-check-certificate -q -O- --timeout=3 " usar netcat (nc) probar en el router porque cambia de una distro a otra
+
+nc
+Usage: nc [IPADDR PORT]
+
+Open a pipe to IP:PORT
+
+
+sudo tools/qemu_dev_start ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-squashfs-rootfs.img.gz ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-initramfs-kernel.bin --node-id 1
+sudo tools/qemu_dev_start ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-squashfs-rootfs.img.gz ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-initramfs-kernel.bin --node-id 2
