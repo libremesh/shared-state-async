@@ -14,6 +14,7 @@
  * @param SyscallOpt classname of the child class
  * @param ReturnValue type of the return value of the real syscall
  * this type must be 
+ * todo: comentar el tema de ec para que se haga el manejo de errores
 */
 template <typename SyscallOpt, typename ReturnValue>
 class BlockSyscall // Awaiter
@@ -68,8 +69,9 @@ public:
     }
     
     // derived classes MUST implement these methods
-    virtual ReturnValue syscall() = 0;
-    virtual void suspend() = 0;
+    // this code is not included to avoid virtual tables 
+    //virtual ReturnValue syscall() = 0;
+    //virtual void suspend() = 0;
 
 protected:
     bool haveSuspend_;

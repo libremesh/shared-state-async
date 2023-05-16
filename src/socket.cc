@@ -76,9 +76,8 @@ std::task<std::unique_ptr<Socket>> Socket::accept()
     std::shared_ptr error_info = std::make_shared<std::error_condition>();
     //in case of failure, error_info wil have information about the problem.
     int fd = co_await SocketAcceptOperation{this,error_info}; 
-    if (*error_info.get() != std::errc())
+    if (*error_info.get())
     {
-        RS_FATAL(" error...",error_info->value()," ",error_info->message());
         rs_error_bubble_or_exit(rs_errno_to_condition(errno),errorcontainer);
     }*/
     RS_DBG0("aceptando");

@@ -75,7 +75,8 @@ std::task<bool> echo_loop(Socket &socket)
     while (nbSend < merged.size()) // todo: probar y hacer un pull request al creador
     {
         RS_DBG0("SENDING (" , merged , "):" );
-        ssize_t res = co_await socket.send((uint8_t*)&(merged.data()[nbSend]), merged.size() - nbSend);
+        ssize_t res = co_await socket.send((uint8_t*)&(merged.data()[nbSend]), merged.size() - nbSend); 
+        //todo: add error handling to avoid program interruption due to socket malfunction
         if (res <= 0)
         {
             RS_DBG0("DONE (" , nbRecv , "):" );
