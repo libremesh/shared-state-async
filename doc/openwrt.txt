@@ -44,9 +44,32 @@ if104 	local cmd = "uclient-fetch --no-check-certificate -q -O- --timeout=3 " us
 
 nc
 Usage: nc [IPADDR PORT]
-
 Open a pipe to IP:PORT
+
+cat /etc/udhcpc.user | nc 10.13.78.170 3490 //sends the contents of the file to another node
+
+
 
 
 sudo tools/qemu_dev_start ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-squashfs-rootfs.img.gz ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-initramfs-kernel.bin --node-id 1
 sudo tools/qemu_dev_start ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-squashfs-rootfs.img.gz ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-initramfs-kernel.bin --node-id 2
+
+
+failsafe mode 
+https://forum.openwrt.org/t/wdr3500-reset-button-with-openwrt/26527/6
+
+view cronjobs for examples
+stored information in
+/var/shared-state/data/ 
+cat /var/shared-state/data/nodes_and_links.json 
+shared-state sync nodes_and_links
+logread
+
+
+http://["..host.."]/cgi-bin/shared-state/"..self.dataType
+
+
+{"LiMe-fc3abd":{"bleachTTL":29,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf"],"links":[]},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":29,"data":{"links":[],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["14:cc:20:da:4e:ab"],"hostname":"LiMe-da4eaa"},"author":"LiMe-da4eaa"}}
+
+curl -d "{"LiMe-fc3abd":{"bleachTTL":2,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf"],"links":[]},"author":"Limon"}}" -X POST http://10.13.40.149/cgi-bin/shared-state/nodes_and_links 
+{"LiMe-fc3abd":{"bleachTTL":25,"data":{"links":[],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf"],"hostname":"LiMe-fc3abd"},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":25,"data":{"hostname":"LiMe-da4eaa","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["14:cc:20:da:4e:ab"],"links":[]},"author":"LiMe-da4eaa"}}
