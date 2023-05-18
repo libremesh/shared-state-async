@@ -36,6 +36,7 @@ namespace SharedState
     ProtocolViolation = 30, // e.g., bad XML
     ConnectionError,        // could not connect to server
     ResourceError,          // service run short of resources
+    NoCommand,
     Timeout                 // did not respond in time
   };
 

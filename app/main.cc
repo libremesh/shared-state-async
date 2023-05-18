@@ -54,8 +54,10 @@ std::task<bool> echo_loop(Socket &socket)
     }
     RS_DBG0("RECIVING (" , socbuffer , "):" );
     std::array<uint8_t, BUFFSIZE> buffer;
+    std::string data = socbuffer;
+    std::string command = SharedState::extractCommand(data);
     std::string merged;
-    std::string cmd = "cat";
+    std::string cmd = "shared-state reqsync "+command;
     std::error_condition err;
     std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
     if (err != std::errc())
@@ -63,7 +65,7 @@ std::task<bool> echo_loop(Socket &socket)
         asyncecho.reset(nullptr);
         co_return false;
     }
-    co_await asyncecho->writepipe((uint8_t*)socbuffer, nbRecv);
+    co_await asyncecho->writepipe(reinterpret_cast<const uint8_t*>(&data[0]), data.length());
     RS_DBG0("writepipe (" , socbuffer , "):" );
     ssize_t nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     
