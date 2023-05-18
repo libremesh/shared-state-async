@@ -30,7 +30,7 @@ FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket
                                      std::size_t len, std::shared_ptr<std::error_condition> ec)
     :BlockSyscall{ec}
     , socket{socket}
-    , buffer_{buffer}
+    , mBuffer_{buffer}
     , len_{len}
 {
     socket->io_context_.watchRead(socket.get());
@@ -45,8 +45,8 @@ FileReadOperation::~FileReadOperation()
 
 ssize_t FileReadOperation::syscall()
 {
-    RS_DBG0("FileReadOperation reading(", socket->fd_ , (char *)buffer_ ,len_ );
-    ssize_t bytesread = read(socket->fd_, buffer_, len_);
+    RS_DBG0("FileReadOperation reading(", socket->fd_ , (char *)mBuffer_ ,len_ );
+    ssize_t bytesread = read(socket->fd_, mBuffer_, len_);
     /* this method is invoked at least once but the pipe is not free.
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
      * and then suspend the execution until a new notification arrives

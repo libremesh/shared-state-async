@@ -70,11 +70,11 @@ private:
     /// we need two file descriptors to interact with the forked process
     ///      parent        child
     ///      fd1[1]        fd1[0]
-    ///        4 -- fd_W --> 3
+    ///        4 -- mfd_W --> 3
     ///      fd2[0]        fd2[1]
-    ///        5 <-- fd_r -- 6
-    int fd_w[2];
-    int fd_r[2];
+    ///        5 <-- mFd_r -- 6
+    int mFd_w[2];
+    int mFd_r[2];
     pid_t forked_proces_id = -1;
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;

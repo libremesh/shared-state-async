@@ -58,7 +58,6 @@ private:
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
-    FILE *pipe = nullptr;
     friend IOContext;
-    std::error_condition *errorcontainer = nullptr;
+    std::error_condition *mErrorcontainer = nullptr;
 };

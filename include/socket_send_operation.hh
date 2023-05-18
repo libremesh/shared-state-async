@@ -42,6 +42,6 @@ public:
 
 private:
     Socket *socket;
-    const uint8_t *buffer_;
+    const uint8_t *mBuffer_;
     std::size_t len_;
 };

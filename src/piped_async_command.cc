@@ -65,20 +65,20 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     //      fd1[1]        fd1[0]
     //        4 -- fd_w --> 3
     //      fd2[0]        fd2[1]
-    //        5 <-- fd_r -- 6
-    if (pipe(fd_w) == -1)
+    //        5 <-- mFd_r -- 6
+    if (pipe(mFd_w) == -1)
     {
         RS_FATAL("open pipe failed");
         return rs_errno_to_condition(errno);
     }
-    if (pipe(fd_r) == -1)
+    if (pipe(mFd_r) == -1)
     {
         RS_FATAL("open pipe failed");
         return rs_errno_to_condition(errno);
     }
-    async_read_end_fd = std::make_shared<AsyncFileDescriptor>(fd_r[0], context);
+    async_read_end_fd = std::make_shared<AsyncFileDescriptor>(mFd_r[0], context);
     context.attachReadonly(async_read_end_fd.get());
-    async_write_end_fd = std::make_shared<AsyncFileDescriptor>(fd_w[1], context);
+    async_write_end_fd = std::make_shared<AsyncFileDescriptor>(mFd_w[1], context);
     context.attachWriteOnly(async_write_end_fd.get());
     pid_t process_id = fork();
     RS_DBG0("forked process ---- ", process_id, "........................... ");
@@ -89,17 +89,17 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     }
     if (process_id == 0)
     { /* Child reads from pipe and writes back as soon as it finishes*/
-        close(fd_w[1]);      /// Close writing end of first pipe
+        close(mFd_w[1]);      /// Close writing end of first pipe
         close(STDIN_FILENO); /// closing stdin
-        dup(fd_w[0]);        /// replacing stdin with pipe read
+        dup(mFd_w[0]);        /// replacing stdin with pipe read
 
         /// Close both reading ends
-        close(fd_w[0]);
-        close(fd_r[0]);
+        close(mFd_w[0]);
+        close(mFd_r[0]);
 
         close(STDOUT_FILENO); /// closing stdout
-        dup(fd_r[1]);         /// replacing stdout with pipe write
-        close(fd_r[1]);
+        dup(mFd_r[1]);         /// replacing stdout with pipe write
+        close(mFd_r[1]);
 
         std::vector<char *> argc;
         argc.emplace_back(const_cast<char *>(cmd.data()));
@@ -121,8 +121,8 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     async_process_wait_fd = std::make_shared<AsyncFileDescriptor>(pid_fd, context);
     context.attachReadonly(async_process_wait_fd.get());
 
-    close(fd_r[1]);
-    close(fd_w[0]);
+    close(mFd_r[1]);
+    close(mFd_w[0]);
     RS_DBG0("PipedAsyncCommand creation finished ");
     return std::error_condition();
 }

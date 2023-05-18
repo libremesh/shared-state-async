@@ -32,7 +32,7 @@ namespace std
     struct task;
     namespace detail
     {
-        static size_t total_;
+        static size_t mTotal_;
         template <typename T>
 
         /**
@@ -45,8 +45,8 @@ namespace std
             size_t number;
             promise_type_base()
             {
-                total_ = total_ + 1;
-                number = total_;
+                mTotal_ = mTotal_ + 1;
+                number = mTotal_;
                 RS_DBG0(" #", number);
             }
             ~promise_type_base()

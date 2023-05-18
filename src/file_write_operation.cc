@@ -27,7 +27,7 @@
 FileWriteOperation::FileWriteOperation(std::shared_ptr<AsyncFileDescriptor> socket,
                                        const uint8_t *buffer,
                                        std::size_t len, std::shared_ptr<std::error_condition> ec)
-    :BlockSyscall{ec}, socket{socket}, buffer_{buffer}, len_{len}
+    :BlockSyscall{ec}, socket{socket}, mBuffer_{buffer}, len_{len}
 {
     socket->io_context_.watchWrite(socket.get());
     RS_DBG0("FileWriteOperation created\n");
@@ -41,8 +41,8 @@ FileWriteOperation::~FileWriteOperation()
 
 ssize_t FileWriteOperation::syscall()
 {
-    RS_DBG0("FileWriteOperation write(", socket->fd_, ",", (char *)buffer_, ",", len_, ")\n");
-    ssize_t bytes_writen = write(socket->fd_, (char *)buffer_, len_);
+    RS_DBG0("FileWriteOperation write(", socket->fd_, ",", (char *)mBuffer_, ",", len_, ")\n");
+    ssize_t bytes_writen = write(socket->fd_, (char *)mBuffer_, len_);
     if (bytes_writen == -1)
     {
         RS_ERR("**** error ****", strerror(errno));

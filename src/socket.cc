@@ -47,7 +47,7 @@ Socket::Socket(std::string_view port, IOContext& io_context)
     setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
     if (bind(fd_, res->ai_addr, res->ai_addrlen) == -1)
     {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),errorcontainer);
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),mErrorcontainer);
     }
     listen(fd_, 8);
     fcntl(fd_, F_SETFL, O_NONBLOCK);

@@ -28,7 +28,7 @@ PopenFileReadOperation::PopenFileReadOperation(PopenAsyncCommand* socket,
         std::size_t len, std::shared_ptr<std::error_condition> ec)
     :BlockSyscall{ec}
     , socket{socket}
-    , buffer_{buffer}
+    , mBuffer_{buffer}
     , len_{len}
 {
     socket->io_context_.watchRead(socket);
@@ -44,11 +44,11 @@ PopenFileReadOperation::~PopenFileReadOperation()
 ssize_t PopenFileReadOperation::syscall()
 {
     std::string result;
-    RS_DBG0("fgets(" , fileno(socket->pipe) );
-    while (!feof(socket->pipe))
+    RS_DBG0("fgets(" , fileno(socket->mPipe) );
+    while (!feof(socket->mPipe))
     {
-        if (fgets((char *)buffer_, len_, socket->pipe) != nullptr)
-            result += (char *)buffer_;
+        if (fgets((char *)mBuffer_, len_, socket->mPipe) != nullptr)
+            result += (char *)mBuffer_;
     }
 //    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
     return 10;

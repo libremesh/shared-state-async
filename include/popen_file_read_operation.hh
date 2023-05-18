@@ -42,6 +42,6 @@ public:
     void suspend();
 private:
     PopenAsyncCommand* socket;
-    uint8_t* buffer_;
+    uint8_t* mBuffer_;
     std::size_t len_;
 };

@@ -38,6 +38,6 @@ public:
     void suspend();
 private:
     std::shared_ptr<AsyncFileDescriptor>  socket;
-    const uint8_t* buffer_;
+    const uint8_t* mBuffer_;
     std::size_t len_;
 };

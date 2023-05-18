@@ -48,7 +48,7 @@ public:
 
 private:
     friend PopenFileReadOperation;
-    FILE * pipe= nullptr;
+    FILE * mPipe= nullptr;
     friend IOContext;
     explicit PopenAsyncCommand(int fd, IOContext& io_context);
 

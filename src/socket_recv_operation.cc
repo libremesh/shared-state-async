@@ -27,7 +27,7 @@ SocketRecvOperation::SocketRecvOperation(Socket *socket,
                                          uint8_t *buffer,
                                          std::size_t len,
                                          std::shared_ptr<std::error_condition> ec )
-    : BlockSyscall{ec}, socket{socket}, buffer_{buffer}, len_{len}
+    : BlockSyscall{ec}, socket{socket}, mBuffer_{buffer}, len_{len}
 {
     socket->io_context_.watchRead(socket);
     RS_DBG0("socket_recv_operation\n)");
@@ -41,8 +41,8 @@ SocketRecvOperation::~SocketRecvOperation()
 
 ssize_t SocketRecvOperation::syscall()
 {
-    RS_DBG0("recv(", socket->fd_, "content", (char *)buffer_, "ammount", len_, ")\n");
-    ssize_t bytesread = recv(socket->fd_, buffer_, len_, 0);
+    RS_DBG0("recv(", socket->fd_, "content", (char *)mBuffer_, "ammount", len_, ")\n");
+    ssize_t bytesread = recv(socket->fd_, mBuffer_, len_, 0);
     /* this method is invoked at least once but the socket is not free.
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
      * and then suspend the execution until a new notification arrives
