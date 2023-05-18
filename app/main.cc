@@ -65,17 +65,17 @@ std::task<bool> echo_loop(Socket &socket)
     }
     co_await asyncecho->writepipe((uint8_t*)socbuffer, nbRecv);
     RS_DBG0("writepipe (" , socbuffer , "):" );
-    co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
+    ssize_t nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     
     merged = (char *)buffer.data();
     RS_DBG0("readpipe (" , merged , "):" );
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
 
     size_t nbSend = 0;
-    while (nbSend < merged.size()) // todo: probar y hacer un pull request al creador
+    while (nbSend < nbRecvFromPipe) // todo: probar y hacer un pull request al creador
     {
         RS_DBG0("SENDING (" , merged , "):" );
-        ssize_t res = co_await socket.send((uint8_t*)&(merged.data()[nbSend]), merged.size() - nbSend); 
+        ssize_t res = co_await socket.send((uint8_t*)&(merged.data()[nbSend]), nbRecvFromPipe - nbSend); 
         //todo: add error handling to avoid program interruption due to socket malfunction
         if (res <= 0)
         {
