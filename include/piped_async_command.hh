@@ -59,6 +59,8 @@ public:
     FileReadOperation readpipe(uint8_t *buffer, std::size_t len);
     FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
     DyingProcessWaitOperation whaitforprocesstodie();
+    void finishwriting();
+
 
 private:
     std::error_condition init(std::string cmd, IOContext &context);

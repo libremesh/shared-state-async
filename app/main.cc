@@ -32,7 +32,7 @@
 #include "debug/rsdebuglevel2.h"
 #include "config.h"
 
-#define BUFFSIZE 256
+#define BUFFSIZE 2048
 
 /**
  * @brief this task handles each message. It takes receives a message, 
@@ -58,6 +58,9 @@ std::task<bool> echo_loop(Socket &socket)
     std::string command = SharedState::extractCommand(data);
     std::string merged;
     std::string cmd = "shared-state reqsync "+command;
+    RS_DBG0("executing command -",cmd);
+    //cmd = "ls -la";
+    RS_DBG0("executing command -",cmd);
     std::error_condition err;
     std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
     if (err != std::errc())
@@ -66,11 +69,12 @@ std::task<bool> echo_loop(Socket &socket)
         co_return false;
     }
     co_await asyncecho->writepipe(reinterpret_cast<const uint8_t*>(&data[0]), data.length());
-    RS_DBG0("writepipe (" , socbuffer , "):" );
+    RS_DBG0("writepipe (" , data , ")" );
+
     ssize_t nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
-    
+
     merged = (char *)buffer.data();
-    RS_DBG0("readpipe (" , merged , "):" );
+    RS_DBG0("readpipe (" , merged , ")" );
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
 
     size_t nbSend = 0;
@@ -81,13 +85,13 @@ std::task<bool> echo_loop(Socket &socket)
         //todo: add error handling to avoid program interruption due to socket malfunction
         if (res <= 0)
         {
-            RS_DBG0("DONE (" , nbRecv , "):" );
+            RS_DBG0("DONE (" , nbRecvFromPipe , "):" );
             co_return false;
         }
         nbSend += res;
     }
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
-    RS_DBG0("DONE (" , nbRecv , "):" );
+    RS_DBG0("DONE (" , nbRecvFromPipe , "):" );
     co_await asyncecho->whaitforprocesstodie();
     asyncecho.reset(nullptr);
     co_return false;

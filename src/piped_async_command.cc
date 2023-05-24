@@ -30,6 +30,8 @@
 #include "io_context.hh"
 #include <signal.h>
 #include <sys/types.h>
+#include <iterator>
+#include <sstream>
 
 #ifndef __NR_pidfd_open
 #define __NR_pidfd_open 434 /* System call # on most architectures */
@@ -88,27 +90,36 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
         return rs_errno_to_condition(errno);
     }
     if (process_id == 0)
-    { /* Child reads from pipe and writes back as soon as it finishes*/
-        close(mFd_w[1]);      /// Close writing end of first pipe
+    {                        /* Child reads from pipe and writes back as soon as it finishes*/
+        close(mFd_w[1]);     /// Close writing end of first pipe
         close(STDIN_FILENO); /// closing stdin
-        dup(mFd_w[0]);        /// replacing stdin with pipe read
+        dup(mFd_w[0]);       /// replacing stdin with pipe read
 
         /// Close both reading ends
         close(mFd_w[0]);
         close(mFd_r[0]);
 
         close(STDOUT_FILENO); /// closing stdout
-        dup(mFd_r[1]);         /// replacing stdout with pipe write
+        dup(mFd_r[1]);        /// replacing stdout with pipe write
         close(mFd_r[1]);
 
-        std::vector<char *> argc;
-        argc.emplace_back(const_cast<char *>(cmd.data()));
+        std::stringstream ss(cmd);
+        std::istream_iterator<std::string> begin(ss);
+        std::istream_iterator<std::string> end;
+        std::vector<std::string> vstrings(begin, end);
+        std::copy(vstrings.begin(), vstrings.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
+
+        std::vector<char *> argcexec(vstrings.size(), nullptr);
+        for (int i = 0; i < vstrings.size(); i++)
+        {
+            argcexec[i] = vstrings[i].data();
+        }
         /// NULL terminate the command line
-        argc.push_back(nullptr);
+        argcexec.push_back(nullptr);
         // The first argument to execvp should be the same as the
         // first element in argc
-        execvp(argc.data()[0], argc.data());
-        RS_FATAL("execvp failed ", argc.data());
+        execvp(argcexec.data()[0], argcexec.data());
+        RS_FATAL("* * * * * * * execvp failed ", argcexec.data());
         return rs_errno_to_condition(errno);
     }
     forked_proces_id = process_id;
@@ -142,6 +153,10 @@ FileReadOperation PipedAsyncCommand::readpipe(uint8_t *buffer, std::size_t len)
 FileWriteOperation PipedAsyncCommand::writepipe(const uint8_t *buffer, std::size_t len)
 {
     return FileWriteOperation{async_write_end_fd, buffer, len};
+}
+void PipedAsyncCommand::finishwriting()
+{
+    async_write_end_fd.reset();
 }
 
 /**
