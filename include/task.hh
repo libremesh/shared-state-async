@@ -150,12 +150,17 @@ namespace std
         }
         ~task()
         {
-            RS_DBG0("");
+            RS_DBG0(" #", mCoroutineHandle.promise().number);
             if (mCoroutineHandle)
             {
                 RS_DBG0("have you finished ? ", mCoroutineHandle.done(), ", task disposable = ", mDetached);
-                if (mCoroutineHandle.done() || !mDetached)
+                if (mCoroutineHandle.done() && mDetached)
                 {
+                    RS_DBG0("do noting");
+                }
+                else if (mCoroutineHandle.done() || !mDetached)
+                {
+                    RS_DBG0("I'll destroy m_coro");
                     mCoroutineHandle.destroy();
                     RS_DBG0("i've just destroyed m_coro");
                 }
