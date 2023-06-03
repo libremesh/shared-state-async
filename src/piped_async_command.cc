@@ -53,6 +53,7 @@ PipedAsyncCommand::PipedAsyncCommand()
  * This is a factory method it must be called for every object.
  * @warning remember to call "whaitforprocesstodie" after using the object to
  * prevent zombi process creation.
+ * some interesting insights might/explanations be found http://unixwiz.net/techtips/remap-pipe-fds.html
  *
  * @param cmd a copy of the command to be executed asynchronously. This
  * parameter is an explicit copy, it wont be a large string and it is a secure
@@ -75,9 +76,17 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     }
     if (pipe(mFd_r) == -1)
     {
+        close(mFd_w[1]);     /// Close the previously open pipe
+        close(mFd_w[0]);
         RS_FATAL("open pipe failed");
         return rs_errno_to_condition(errno);
     }
+
+    #define	PARENT_READ	mFd_r[0]
+    #define	CHILD_WRITE	mFd_r[1]
+    #define CHILD_READ	mFd_w[0]
+    #define PARENT_WRITE    mFd_w[1]
+
     async_read_end_fd = std::make_shared<AsyncFileDescriptor>(mFd_r[0], context);
     context.attachReadonly(async_read_end_fd.get());
     async_write_end_fd = std::make_shared<AsyncFileDescriptor>(mFd_w[1], context);
@@ -86,12 +95,16 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     RS_DBG0("forked process ---- ", process_id, "........................... ");
     if (process_id == -1)
     {
-        RS_ERR("failed to fork the process");
+        close(mFd_w[0]);
+        close(mFd_r[1]);     /// Close the previously open pipe
+        async_read_end_fd.reset();
+        async_write_end_fd.reset();
+        RS_FATAL("failed to fork the process  ** ** ** * ** *  ** * * * * * * * * * * * ");
         return rs_errno_to_condition(errno);
     }
     if (process_id == 0)
     {                        /* Child reads from pipe and writes back as soon as it finishes*/
-        close(mFd_w[1]);     /// Close writing end of first pipe
+        /*close(mFd_w[1]);     /// Close writing end of first pipe
         close(STDIN_FILENO); /// closing stdin
         dup(mFd_w[0]);       /// replacing stdin with pipe read
 
@@ -101,7 +114,13 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
 
         close(STDOUT_FILENO); /// closing stdout
         dup(mFd_r[1]);        /// replacing stdout with pipe write
-        close(mFd_r[1]);
+        close(mFd_r[1]);*/
+        close(PARENT_WRITE);
+        close(PARENT_READ);
+
+        dup2(CHILD_READ,  0);  close(CHILD_READ);
+        dup2(CHILD_WRITE, 1);  close(CHILD_WRITE);
+
 
         std::stringstream ss(cmd);
         std::istream_iterator<std::string> begin(ss);
@@ -126,14 +145,14 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
     int pid_fd = pidfd_open(forked_proces_id, 0);
     if (pid_fd == -1)
     {
-        RS_ERR("pidfd_open failed, you wont be able to wait for the dying process");
+        RS_FATAL("pidfd_open failed, you wont be able to wait for the dying process ** ***** * * * * * ** ");
         return rs_errno_to_condition(errno);
     }
     async_process_wait_fd = std::make_shared<AsyncFileDescriptor>(pid_fd, context);
     context.attachReadonly(async_process_wait_fd.get());
 
-    close(mFd_r[1]);
-    close(mFd_w[0]);
+	close(CHILD_READ);
+	close(CHILD_WRITE);
     RS_DBG0("PipedAsyncCommand creation finished ");
     return std::error_condition();
 }
@@ -141,7 +160,7 @@ std::error_condition PipedAsyncCommand::init(std::string cmd, IOContext &context
 PipedAsyncCommand::~PipedAsyncCommand()
 {
     async_read_end_fd.reset();
-    async_write_end_fd.reset();
+    //async_write_end_fd.reset();
     async_process_wait_fd.reset();
 }
 
@@ -157,6 +176,7 @@ FileWriteOperation PipedAsyncCommand::writepipe(const uint8_t *buffer, std::size
 void PipedAsyncCommand::finishwriting()
 {
     async_write_end_fd.reset();
+    //close(PARENT_WRITE);
 }
 
 /**

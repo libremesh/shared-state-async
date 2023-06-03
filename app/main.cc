@@ -57,24 +57,34 @@ std::task<bool> echo_loop(Socket &socket)
     std::string data = socbuffer;
     std::string command = SharedState::extractCommand(data);
     std::string merged;
-    std::string cmd = "shared-state reqsync "+command;
+    std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync ";
+    //std::string cmd = "/tmp/scandir.lua ls ";
     RS_DBG0("executing command -",cmd);
-    //cmd = "ls -la";
+    cmd = "cat";
+    //cmd = cmd + command;
     RS_DBG0("executing command -",cmd);
     std::error_condition err;
     std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
     if (err != std::errc())
     {
-        asyncecho.reset(nullptr);
-        co_return false;
+        asyncecho.reset(nullptr); 
+        RS_ERR("Error creating new process....")
+        co_return false;  
     }
     co_await asyncecho->writepipe(reinterpret_cast<const uint8_t*>(&data[0]), data.length());
     RS_DBG0("writepipe (" , data , ")" );
-
+    //some applications read until eof is sent, the only way is closing the write end.
+    asyncecho->finishwriting();
+ 
+ 
     ssize_t nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
+    merged += (char *)buffer.data();
+    RS_DBG0("readpipe aaaaaaaaaaaaaaaa (" , merged , ") ammount" ,nbRecvFromPipe);
+    //in the case of shared-state an extra read is necesary to bring command output
+    nbRecvFromPipe += co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
+    merged += (char *)buffer.data();
+    RS_DBG0("readpipe bbbbbbbbbbbbbbbbbb (" , merged , ") ammount" ,nbRecvFromPipe);
 
-    merged = (char *)buffer.data();
-    RS_DBG0("readpipe (" , merged , ")" );
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
 
     size_t nbSend = 0;

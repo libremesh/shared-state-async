@@ -35,6 +35,8 @@
 #include <iostream>
 #include <unistd.h>
 
+ static int mTotalAsyncFileDescriptor;
+
 class AsyncFileDescriptor
 {
 public:
@@ -47,21 +49,27 @@ public:
         : io_context_{socket.io_context_}, fd_{socket.fd_}, io_state_{socket.io_state_}, io_new_state_{socket.io_new_state_}
     {
         socket.fd_ = -1;
+        mTotalAsyncFileDescriptor = mTotalAsyncFileDescriptor + 1;
+        number = mTotalAsyncFileDescriptor;
     }
 
     AsyncFileDescriptor(int fd, IOContext &io_context)
         : io_context_{io_context}, fd_{fd}
     {
-        RS_DBG0("AsyncFileDescriptor ", fd, "Created");
+        mTotalAsyncFileDescriptor = mTotalAsyncFileDescriptor + 1;
+        number = mTotalAsyncFileDescriptor;
+        RS_DBG0("AsyncFileDescriptor ", fd, "Created", "number ", number);
         fcntl(fd_, F_SETFL, O_NONBLOCK);
         // io_context_.attach(this);
     }
 
     ~AsyncFileDescriptor()
     {
-        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n");
+        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n","number ", number);
         if (fd_ == -1)
+        {
             return;
+        }
         io_context_.detach(this);
         close(fd_);
     }
@@ -73,6 +81,8 @@ public:
             RS_DBG0(" nada que resumir en receive ");
             return false;
         }
+        RS_DBG0("number ", number);
+        RS_DBG0(" done ?????????", coroRecv_.done());
         coroRecv_.resume();
         return true;
     }
@@ -84,6 +94,7 @@ public:
             RS_DBG0("- nada que resumir en el envio ");
             return false;
         }
+        RS_DBG0("number ", number);
         coroSend_.resume();
         return true;
     }
@@ -98,7 +109,7 @@ public:
     int fd_ = -1;
     uint32_t io_state_ = 0;
     uint32_t io_new_state_ = 0;
-
+    int number = 0;
     std::coroutine_handle<> coroRecv_;
     std::coroutine_handle<> coroSend_;
 };
