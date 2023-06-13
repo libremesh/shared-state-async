@@ -72,6 +72,7 @@ public:
         }
         io_context_.detach(this);
         close(fd_);
+        fd_ = -1;
     }
 
     bool resumeRecv()

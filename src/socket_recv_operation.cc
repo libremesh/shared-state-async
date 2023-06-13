@@ -51,6 +51,12 @@ ssize_t SocketRecvOperation::syscall()
     {
         RS_WARN("**** error ****", strerror(errno));
     }
+    else
+    {
+        mBuffer_[bytesread]='\0';
+        mBuffer_[bytesread+1]='\0';
+        bytesread = bytesread +2;
+    }
     RS_DBG0("recv ", bytesread);
     return bytesread;
 }

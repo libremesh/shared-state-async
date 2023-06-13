@@ -32,7 +32,7 @@
 #include "debug/rsdebuglevel2.h"
 #include "config.h"
 
-#define BUFFSIZE 2048
+#define BUFFSIZE 3048
 
 /**
  * @brief this task handles each message. It takes receives a message, 
@@ -68,14 +68,13 @@ std::task<bool> echo_loop(Socket &socket)
     if (err != std::errc())
     {
         asyncecho.reset(nullptr); 
-        RS_ERR("Error creating new process....")
+        RS_ERR("Error creating new process....");
         co_return false;  
     }
     co_await asyncecho->writepipe(reinterpret_cast<const uint8_t*>(&data[0]), data.length());
     RS_DBG0("writepipe (" , data , ")" );
     //some applications read until eof is sent, the only way is closing the write end.
     asyncecho->finishwriting();
- 
  
     ssize_t nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
     merged += (char *)buffer.data();
