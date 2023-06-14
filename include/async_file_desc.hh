@@ -83,6 +83,13 @@ public:
             return false;
         }
         RS_DBG0("number ", number);
+        if (number > 14047016 ) //there is an extrage race condition 
+        {//it seems that the kernel registers an event for a socket, the 
+        //socket is then closed and the coroutine destroyed, the coroRecv
+        //is not null but the async fd no longer exists ... 
+            RS_DBG0(" nada que resumir en receive ...te cague culiauuuu ");
+            return false;
+        }
         RS_DBG0(" done ?????????", coroRecv_.done());
         coroRecv_.resume();
         return true;

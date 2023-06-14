@@ -60,8 +60,8 @@ std::task<bool> echo_loop(Socket &socket)
     std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync ";
     //std::string cmd = "/tmp/scandir.lua ls ";
     RS_DBG0("executing command -",cmd);
-    cmd = "cat";
-    //cmd = cmd + command;
+    //cmd = "cat";
+    cmd = cmd + command;
     RS_DBG0("executing command -",cmd);
     std::error_condition err;
     std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
