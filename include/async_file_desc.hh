@@ -49,23 +49,24 @@ public:
         : io_context_{socket.io_context_}, fd_{socket.fd_}, io_state_{socket.io_state_}, io_new_state_{socket.io_new_state_}
     {
         socket.fd_ = -1;
-        mTotalAsyncFileDescriptor = mTotalAsyncFileDescriptor + 1;
+        mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) % 50;
         number = mTotalAsyncFileDescriptor;
     }
 
     AsyncFileDescriptor(int fd, IOContext &io_context)
         : io_context_{io_context}, fd_{fd}
     {
-        mTotalAsyncFileDescriptor = mTotalAsyncFileDescriptor + 1;
+        mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) %50;
         number = mTotalAsyncFileDescriptor;
-        RS_DBG0("AsyncFileDescriptor ", fd, "Created", "number ", number);
+        RS_DBG0("AsyncFileDescriptor ", fd, "Created ", "number ", number);
         fcntl(fd_, F_SETFL, O_NONBLOCK);
         // io_context_.attach(this);
     }
 
     ~AsyncFileDescriptor()
     {
-        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n","number ", number);
+        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n"," number ", number);
+        number = -1;
         if (fd_ == -1)
         {
             return;
@@ -83,7 +84,7 @@ public:
             return false;
         }
         RS_DBG0("number ", number);
-        if (number > 14047016 ) //there is an extrage race condition 
+        if (number > 51 ) //there is an extrage race condition 
         {//it seems that the kernel registers an event for a socket, the 
         //socket is then closed and the coroutine destroyed, the coroRecv
         //is not null but the async fd no longer exists ... 
