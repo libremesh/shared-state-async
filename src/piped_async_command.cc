@@ -175,8 +175,10 @@ FileWriteOperation PipedAsyncCommand::writepipe(const uint8_t *buffer, std::size
 }
 void PipedAsyncCommand::finishwriting()
 {
+    RS_DBG0("async_write_end_fd.use_count()",  async_write_end_fd.use_count());
+    async_write_end_fd.get()->io_context_.unwatchWrite(async_write_end_fd.get());
     async_write_end_fd.reset();
-    //close(PARENT_WRITE);
+    //close(PARENT_WRITE); //no funciona
 }
 
 /**

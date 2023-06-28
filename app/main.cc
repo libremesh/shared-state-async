@@ -54,14 +54,15 @@ std::task<bool> echo_loop(Socket &socket)
     }
     RS_DBG0("RECIVING (" , socbuffer , "):" );
     std::array<uint8_t, BUFFSIZE> buffer;
+    buffer.fill(0);
     std::string data = socbuffer;
     std::string command = SharedState::extractCommand(data);
     std::string merged;
     std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync ";
     //std::string cmd = "/tmp/scandir.lua ls ";
     RS_DBG0("executing command -",cmd);
-    //cmd = "cat";
-    cmd = cmd + command;
+    cmd = "cat";
+    //cmd = cmd + command;
     RS_DBG0("executing command -",cmd);
     std::error_condition err;
     std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
@@ -80,9 +81,10 @@ std::task<bool> echo_loop(Socket &socket)
     merged += (char *)buffer.data();
     RS_DBG0("readpipe aaaaaaaaaaaaaaaa (" , merged , ") ammount" ,nbRecvFromPipe);
     //in the case of shared-state an extra read is necesary to bring command output
-    nbRecvFromPipe += co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
-    merged += (char *)buffer.data();
-    RS_DBG0("readpipe bbbbbbbbbbbbbbbbbb (" , merged , ") ammount" ,nbRecvFromPipe);
+    //when testing with cat sometimes the extra read hangs and no new notification arrives 
+    //nbRecvFromPipe += co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
+    //merged += (char *)buffer.data();
+    //RS_DBG0("readpipe bbbbbbbbbbbbbbbbbb (" , merged , ") ammount" ,nbRecvFromPipe);
 
     // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
 

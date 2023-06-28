@@ -44,7 +44,7 @@ port = 3490
 #s.connect(("10.13.40.149", port))
 if results.filename == None:
     s.connect((results.ip, port))
-    message = '{123456789012312345678901231234567890123><2345678901231234567890123}'
+    message = '{123456789012312345678901231234567890123><2345678901231234567890123}'+str(time.time())
     try:
         # Send data
         print ('sending "%s"', message)
@@ -55,13 +55,11 @@ if results.filename == None:
         data=""
         while amount_received < amount_expected:
             data += s.recv(50).decode("utf-8") 
-
-            time. sleep(0.4)
             amount_received += len(data)
         print ( 'received "%s"', data)
 
     finally:
-        #assert(data=="message")
+        assert(data==message)
         print ('closing socket') 
         s.close()
 else:
@@ -86,10 +84,9 @@ else:
                 break
             datastring += data.decode('utf-8')
         print(datastring)
-        assert("/usr/bin/lua" in datastring)
-        assert("7777" in datastring)
-
-        print ('closing socket') 
+        #assert("/usr/bin/lua" in datastring
         s.close()
+        assert("00:fc:3a:be" in datastring)
+        print ('closing socket') 
  
 print ("the socket has successfully connected to epollCoro")

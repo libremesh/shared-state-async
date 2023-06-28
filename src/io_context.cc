@@ -48,6 +48,22 @@ void IOContext::run()
             if (events[n].events & EPOLLIN)
             {
                 RS_DBG0("llamando en in");
+                if(events[n].events & EPOLLERR) 
+                {
+                    RS_DBG0("llamando por EPOLLERR");
+                }
+                if(events[n].events & EPOLLRDHUP) 
+                {
+                    RS_DBG0("llamando por EPOLLRDHUP");
+                }
+                if(events[n].events & EPOLLHUP) 
+                {
+                    RS_DBG0("llamando por EPOLLHUP");
+                }
+                if(events[n].events & EPOLLPRI) 
+                {
+                    RS_DBG0("llamando por EPOLLPRI");
+                }
                 socket->resumeRecv();
             }
             if (events[n].events & EPOLLOUT)
@@ -57,6 +73,7 @@ void IOContext::run()
                 socket->resumeSend();
             }
         }
+
         for (auto *socket : processedSockets)
         {
             auto io_state = socket->io_new_state_;
@@ -189,9 +206,10 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
  */
 void IOContext::detach(AsyncFileDescriptor *socket)
 {
+    RS_DBG0("detaching ",socket->fd_);
     if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, nullptr) == -1)
     {
-        RS_FATAL("epoll_ctl: detach");
+        RS_FATAL("epoll_ctl: detach errorrrrrrrrr");
         exit(EXIT_FAILURE);
     }
     processedSockets.erase(socket);

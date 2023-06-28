@@ -88,7 +88,7 @@ public:
         {//it seems that the kernel registers an event for a socket, the 
         //socket is then closed and the coroutine destroyed, the coroRecv
         //is not null but the async fd no longer exists ... 
-            RS_DBG0(" nada que resumir en receive ...te cague culiauuuu ");
+            RS_DBG0(" nada que resumir en receive ... pero salto esta guarda... number > 51 ");
             return false;
         }
         RS_DBG0(" done ?????????", coroRecv_.done());

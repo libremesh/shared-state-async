@@ -58,14 +58,14 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 Socket::~Socket()
 {
     RS_DBG0("------delete the socket(" , fd_ , ")\n");
-    if (fd_ == -1)
+    /*if (fd_ == -1)
     {
         RS_WARN(" socket(" , fd_ , ") already deleted \n");
         return;
     }
     io_context_.detach(this);
     close(fd_);
-    fd_ = -1;
+    fd_ = -1;*/
 }
 
 std::task<std::unique_ptr<Socket>> Socket::accept()
