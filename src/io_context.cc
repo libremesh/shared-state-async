@@ -47,7 +47,7 @@ void IOContext::run()
 
             if (events[n].events & EPOLLIN)
             {
-                RS_DBG0("llamando en in");
+                RS_DBG0("llamando en in al ptr ", (uint64_t)events[n].data.ptr," fd " , socket->fd_);
                 if(events[n].events & EPOLLERR) 
                 {
                     RS_DBG0("llamando por EPOLLERR");
@@ -111,6 +111,8 @@ void IOContext::attach(AsyncFileDescriptor *socket)
         perror("epoll_ctl EPOLL_CTL_ADD");
     }
     socket->io_state_ = io_state;
+    RS_DBG0("successfully attached for reading # ", socket->fd_ ," pointer ",(uint64_t)ev.data.ptr);
+
 }
 
 /**
@@ -129,8 +131,8 @@ void IOContext::attachReadonly(AsyncFileDescriptor *socket)
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for reading # ", socket->fd_);
-    ;
+    RS_DBG0("successfully attached for reading # ", socket->fd_ ," pointer ",(uint64_t)ev.data.ptr);
+    
 }
 
 /**
@@ -152,7 +154,7 @@ void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
         // throw std::runtime_error{"epoll_ctl: attach"};
     }
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for writing events# ", socket->fd_);
+    RS_DBG0("successfully attached for writing events# ", socket->fd_ ," pointer ",(uint64_t)ev.data.ptr );
 }
 
 /**

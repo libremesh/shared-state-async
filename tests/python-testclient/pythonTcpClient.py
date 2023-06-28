@@ -63,9 +63,10 @@ if results.filename == None:
         print ('closing socket') 
         s.close()
 else:
-    for x in range(results.amount): 
+    for x in range(int(results.amount)): 
         s.connect((results.ip, port))
         f = open(results.filename,'rb')
+        input=""
         print ("Reading... for the ",x, " time")
         l = f.read(1024)
         print (l)
@@ -74,6 +75,7 @@ else:
             print (l)
             s.send(l)
             l = f.read(1024)
+            input = input +str(l)
         f.close()
         print ("Done Sending")
         datastring=""
@@ -86,7 +88,7 @@ else:
         print(datastring)
         #assert("/usr/bin/lua" in datastring
         s.close()
-        assert("00:fc:3a:be" in datastring)
+        assert(input,datastring)
         print ('closing socket') 
  
 print ("the socket has successfully connected to epollCoro")
