@@ -34,13 +34,13 @@ FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket
     , len_{len}
 {
     socket->io_context_.watchRead(socket.get());
-    RS_DBG0("FileReadOperation created");
+    RS_DBG0("FileReadOperation created for fd" , socket->fd_);
 }
 
 FileReadOperation::~FileReadOperation()
 {
     socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("~FileReadOperation");
+    RS_DBG0("~FileReadOperation for fd ", socket->fd_);
 }
 
 ssize_t FileReadOperation::syscall()

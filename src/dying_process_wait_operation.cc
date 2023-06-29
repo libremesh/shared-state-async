@@ -33,30 +33,31 @@
 DyingProcessWaitOperation::DyingProcessWaitOperation(std::shared_ptr<AsyncFileDescriptor> socket, pid_t process_to_wait, std::shared_ptr<std::error_condition> ec)
     :BlockSyscall{ec}, socket{socket}
 {
-    socket->io_context_.watchRead(socket.get());
+    
     pid = process_to_wait;
-    RS_DBG0("FileWriteOperation created\n");
+    RS_DBG0("FileWriteOperation created","socket " ,socket->fd_, "\n");
 }
 
 DyingProcessWaitOperation::~DyingProcessWaitOperation()
 {
     socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("~FileWriteOperation\n");
+    RS_DBG0("~FileWriteOperation","socket " ,socket->fd_, "\n");
 }
 
 pid_t DyingProcessWaitOperation::syscall()
 {
     pid_t cpid = waitpid(pid, NULL, WNOHANG);
-    RS_DBG0("wait returned ", cpid, "errno ", errno);
+    RS_DBG0("wait returned ", cpid, "errno ", errno, " socket " ,socket->fd_, "\n");
     if (cpid == 0 || cpid == -1)
     {
         // just in case kill the process.
         kill(pid, SIGKILL);
         cpid = -1; // if the state has not changed wait returns 0...but blocksyscall expects -1
+        errno = EAGAIN;
     }
     else if (cpid == pid)
     {
-        RS_DBG0("Successful wait returned process id", cpid);
+        RS_DBG0("Successful wait returned process id ", cpid, "socket " ,socket->fd_, "\n");
     }
     return cpid;
 }

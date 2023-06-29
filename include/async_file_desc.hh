@@ -58,14 +58,14 @@ public:
     {
         mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) %50;
         number = mTotalAsyncFileDescriptor;
-        RS_DBG0("AsyncFileDescriptor ", fd, "Created ", "number ", number);
+        RS_DBG0("AsyncFileDescriptor ", fd, "Created ", "AsyncFileDescriptor ", number);
         fcntl(fd_, F_SETFL, O_NONBLOCK);
         // io_context_.attach(this);
     }
 
     ~AsyncFileDescriptor()
     {
-        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n"," number ", number);
+        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")"," AsyncFileDescriptor ", number);
         number = -1;
         if (fd_ == -1)
         {
@@ -78,32 +78,14 @@ public:
 
     bool resumeRecv()
     {
-        if (!coroRecv_)
-        {
-            RS_DBG0(" nada que resumir en receive ");
-            return false;
-        }
-        RS_DBG0("number ", number);
-        if (number > 51 ) //there is an extrage race condition 
-        {//it seems that the kernel registers an event for a socket, the 
-        //socket is then closed and the coroutine destroyed, the coroRecv
-        //is not null but the async fd no longer exists ... 
-            RS_DBG0(" nada que resumir en receive ... pero salto esta guarda... number > 51 ");
-            return false;
-        }
-        RS_DBG0(" done ?????????", coroRecv_.done());
+        RS_DBG0("resumeRecv AsyncFileDescriptor ", number);
         coroRecv_.resume();
         return true;
     }
 
     bool resumeSend()
     {
-        if (!coroSend_)
-        {
-            RS_DBG0("- nada que resumir en el envio ");
-            return false;
-        }
-        RS_DBG0("number ", number);
+        RS_DBG0("resumeSend AsyncFileDescriptor ", number);
         coroSend_.resume();
         return true;
     }

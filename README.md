@@ -44,17 +44,12 @@ For unit testing folow this instructions
 > ./unit_tests -s #runs unittests with details
 > 
 ```
+Testing 
 
-## .gitignore
+There are some simple tests implemented in C++ 
+the most important test is a set of scripts
 
-The [.gitignore](.gitignore) file is a copy of the [Github C++.gitignore file](https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore),
-with the addition of ignoring the build directory (`build/`).
-
-## Services (TODO)
-
-If the repository is activated with Travis-CI, then unit tests will be built and executed on each commit.
-The same is true if the repository is activated with Appveyor.
-
-If the repository is activated with Coveralls/Codecov, then deployment to Travis will also calculate code coverage and
-upload this to Coveralls.io and/or Codecov.io
-
+start the main app in a console and in another console type one of the following  
+/tests/python-testclient$ python pythonTcpClient.py -ip 127.0.0.1 
+/tests/python-testclient$ python pythonTcpClient.py -ip 127.0.0.1 -f ../samplestate.txt
+/tests/python-testclient$ ./runclientlocal.sh

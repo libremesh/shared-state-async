@@ -61,6 +61,7 @@ public:
     FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
     DyingProcessWaitOperation whaitforprocesstodie();
     void finishwriting();
+    void finishReading();
 
 
 private:

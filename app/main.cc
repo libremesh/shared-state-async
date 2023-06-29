@@ -86,7 +86,7 @@ std::task<bool> echo_loop(Socket &socket)
     //merged += (char *)buffer.data();
     //RS_DBG0("readpipe bbbbbbbbbbbbbbbbbb (" , merged , ") ammount" ,nbRecvFromPipe);
 
-    // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
+    //TODO: problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
 
     size_t nbSend = 0;
     while (nbSend < nbRecvFromPipe) // todo: probar y hacer un pull request al creador
@@ -101,6 +101,7 @@ std::task<bool> echo_loop(Socket &socket)
         }
         nbSend += res;
     }
+    asyncecho->finishReading();
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
     RS_DBG0("DONE (" , nbRecvFromPipe , "):" );
     co_await asyncecho->whaitforprocesstodie();

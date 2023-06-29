@@ -44,36 +44,41 @@ void IOContext::run()
         for (int n = 0; n < nfds; ++n)
         {
             auto socket = static_cast<AsyncFileDescriptor *>(events[n].data.ptr);
-
-            if (events[n].events & EPOLLIN)
+            if (!managed_fd.contains(socket))
             {
-                RS_DBG0("llamando en in al ptr ", (uint64_t)events[n].data.ptr," fd " , socket->fd_);
-                if(events[n].events & EPOLLERR) 
-                {
-                    RS_DBG0("llamando por EPOLLERR");
-                }
-                if(events[n].events & EPOLLRDHUP) 
-                {
-                    RS_DBG0("llamando por EPOLLRDHUP");
-                }
-                if(events[n].events & EPOLLHUP) 
-                {
-                    RS_DBG0("llamando por EPOLLHUP");
-                }
-                if(events[n].events & EPOLLPRI) 
-                {
-                    RS_DBG0("llamando por EPOLLPRI");
-                }
-                socket->resumeRecv();
+                RS_INFO("the fd is no longer suscribed, ", (intptr_t)socket, " flags:", (uint32_t)events[n].events, " fd ", (int)events[n].data.fd);
             }
-            if (events[n].events & EPOLLOUT)
+            else
             {
-                RS_DBG0("llamando en out");
+                if (events[n].events & EPOLLIN)
+                {
 
-                socket->resumeSend();
+                    RS_DBG0("llamando en in al ptr ", (intptr_t)events[n].data.ptr, " fd ", socket->fd_);
+                    if (events[n].events & EPOLLERR)
+                    {
+                        RS_DBG0("llamando por EPOLLERR");
+                    }
+                    if (events[n].events & EPOLLRDHUP)
+                    {
+                        RS_DBG0("llamando por EPOLLRDHUP");
+                    }
+                    if (events[n].events & EPOLLHUP)
+                    {
+                        RS_DBG0("llamando por EPOLLHUP");
+                    }
+                    if (events[n].events & EPOLLPRI)
+                    {
+                        RS_DBG0("llamando por EPOLLPRI");
+                    }
+                    socket->resumeRecv();
+                }
+                if (events[n].events & EPOLLOUT)
+                {
+                    RS_DBG0("llamando en out al ptr ", (intptr_t)events[n].data.ptr, " fd ", socket->fd_);
+                    socket->resumeSend();
+                }
             }
         }
-
         for (auto *socket : processedSockets)
         {
             auto io_state = socket->io_new_state_;
@@ -88,6 +93,7 @@ void IOContext::run()
                 // throw std::runtime_error{"epoll_ctl: mod "+ errno};
                 // todo: eliminate
             }
+            RS_DBG0("successfully EPOLL_CTL_MOD # ", socket->fd_, " mod ", io_state);
             socket->io_state_ = io_state;
         }
     }
@@ -95,8 +101,8 @@ void IOContext::run()
 
 /**
  * @brief Attaches a file descriptor to an available for "read" operations.
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::attach(AsyncFileDescriptor *socket)
 {
@@ -111,34 +117,33 @@ void IOContext::attach(AsyncFileDescriptor *socket)
         perror("epoll_ctl EPOLL_CTL_ADD");
     }
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for reading # ", socket->fd_ ," pointer ",(uint64_t)ev.data.ptr);
-
+    RS_DBG0("successfully attached for reading # ", socket->fd_, " pointer ", (intptr_t)ev.data.ptr);
+    managed_fd.insert(socket);
 }
 
 /**
  * @brief Attaches a file descriptor to an available for "read" operations.
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::attachReadonly(AsyncFileDescriptor *socket)
 {
     RS_DBG0("ataching RO ...", socket->fd_);
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
-    ;
     ev.events = io_state;
     ev.data.ptr = socket;
     if (epoll_ctl(fd_, EPOLL_CTL_ADD, socket->fd_, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for reading # ", socket->fd_ ," pointer ",(uint64_t)ev.data.ptr);
-    
+    RS_DBG0("successfully attached for reading # ", socket->fd_, " pointer ", (intptr_t)ev.data.ptr);
+    managed_fd.insert(socket);
 }
 
 /**
  * @brief Attaches a file descriptor to an available for "write" operations.
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
 {
@@ -154,13 +159,14 @@ void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
         // throw std::runtime_error{"epoll_ctl: attach"};
     }
     socket->io_state_ = io_state;
-    RS_DBG0("successfully attached for writing events# ", socket->fd_ ," pointer ",(uint64_t)ev.data.ptr );
+    RS_DBG0("successfully attached for writing events# ", socket->fd_, " pointer ", (uint64_t)ev.data.ptr);
+    managed_fd.insert(socket);
 }
 
 /**
  * @brief used to update the type of epool subscription to enable reading
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::watchRead(AsyncFileDescriptor *socket)
 {
@@ -170,8 +176,8 @@ void IOContext::watchRead(AsyncFileDescriptor *socket)
 
 /**
  * @brief used to stop epool notifications for reading events
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::unwatchRead(AsyncFileDescriptor *socket)
 {
@@ -181,8 +187,8 @@ void IOContext::unwatchRead(AsyncFileDescriptor *socket)
 
 /**
  * @brief used to update the type of epool subscription to enable writing
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::watchWrite(AsyncFileDescriptor *socket)
 {
@@ -192,8 +198,8 @@ void IOContext::watchWrite(AsyncFileDescriptor *socket)
 
 /**
  * @brief used to stop epool notifications for writing events
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 {
@@ -203,16 +209,17 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 
 /**
  * @brief Remove an async file descriptor from the notification list
- * 
- * @param socket 
+ *
+ * @param socket
  */
 void IOContext::detach(AsyncFileDescriptor *socket)
 {
-    RS_DBG0("detaching ",socket->fd_);
+    RS_DBG0("detaching ", socket->fd_);
     if (epoll_ctl(fd_, EPOLL_CTL_DEL, socket->fd_, nullptr) == -1)
     {
-        RS_FATAL("epoll_ctl: detach errorrrrrrrrr");
-        exit(EXIT_FAILURE);
+        RS_ERR("epoll_ctl: detach errorrrrrrrrr maybe the fd is not attached");
+        // exit(EXIT_FAILURE);
     }
     processedSockets.erase(socket);
+    managed_fd.erase(socket);
 }

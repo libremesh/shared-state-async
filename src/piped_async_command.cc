@@ -181,6 +181,12 @@ void PipedAsyncCommand::finishwriting()
     //close(PARENT_WRITE); //no funciona
 }
 
+void PipedAsyncCommand::finishReading()
+{
+    RS_DBG0("async_read_end_fd.use_count()",  async_read_end_fd.use_count());
+    async_read_end_fd.get()->io_context_.unwatchRead(async_read_end_fd.get());
+    async_read_end_fd.reset();
+}
 /**
  * Asynchronously waits for a process to die.
  * @warning if this method is not called the forked process will be
