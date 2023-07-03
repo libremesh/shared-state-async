@@ -45,7 +45,6 @@ FileReadOperation::~FileReadOperation()
 
 ssize_t FileReadOperation::syscall()
 {
-    RS_DBG0("FileReadOperation reading(", socket->fd_ , (char *)mBuffer_ ,len_ );
     ssize_t bytesread = read(socket->fd_, mBuffer_, len_);
     /* this method is invoked at least once but the pipe is not free.
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)

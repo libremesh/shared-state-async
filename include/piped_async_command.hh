@@ -62,6 +62,7 @@ public:
     DyingProcessWaitOperation whaitforprocesstodie();
     void finishwriting();
     void finishReading();
+    bool doneReading();
 
 
 private:

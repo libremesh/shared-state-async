@@ -180,6 +180,14 @@ void PipedAsyncCommand::finishwriting()
     async_write_end_fd.reset();
     //close(PARENT_WRITE); //no funciona
 }
+/**
+ * When the filedescriptor is closed but it notifies with a read event the 
+ * file descriptor is marked as done, to be able to stop reading
+*/
+bool PipedAsyncCommand::doneReading()
+{
+    return async_read_end_fd.get()->doneRecv_;
+}
 
 void PipedAsyncCommand::finishReading()
 {

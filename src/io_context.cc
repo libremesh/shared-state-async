@@ -65,6 +65,23 @@ void IOContext::run()
                     if (events[n].events & EPOLLHUP)
                     {
                         RS_DBG0("llamando por EPOLLHUP");
+                        socket->doneRecv_ = true;
+                        /**
+                         * 
+              man epoll: EPOLLHUP
+              Hang up happened on the associated file descriptor.
+
+              epoll_wait(2) will always wait for this event; it is not
+              necessary to set it in events when calling epoll_ctl().
+
+              Note that when reading from a channel such as a pipe or a
+              stream socket, this event merely indicates that the peer
+              closed its end of the channel.  Subsequent reads from the
+              channel will return 0 (end of file) only after all
+              outstanding data in the channel has been consumed.
+
+              jj: the last is not always true... subsequent reads only responds with -1
+                        */
                     }
                     if (events[n].events & EPOLLPRI)
                     {

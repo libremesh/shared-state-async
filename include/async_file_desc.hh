@@ -78,6 +78,10 @@ public:
 
     bool resumeRecv()
     {
+        //this guard is necesary because attach method subscribes the fd to 
+        //epoll but it still doses'n have a suspending coroutine waiting for the event. 
+        if (!coroRecv_)
+            return false;
         RS_DBG0("resumeRecv AsyncFileDescriptor ", number);
         coroRecv_.resume();
         return true;
@@ -85,6 +89,10 @@ public:
 
     bool resumeSend()
     {
+        //this guard is necesary because attach method subscribes the fd to 
+        //epoll but it still doses'n have a suspending coroutine waiting for the event. 
+        if (!coroSend_)
+            return false;
         RS_DBG0("resumeSend AsyncFileDescriptor ", number);
         coroSend_.resume();
         return true;
@@ -102,5 +110,6 @@ public:
     uint32_t io_new_state_ = 0;
     int number = 0;
     std::coroutine_handle<> coroRecv_;
+    bool doneRecv_ = false;
     std::coroutine_handle<> coroSend_;
 };

@@ -4,6 +4,7 @@ import socket # for socket
 import sys
 import time
 import argparse
+from difflib import SequenceMatcher
 
 parser = argparse.ArgumentParser()
 
@@ -59,36 +60,43 @@ if results.filename == None:
         print ( 'received "%s"', data)
 
     finally:
-        assert(data==message)
         print ('closing socket') 
         s.close()
+        assert(data==message)
+
 else:
     for x in range(int(results.amount)): 
         s.connect((results.ip, port))
         f = open(results.filename,'rb')
         input=""
-        print ("Reading... for the ",x, " time")
+        print ("Reading... ")
         l = f.read(1024)
-        print (l)
+        input = input +str(l)
         while (l):
-            print ("Sending...")
-            print (l)
+            #print ("Sending...")
             s.send(l)
             l = f.read(1024)
             input = input +str(l)
         f.close()
+        input = input.replace("\'b\'", "")
+        input = input.replace("\'", "")
+        #print (input)
         print ("Done Sending")
         datastring=""
         while True:
-            print ("Receiving...")
+            #print ("Receiving...")
             data = s.recv(1024)
             if not data:
                 break
             datastring += data.decode('utf-8')
-        print(datastring)
         #assert("/usr/bin/lua" in datastring
         s.close()
-        assert(input,datastring)
+        print("-sent-")
+        print (input.split('\\n')[1])
+        print("-received-")
+        print (datastring.split('\\n')[0])
+        print("-ratio -",  SequenceMatcher(a=input.split('\\n')[1],b=datastring.split('\\n')[0]).ratio())
+        assert (SequenceMatcher(a=input.split('\\n')[1],b=datastring.split('\\n')[0]).ratio()>.9) 
         print ('closing socket') 
  
 print ("the socket has successfully connected to epollCoro")
