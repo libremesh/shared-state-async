@@ -28,10 +28,14 @@
 
 class Socket;
 
+/**
+ * @brief Implements an asynchronous Socket Receive Operation
+ * 
+ */
 class SocketRecvOperation : public BlockSyscall<SocketRecvOperation, ssize_t>
 {
 public:
-    SocketRecvOperation(Socket *socket, uint8_t *buffer, std::size_t len);
+    SocketRecvOperation(Socket *socket, uint8_t *buffer, std::size_t len, std::shared_ptr<std::error_condition> ec=nullptr);
     ~SocketRecvOperation();
 
     ssize_t syscall();
@@ -39,6 +43,6 @@ public:
 
 private:
     Socket *socket;
-    uint8_t*buffer_;
+    uint8_t *mBuffer_;
     std::size_t len_;
 };

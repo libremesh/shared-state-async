@@ -19,42 +19,42 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-#include "pipe_file_read_operation.hh"
+#include "popen_file_read_operation.hh"
 #include <iostream>
-#include "async_command.hh"
+#include "popen_async_command.hh"
 
-PipeFileReadOperation::PipeFileReadOperation(AsyncCommand* socket,
+PopenFileReadOperation::PopenFileReadOperation(PopenAsyncCommand* socket,
         uint8_t* buffer,
-        std::size_t len)
-    : BlockSyscall{}
+        std::size_t len, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}
     , socket{socket}
-    , buffer_{buffer}
+    , mBuffer_{buffer}
     , len_{len}
 {
     socket->io_context_.watchRead(socket);
     RS_DBG0("socket_fileRead_operation created\n");
 }
 
-PipeFileReadOperation::~PipeFileReadOperation()
+PopenFileReadOperation::~PopenFileReadOperation()
 {
     socket->io_context_.unwatchRead(socket);
     RS_DBG0("~socket_fileRead_operation\n");
 }
 
-ssize_t PipeFileReadOperation::syscall()
+ssize_t PopenFileReadOperation::syscall()
 {
     std::string result;
-    RS_DBG0("fgets(" , fileno(socket->pipe) );
-    while (!feof(socket->pipe))
+    RS_DBG0("fgets(" , fileno(socket->mPipe) );
+    while (!feof(socket->mPipe))
     {
-        if (fgets((char *)buffer_, len_, socket->pipe) != nullptr)
-            result += (char *)buffer_;
+        if (fgets((char *)mBuffer_, len_, socket->mPipe) != nullptr)
+            result += (char *)mBuffer_;
     }
 //    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
     return 10;
 }
 
-void PipeFileReadOperation::suspend()
+void PopenFileReadOperation::suspend()
 {
     socket->coroRecv_ = awaitingCoroutine_;
 }

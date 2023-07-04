@@ -22,42 +22,48 @@
 #include "dying_process_wait_operation.hh"
 #include <iostream>
 #include <unistd.h>
-#include "async_command.hh"
 #include <sys/wait.h>
+#include "async_file_desc.hh"
 
-DyingProcessWaitOperation::DyingProcessWaitOperation(std::shared_ptr<AsyncFileDescriptor> socket, pid_t process_to_wait)
-    : BlockSyscall{}, socket{socket}
+/** @brief This blocking operation waits for a child process that has 
+ *  already done his job. It also kills the process in case it has not died yet. 
+ *  @warning Call this method after you really want the process to die. If
+ *  the process is not dead the method will kill it. 
+ */
+DyingProcessWaitOperation::DyingProcessWaitOperation(std::shared_ptr<AsyncFileDescriptor> socket, pid_t process_to_wait, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}, socket{socket}
 {
-    socket->io_context_.watchRead(socket.get());
+    
     pid = process_to_wait;
-    RS_DBG0("FileWriteOperation created\n");
+    RS_DBG0("FileWriteOperation created","socket " ,socket->fd_, "\n");
 }
 
 DyingProcessWaitOperation::~DyingProcessWaitOperation()
 {
     socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("~FileWriteOperation\n");
+    RS_DBG0("~FileWriteOperation","socket " ,socket->fd_, "\n");
 }
 
 pid_t DyingProcessWaitOperation::syscall()
 {
     pid_t cpid = waitpid(pid, NULL, WNOHANG);
-    RS_DBG0("wait returned ", cpid ,"errno ", errno);
+    RS_DBG0("wait returned ", cpid, "errno ", errno, " socket " ,socket->fd_, "\n");
     if (cpid == 0 || cpid == -1)
     {
         // just in case kill the process.
         kill(pid, SIGKILL);
-        cpid = -1; // if the state has not changed wait returns 0...but corrutine expects -1
+        cpid = -1; // if the state has not changed wait returns 0...but blocksyscall expects -1
+        errno = EAGAIN;
     }
     else if (cpid == pid)
     {
-        RS_DBG0("Successful wait returned process id", cpid);
+        RS_DBG0("Successful wait returned process id ", cpid, "socket " ,socket->fd_, "\n");
     }
     return cpid;
 }
 
 void DyingProcessWaitOperation::suspend()
 {
-    RS_DBG0(__PRETTY_FUNCTION__ );
+    RS_DBG0(__PRETTY_FUNCTION__);
     socket->coroRecv_ = awaitingCoroutine_;
 }

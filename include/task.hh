@@ -32,20 +32,26 @@ namespace std
     struct task;
     namespace detail
     {
-        static size_t total_;
+        static size_t mTotal_;
         template <typename T>
+
+        /**
+         * @brief base for constructing other promise types.
+         * this class contains the most important aspect that
+         * enables the construction of detachable tasks
+         */
         struct promise_type_base
         {
             size_t number;
             promise_type_base()
             {
-                total_ = total_ + 1;
-                number = total_;
-                RS_DBG0(" #", number );
+                mTotal_ = mTotal_ + 1;
+                number = mTotal_;
+                RS_DBG0(" #", number);
             }
             ~promise_type_base()
             {
-                RS_DBG0( number ," -- Promise: dtor" );
+                RS_DBG0(number, " -- Promise: dtor");
             }
             coroutine_handle<> waiter; // who waits on this coroutine
             task<T> get_return_object();
@@ -54,9 +60,6 @@ namespace std
             {
                 bool await_ready() noexcept { return false; }
                 void await_resume() noexcept {}
-
-                /** TODO: me seems a very compressed name, what does it stands
-                 *  for ? */
                 template <typename promise_type>
                 void await_suspend(coroutine_handle<promise_type> me) noexcept
                 {
@@ -74,6 +77,12 @@ namespace std
             }
             void unhandled_exception() {}
         };
+        /**
+         * @brief This promise type is used as return type of a typed task
+         *
+         * @tparam T used by task to return custom type, this promise type
+         * contains a copy of the return value.
+         */
         template <typename T>
         struct promise_type final : promise_type_base<T>
         {
@@ -88,6 +97,7 @@ namespace std
             }
             task<T> get_return_object();
         };
+
         template <>
         struct promise_type<void> final : promise_type_base<void>
         {
@@ -98,6 +108,32 @@ namespace std
 
     }
 
+    /**
+     * @brief Basic coroutine task 
+     * 
+     * Basic coroutine task 
+     * 
+     * after creation of a task
+     * 
+     * "std::task<bool> echo_loop(Socket &socket);"
+     * 
+     * it can be coawaited
+     * 
+     * "bool run = co_await echo_loop(*socket);"
+     * 
+     * or it can be detached (and resumed)
+     * 
+     * echo_loop(std::move(socket)).detach();
+     * 
+     * or just resumed
+     * 
+     * echo_loop(std::move(socket)).resume()
+     * 
+     * @note even that is marked as no discard, this task can be 
+     * deleted after using the explicit method "detach()" and 
+     * ensuring subscription to the io_context. 
+     * @tparam T
+     */
     template <typename T = void>
     struct [[nodiscard]] task
     {
@@ -110,22 +146,27 @@ namespace std
         task(coroutine_handle<promise_type> handle)
             : mCoroutineHandle{handle}
         {
-            RS_DBG0(" #" , mCoroutineHandle.promise().number );
+            RS_DBG0(" #", mCoroutineHandle.promise().number);
         }
         ~task()
         {
-            RS_DBG0("") ;
+            RS_DBG0(" #", mCoroutineHandle.promise().number);
             if (mCoroutineHandle)
             {
-                RS_DBG0("have you finished ? " ,mCoroutineHandle.done() , ", task disposable = " , mDetached );
-                if (mCoroutineHandle.done() || !mDetached)
+                RS_DBG0("have you finished ? ", mCoroutineHandle.done(), ", task disposable = ", mDetached);
+                if (mCoroutineHandle.done() && mDetached)
                 {
+                    RS_DBG0("do noting");
+                }
+                else if (mCoroutineHandle.done() || !mDetached)
+                {
+                    RS_DBG0("I'll destroy m_coro");
                     mCoroutineHandle.destroy();
-                    RS_DBG0("i've just destroyed m_coro" );
+                    RS_DBG0("i've just destroyed m_coro");
                 }
                 else
                 {
-                    RS_DBG0("do not destroy coro" );
+                    RS_DBG0("do not destroy coro");
                 }
             }
         }
@@ -137,7 +178,11 @@ namespace std
             mCoroutineHandle.promise().waiter = waiter;
             mCoroutineHandle.resume();
         }
-
+        
+        /**
+         * @brief starts the execution of the task
+         * 
+         */
         void resume()
         {
             mCoroutineHandle.resume();
@@ -152,7 +197,7 @@ namespace std
          *  coroutine lifetime. This can be useful for long lived coroutines who
          *  can deal with it's own lifetime such as the one which process
          *  requests from a single socket.
-         *  In detached mode, the coroutine will be self destroyed after the 
+         *  In detached mode, the coroutine will be self destroyed after the
          *  final suspend method has been invoked.
          */
         void detach()
@@ -162,9 +207,12 @@ namespace std
         }
 
     private:
+        /**
+         * the coroutine itself
+        */
         coroutine_handle<promise_type> mCoroutineHandle;
 
-        /** Internal state representing if the coroutine is detached or not.
+        /** Internal state representing if the coroutine is "detached" or not.
          *  TODO: Make sure it doesn't need to be std::atomic
          */
         bool mDetached = false;

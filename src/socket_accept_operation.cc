@@ -23,8 +23,8 @@
 #include <iostream>
 #include "socket.hh"
 
-SocketAcceptOperation::SocketAcceptOperation(Socket *socket)
-    : BlockSyscall{}, socket{socket}
+SocketAcceptOperation::SocketAcceptOperation(Socket *socket,std::shared_ptr<std::error_condition> ec)
+    : BlockSyscall{ec}, socket{socket}
 {
     socket->io_context_.watchRead(socket);
     RS_DBG0("socket_accept_operation\n)");

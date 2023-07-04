@@ -35,6 +35,8 @@
 #include <iostream>
 #include <unistd.h>
 
+ static int mTotalAsyncFileDescriptor;
+
 class AsyncFileDescriptor
 {
 public:
@@ -47,43 +49,51 @@ public:
         : io_context_{socket.io_context_}, fd_{socket.fd_}, io_state_{socket.io_state_}, io_new_state_{socket.io_new_state_}
     {
         socket.fd_ = -1;
+        mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) % 50;
+        number = mTotalAsyncFileDescriptor;
     }
 
     AsyncFileDescriptor(int fd, IOContext &io_context)
         : io_context_{io_context}, fd_{fd}
     {
-        RS_DBG0("AsyncFileDescriptor ", fd, "Created");
+        mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) %50;
+        number = mTotalAsyncFileDescriptor;
+        RS_DBG0("AsyncFileDescriptor ", fd, "Created ", "AsyncFileDescriptor ", number);
         fcntl(fd_, F_SETFL, O_NONBLOCK);
         // io_context_.attach(this);
     }
 
     ~AsyncFileDescriptor()
     {
-        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")\n");
+        RS_DBG0("------delete the AsyncFileDescriptor(", fd_, ")"," AsyncFileDescriptor ", number);
+        number = -1;
         if (fd_ == -1)
+        {
             return;
+        }
         io_context_.detach(this);
         close(fd_);
+        fd_ = -1;
     }
 
     bool resumeRecv()
     {
+        //this guard is necesary because attach method subscribes the fd to 
+        //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroRecv_)
-        {
-            RS_DBG0(" nada que resumir en receive ");
             return false;
-        }
+        RS_DBG0("resumeRecv AsyncFileDescriptor ", number);
         coroRecv_.resume();
         return true;
     }
 
     bool resumeSend()
     {
+        //this guard is necesary because attach method subscribes the fd to 
+        //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroSend_)
-        {
-            RS_DBG0("- nada que resumir en el envio ");
             return false;
-        }
+        RS_DBG0("resumeSend AsyncFileDescriptor ", number);
         coroSend_.resume();
         return true;
     }
@@ -98,7 +108,8 @@ public:
     int fd_ = -1;
     uint32_t io_state_ = 0;
     uint32_t io_new_state_ = 0;
-
+    int number = 0;
     std::coroutine_handle<> coroRecv_;
+    bool doneRecv_ = false;
     std::coroutine_handle<> coroSend_;
 };

@@ -31,7 +31,7 @@ class AsyncFileDescriptor;
 class FileReadOperation : public BlockSyscall<FileReadOperation, ssize_t>
 {
 public:
-    FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket, uint8_t *buffer, std::size_t len);
+    FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket, uint8_t *buffer, std::size_t len, std::shared_ptr<std::error_condition> ec=nullptr);
     ~FileReadOperation();
 
     ssize_t syscall();
@@ -39,6 +39,6 @@ public:
 
 private:
     std::shared_ptr<AsyncFileDescriptor> socket;
-    uint8_t *buffer_;
+    uint8_t *mBuffer_;
     std::size_t len_;
 };

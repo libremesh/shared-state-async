@@ -22,7 +22,6 @@
 #include "sharedstate.hh"
 #include <algorithm>
 #include <optional>
-#include <expected.hpp>
 #include "shared_state_error_code.hh"
 #include <chrono>
 #include "socket.hh"
@@ -31,6 +30,32 @@
 
 namespace SharedState
 {
+
+    std::string extractCommand(std::string &inputString)
+    {
+        std::string delimiter = "\n";
+        size_t pos = 0;
+        if ((pos = inputString.find(delimiter)) != std::string::npos)
+        {
+            std::string command = inputString.substr(0, pos);
+            inputString.erase(0, pos + delimiter.length());
+            return command;
+        }
+        return "";
+    }
+
+    std::error_condition extractCommand(std::string &inputString, std::string &command)
+    {
+        std::string delimiter = "\n";
+        size_t pos = 0;
+        if ((pos = inputString.find(delimiter)) != std::string::npos)
+        {
+            command = inputString.substr(0, pos);
+            inputString.erase(0, pos + delimiter.length());
+            return std::error_condition();
+        }
+        return make_error_condition(SharedStateErrorCode::NoCommand);
+    }
 
     std::error_condition reqSync(const std::string &stateSlice, std::string &newState)
     {
@@ -166,6 +191,7 @@ namespace SharedState
         return result;
     }
 
+    /*
     /// @brief error_condition ... > es como error code pero crossplatform
     /// error_code ... es dependiente de plataforma
     /// @param arguments
@@ -195,6 +221,6 @@ namespace SharedState
         }
         result = std::regex_replace(result, std::regex("\\r\\n|\\r|\\n"), "");
         return result;
-    }
+    }*/
 
 }

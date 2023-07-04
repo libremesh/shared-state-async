@@ -47,7 +47,7 @@ Socket::Socket(std::string_view port, IOContext& io_context)
     setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
     if (bind(fd_, res->ai_addr, res->ai_addrlen) == -1)
     {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),mErrorcontainer);
     }
     listen(fd_, 8);
     fcntl(fd_, F_SETFL, O_NONBLOCK);
@@ -58,31 +58,36 @@ Socket::Socket(std::string_view port, IOContext& io_context)
 Socket::~Socket()
 {
     RS_DBG0("------delete the socket(" , fd_ , ")\n");
-    if (fd_ == -1)
+    /*if (fd_ == -1)
     {
         RS_WARN(" socket(" , fd_ , ") already deleted \n");
         return;
     }
     io_context_.detach(this);
     close(fd_);
-    fd_ = -1;
+    fd_ = -1;*/
 }
 
 std::task<std::unique_ptr<Socket>> Socket::accept()
 {
-    int fd = co_await SocketAcceptOperation{this};
-    if (fd == -1)
+    
+    int fd = co_await SocketAcceptOperation{this}; //in case of failure the app will exit
+    /*
+    std::shared_ptr error_info = std::make_shared<std::error_condition>();
+    //in case of failure, error_info wil have information about the problem.
+    int fd = co_await SocketAcceptOperation{this,error_info}; 
+    if (*error_info.get())
     {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),minul);
-    }
+        rs_error_bubble_or_exit(rs_errno_to_condition(errno),errorcontainer);
+    }*/
     RS_DBG0("aceptando");
     auto clientsocket = std::make_unique<Socket>(fd, io_context_);
     co_return clientsocket;
 }
 
-SocketRecvOperation Socket::recv(uint8_t* buffer, std::size_t len)
+SocketRecvOperation Socket::recv(uint8_t* buffer, std::size_t len,std::shared_ptr<std::error_condition> ec)
 {
-    return SocketRecvOperation{this, buffer, len};
+    return SocketRecvOperation{this, buffer, len,ec};
 }
 SocketSendOperation Socket::send(uint8_t* buffer, std::size_t len)
 {

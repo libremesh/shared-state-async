@@ -27,11 +27,14 @@
 #include "block_syscall.hh"
 
 class Socket;
-
+/**
+ * @brief Implements an asynchronous Socket Send Operation
+ * 
+ */
 class SocketSendOperation : public BlockSyscall<SocketSendOperation, ssize_t>
 {
 public:
-    SocketSendOperation(Socket *socket,const uint8_t*buffer, std::size_t len);
+    SocketSendOperation(Socket *socket, const uint8_t *buffer, std::size_t len, std::shared_ptr<std::error_condition> ec = nullptr);
     ~SocketSendOperation();
 
     ssize_t syscall();
@@ -39,6 +42,6 @@ public:
 
 private:
     Socket *socket;
-    const uint8_t*buffer_;
+    const uint8_t *mBuffer_;
     std::size_t len_;
 };

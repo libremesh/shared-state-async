@@ -34,10 +34,13 @@
 #include "task.hh"
 #include "debug/rsdebug.h"
 
+/**
+ * @brief Listen tcp non blocking socket
+ * 
+ */
 class Socket : public AsyncFileDescriptor
 {
 public:
-    /* Listen tcp non blocking socket */
     Socket(std::string_view port, IOContext &io_context);
     Socket(const Socket &) = delete;
     Socket(Socket &&socket);
@@ -46,7 +49,7 @@ public:
 
     std::task<std::unique_ptr<Socket>> accept();
 
-    SocketRecvOperation recv(uint8_t *buffer, std::size_t len);
+    SocketRecvOperation recv(uint8_t *buffer, std::size_t len,std::shared_ptr<std::error_condition> ec=nullptr);
     SocketSendOperation send(uint8_t *buffer, std::size_t len);
     explicit Socket(int fd, IOContext &io_context);
 
@@ -55,7 +58,6 @@ private:
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
-    FILE *pipe = nullptr;
     friend IOContext;
-    std::error_condition *minul = nullptr;
+    std::error_condition *mErrorcontainer = nullptr;
 };

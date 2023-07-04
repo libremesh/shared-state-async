@@ -21,23 +21,35 @@
  */
 #pragma once
 
-#include <sys/socket.h>
-#include <sys/types.h>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <string_view>
+#include "async_file_desc.hh"
+#include "io_context.hh"
+#include "popen_file_read_operation.hh"
+#include "socket.hh"
 
-#include "block_syscall.hh"
-
-class AsyncCommand;
-
-class PipeFileReadOperation : public BlockSyscall<PipeFileReadOperation, ssize_t>
+/**
+ * @brief AsyncCommand implementation using popen.
+ * @warning this implementation is under development, you can use piped_async
+ */
+class PopenAsyncCommand :AsyncFileDescriptor
 {
 public:
-    PipeFileReadOperation(AsyncCommand* socket, uint8_t* buffer, std::size_t len);
-    ~PipeFileReadOperation();
+    PopenAsyncCommand(const PopenAsyncCommand&) = delete;
+    PopenAsyncCommand(PopenAsyncCommand&& command);
+    PopenAsyncCommand(FILE * fdFromStream, AsyncFileDescriptor* socket);
+    PopenAsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
+    ~PopenAsyncCommand();
 
-    ssize_t syscall();
-    void suspend();
+    PopenFileReadOperation recvfile(uint8_t* buffer, std::size_t len);
+
+
 private:
-    AsyncCommand* socket;
-    uint8_t* buffer_;
-    std::size_t len_;
+    friend PopenFileReadOperation;
+    FILE * mPipe= nullptr;
+    friend IOContext;
+    explicit PopenAsyncCommand(int fd, IOContext& io_context);
+
 };

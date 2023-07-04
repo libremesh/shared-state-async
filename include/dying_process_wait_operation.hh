@@ -31,7 +31,7 @@ class AsyncFileDescriptor;
 class DyingProcessWaitOperation : public BlockSyscall<DyingProcessWaitOperation, pid_t>
 {
 public:
-    DyingProcessWaitOperation(std::shared_ptr<AsyncFileDescriptor> socket, pid_t process_to_wait);
+    DyingProcessWaitOperation(std::shared_ptr<AsyncFileDescriptor> socket, pid_t process_to_wait,std::shared_ptr<std::error_condition> ec=nullptr);
     ~DyingProcessWaitOperation();
     pid_t syscall();
     void suspend();

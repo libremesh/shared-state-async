@@ -30,10 +30,14 @@
 
 class Socket;
 
+/**
+ * @brief Implements an asynchronous Socket Accept Operation
+ * 
+ */
 class SocketAcceptOperation : public BlockSyscall<SocketAcceptOperation, int>
 {
 public:
-    SocketAcceptOperation(Socket *socket);
+    SocketAcceptOperation(Socket *socket,std::shared_ptr<std::error_condition> ec=nullptr);
     ~SocketAcceptOperation();
 
     int syscall();
@@ -41,6 +45,6 @@ public:
 
 private:
     Socket *socket;
-    uint8_t*buffer_;
+    uint8_t*mBuffer_;
     std::size_t len_;
 };

@@ -21,33 +21,31 @@
  */
 #include "file_read_operation.hh"
 #include <iostream>
-#include "async_command.hh"
 #include "async_file_desc.hh"
 #include <unistd.h>
 #include "debug/rsdebuglevel2.h"
 
 FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket,
                                      uint8_t *buffer,
-                                     std::size_t len)
-    : BlockSyscall{}
+                                     std::size_t len, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}
     , socket{socket}
-    , buffer_{buffer}
+    , mBuffer_{buffer}
     , len_{len}
 {
     socket->io_context_.watchRead(socket.get());
-    RS_DBG0("FileReadOperation created");
+    RS_DBG0("FileReadOperation created for fd" , socket->fd_);
 }
 
 FileReadOperation::~FileReadOperation()
 {
     socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("~FileReadOperation");
+    RS_DBG0("~FileReadOperation for fd ", socket->fd_);
 }
 
 ssize_t FileReadOperation::syscall()
 {
-    RS_DBG0("FileReadOperation reading(", socket->fd_ , (char *)buffer_ ,len_ );
-    ssize_t bytesread = read(socket->fd_, buffer_, len_);
+    ssize_t bytesread = read(socket->fd_, mBuffer_, len_);
     /* this method is invoked at least once but the pipe is not free.
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
      * and then suspend the execution until a new notification arrives

@@ -47,9 +47,9 @@ set(SOURCES          # All .cpp files in src/
     src/socket_send_operation.cc
     src/shared_state_error_code.cc
     src/file_read_operation.cc
-    src/async_command.cc
+    src/popen_async_command.cc
     src/piped_async_command.cc
-    src/pipe_file_read_operation.cc
+    src/popen_file_read_operation.cc
     src/file_write_operation.cc
     src/dying_process_wait_operation.cc
     src/debug/rsdebug.cc

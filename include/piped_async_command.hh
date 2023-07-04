@@ -32,7 +32,12 @@
 #include "dying_process_wait_operation.hh"
 #include "socket.hh"
 
-/// @brief PipedAsyncCommand implementation using pipe fork excec
+/**
+ * @brief AsyncCommand implementation using fork excec and dual pipes
+ * 
+ * This implementation is fully async supporting async reading, writing and waiting 
+ * for the child process to die.  
+ */
 class PipedAsyncCommand
 {
 
@@ -46,6 +51,7 @@ public:
         {
             return retptr;
         }
+        //retptr.reset(nullptr);
         return nullptr;
     }
 
@@ -54,6 +60,10 @@ public:
     FileReadOperation readpipe(uint8_t *buffer, std::size_t len);
     FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
     DyingProcessWaitOperation whaitforprocesstodie();
+    void finishwriting();
+    void finishReading();
+    bool doneReading();
+
 
 private:
     std::error_condition init(std::string cmd, IOContext &context);
@@ -65,11 +75,11 @@ private:
     /// we need two file descriptors to interact with the forked process
     ///      parent        child
     ///      fd1[1]        fd1[0]
-    ///        4 -- fd_W --> 3
+    ///        4 -- mfd_W --> 3
     ///      fd2[0]        fd2[1]
-    ///        5 <-- fd_r -- 6
-    int fd_w[2];
-    int fd_r[2];
+    ///        5 <-- mFd_r -- 6
+    int mFd_w[2];
+    int mFd_r[2];
     pid_t forked_proces_id = -1;
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;

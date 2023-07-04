@@ -31,15 +31,20 @@
 #include "file_read_operation.hh"
 #include "file_write_operation.hh"
 #include "dying_process_wait_operation.hh"
-#include "pipe_file_read_operation.hh"
+#include "popen_file_read_operation.hh"
 
-/* Just an epoll wrapper */
-//This class will work as dispacher, freeing epool suspended corotasks
 class Socket;
 class AsyncFileDescriptor;
-class AsyncCommand;
+class PopenAsyncCommand;
 class PipedAsyncCommand;
 
+/**
+ * This class works work as dispacher, notifying suspended blocksyscall when 
+ * ready to be activated. blocksyscalls must suscribe to this class in order 
+ * to be notified.
+ * 
+ * @brief This class is an Just an epoll wrapper 
+ */
 class IOContext
 {
 public:
@@ -57,18 +62,45 @@ private:
     constexpr static std::size_t max_events = 20;
     const int fd_; //iocontext epool fd
 
+    //TODO: verify if we still need processedSockets now that we have managed_fd 
     // Fill it by watchRead / watchWrite
     std::set<AsyncFileDescriptor*> processedSockets;
+    /**
+     * @brief Register every managed file descriptor, controlled by attach and 
+     * detach. 
+     * 
+     * Muchas veces sucede una race condition en la que un evento se 
+     * dispara y luego se cierra el fd y se dessuscribe al fd de epool pero 
+     * epool ya tiene registro del evento y nos intenta notificar. Esa 
+     * notificación dispara una invocación de una a un resume (rec/send) y ya 
+     * no existe corrutina que invocar. Eso se resolvia verificando la 
+     * corrutina  if (!coroRecv_) o con el contadro de los asinc file descritpor if 
+     * (number > 51 ) pero no es elegante y puede fallar. Este evento se podía
+     * observar puntualmente cuando se espera a que un proceso muera. Se 
+     * realiza la llamada a sistema, la misma no se suspende pues responde 
+     * rápido, pero el fd esta suscripto a epoll, cuando se termina de procesar
+     * la llamada el fd se elimina y se cierra. pero epoll nos envia una última
+     * notificacón en el próximo run. Tambíen se podría realizar la suscripción
+     *  solo despues de que la llamada se suspende pero eso podría dar lugar a 
+     * otra race condition en la que la notificacion llegue al kernel antes de 
+     * lograr la suscripción. mas info en illumos.org/man/7/epoll 
+     * https://web.archive.org/web/20221231201027/https://illumos.org/man/7/epoll
+     * Para resolver esto se implementó una lista de filedescriptors que nos 
+     * interesa manejar con epoll y que cuando ya no nos intersa simplemente lo
+     * quitamos de esa lista y con ello evitamos invocar un resume que ya no 
+     * existe.
+     */
+    std::set<AsyncFileDescriptor*> managed_fd;
 
     friend AsyncFileDescriptor;
     friend Socket;
-    friend AsyncCommand;
+    friend PopenAsyncCommand;
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
     friend FileReadOperation;
     friend FileWriteOperation;
-    friend PipeFileReadOperation;
+    friend PopenFileReadOperation;
     friend PipedAsyncCommand;
     friend DyingProcessWaitOperation;
     void attach(AsyncFileDescriptor* socket);

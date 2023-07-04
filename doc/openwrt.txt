@@ -37,4 +37,88 @@ https://github.com/mwarning/openwrt-examples
 make package/shared-state-async-server/compile -j1 V=sc
 
 
+make package/package_name/compile -j1 V=sc
+
+ping6 ff02::1%enp3s1
+ssh root@fe80::16cc:20ff:feda:4eaa%enp3s1
+fe80::16cc:20ff:feda:4eaa%enp3s1
+
+copy and upgrade
+scp bin/targets/ath79/generic/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin root@192.168.1.1:/tmp
+sysupgrade -v /tmp/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin 
+
+hacer requsync en el local
+invocar shared state sync 
+if104 	local cmd = "uclient-fetch --no-check-certificate -q -O- --timeout=3 " usar netcat (nc) probar en el router porque cambia de una distro a otra
+
+nc
+Usage: nc [IPADDR PORT]
+Open a pipe to IP:PORT
+
+cat /etc/udhcpc.user | nc 10.13.78.170 3490 //sends the contents of the file to another node
+
+
+
+
+sudo tools/qemu_dev_start ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-squashfs-rootfs.img.gz ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-initramfs-kernel.bin --node-id 1
+sudo tools/qemu_dev_start ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-squashfs-rootfs.img.gz ../openwrt22.03/bin/targets/x86/generic/openwrt-x86-generic-generic-initramfs-kernel.bin --node-id 2
+
+
+failsafe mode 
+https://forum.openwrt.org/t/wdr3500-reset-button-with-openwrt/26527/6
+
+view cronjobs for examples
+stored information in
+/var/shared-state/data/ 
+cat /var/shared-state/data/nodes_and_links.json 
+shared-state sync nodes_and_links
+logread
+
+
+http://["..host.."]/cgi-bin/shared-state/"..self.dataType
+
+
+{"LiMe-fc3abd":{"bleachTTL":29,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf"],"links":[]},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":29,"data":{"links":[],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["14:cc:20:da:4e:ab"],"hostname":"LiMe-da4eaa"},"author":"LiMe-da4eaa"}}
+
+curl -d "{"LiMe-fc3abd":{"bleachTTL":2,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf"],"links":[]},"author":"Limon"}}" -X POST http://10.13.40.149/cgi-bin/shared-state/nodes_and_links 
+{"LiMe-fc3abd":{"bleachTTL":25,"data":{"links":[],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf"],"hostname":"LiMe-fc3abd"},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":25,"data":{"hostname":"LiMe-da4eaa","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["14:cc:20:da:4e:ab"],"links":[]},"author":"LiMe-da4eaa"}}
+echo 
+
+cat /var/shared-state/data/nodes_and_links.json 
+{"LiMe-fc3abd":{"bleachTTL":15,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c2:4a:00:fc:3a:bf","02:ab:46:fc:3a:bd","c2:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf","c6:4a:00:fc:3a:bf","c6:4a:00:fc:3a:be","02:58:47:fc:3a:bd"],"links":["a0:f3:c1:46:28:96","14:cc:20:da:4e:ab","a0:f3:c1:46:28:97","14:cc:20:da:4e:ac"]},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":23,"data":{"links":["c0:4a:00:fc:3a:be","a0:f3:c1:46:28:96","a0:f3:c1:46:28:97","c0:4a:00:fc:3a:bf"],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["02:ab:46:da:4e:aa","12:cc:20:da:4e:ac","16:cc:20:da:4e:ac","02:58:47:da:4e:aa","14:cc:20:da:4e:ac","14:cc:20:da:4e:ab","12:cc:20:da:4e:ab","16:cc:20:da:4e:ab"],"hostname":"LiMe-da4eaa"},"author":"LiMe-da4eaa"},"LiMe-462895":{"bleachTTL":28,"data":{"hostname":"LiMe-462895","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["a0:f3:c1:46:28:96","a2:f3:c1:46:28:97","02:58:47:46:28:95","a2:f3:c1:46:28:96","02:ab:46:46:28:95","a0:f3:c1:46:28:97","a6:f3:c1:46:28:97","a6:f3:c1:46:28:96"],"links":["14:cc:20:da:4e:ab","c0:4a:00:fc:3a:be","14:cc:20:da:4e:ac","c0:4a:00:fc:3a:bf"]},"author":"LiMe-462895"}}
+
+scp -6 bin/targets/ath79/generic/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin root@\[fe80::a2f3:c1ff:fe46:2895%enp3s1\]:/tmp
+scp -6 bin/targets/ath79/generic/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin root@\[fe80::16cc:20ff:feda:4eaa%enp3s1\]:/tmp
+scp -6 bin/targets/ath79/generic/openwrt-ath79-generic-tplink_tl-wdr3500-v1-squashfs-sysupgrade.bin root@\[fe80::c24a:ff:fefc:3abd%enp3s1\]:/tmp
+
+       
+echo | shared-state reqsync nodes_and_links
+prints actual content of the file /var/shared-state/data/nodes_and_links.json
+
+if you want to update the contents of the file just echo a json object with higher bletch number and 
+new data ... 
+
+
+ cat samplestate.txt | nc 10.13.40.149 3490
+
+ cd Desktop/ardc/ardc/openwrt22.03/
+
+
+ first check local state 
+ echo | shared-state reqsync nodes_and_links
+{"LiMe-462895":{"bleachTTL":26,"data":{"links":[],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["a0:f3:c1:46:28:96","a2:f3:c1:46:28:97","02:58:47:46:28:95","a2:f3:c1:46:28:96","02:ab:46:46:28:95","a0:f3:c1:46:28:97","a6:f3:c1:46:28:97","a6:f3:c1:46:28:96"],"hostname":"LiMe-462895"},"author":"LiMe-462895"}}
+
+ then after cat sample state 
+ echo | shared-state reqsync nodes_and_links
+{"LiMe-fc3abd":{"bleachTTL":9,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"EEEEE","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c2:4a:00:fc:3a:bf","02:ab:46:fc:3a:bd","c2:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf","c6:4a:00:fc:3a:bf","c6:4a:00:fc:3a:be","02:58:47:fc:3a:bd"],"links":["a0:f3:c1:46:28:96","14:cc:20:da:4e:ab","a0:f3:c1:46:28:97","14:cc:20:da:4e:ac"]},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":3,"data":{"links":["c0:4a:00:fc:3a:be","a0:f3:c1:46:28:96","a0:f3:c1:46:28:97","c0:4a:00:fc:3a:bf"],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["02:ab:46:da:4e:aa","12:cc:20:da:4e:ac","16:cc:20:da:4e:ac","02:58:47:da:4e:aa","14:cc:20:da:4e:ac","14:cc:20:da:4e:ab","12:cc:20:da:4e:ab","16:cc:20:da:4e:ab"],"hostname":"LiMe-da4eaa"},"author":"LiMe-da4eaa"},"LiMe-462895":{"bleachTTL":28,"data":{"hostname":"LiMe-462895","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["a0:f3:c1:46:28:96","a2:f3:c1:46:28:97","02:58:47:46:28:95","a2:f3:c1:46:28:96","02:ab:46:46:28:95","a0:f3:c1:46:28:97","a6:f3:c1:46:28:97","a6:f3:c1:46:28:96"],"links":["14:cc:20:da:4e:ab","c0:4a:00:fc:3a:be","14:cc:20:da:4e:ac","c0:4a:00:fc:3a:bf"]},"author":"LiMe-462895"}}
+
+after incrementing bleachTTL from 7 to 27 the host data is updated 
+/usr/bin/lua
+{"LiMe-fc3abd":{"bleachTTL":7,"data":{"hostname":"LiMe-fc3abd","coordinates":{"lon":"EEEEE","lat":"FIXME"},"macs":["c0:4a:00:fc:3a:be","c2:4a:00:fc:3a:bf","02:ab:46:fc:3a:bd","c2:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf","c6:4a:00:fc:3a:bf","c6:4a:00:fc:3a:be","02:58:47:fc:3a:bd"],"links":["a0:f3:c1:46:28:96","14:cc:20:da:4e:ab","a0:f3:c1:46:28:97","14:cc:20:da:4e:ac"]},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":3,"data":{"hostname":"LiMe-da4eaa","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["02:ab:46:da:4e:aa","12:cc:20:da:4e:ac","16:cc:20:da:4e:ac","02:58:47:da:4e:aa","14:cc:20:da:4e:ac","14:cc:20:da:4e:ab","12:cc:20:da:4e:ab","16:cc:20:da:4e:ab"],"links":["c0:4a:00:fc:3a:be","a0:f3:c1:46:28:96","a0:f3:c1:46:28:97","c0:4a:00:fc:3a:bf"]},"author":"LiMe-da4eaa"},"LiMe-462895":{"bleachTTL":28,"data":{"links":["14:cc:20:da:4e:ab","c0:4a:00:fc:3a:be","14:cc:20:da:4e:ac","c0:4a:00:fc:3a:bf"],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["a0:f3:c1:46:28:96","a2:f3:c1:46:28:97","02:58:47:46:28:95","a2:f3:c1:46:28:96","02:ab:46:46:28:95","a0:f3:c1:46:28:97","a6:f3:c1:46:28:97","a6:f3:c1:46:28:96"],"hostname":"LiMe-462895"},"author":"LiMe-462895"}}jjorge@leon:~/Desktop/ardc/ardc/epollcoroutinedoctest/tests$ 
+jjorge@leon:~/Desktop/ardc/ardc/epollcoroutinedoctest/tests$ 
+jjorge@leon:~/Desktop/ardc/ardc/epollcoroutinedoctest/tests$ 
+jjorge@leon:~/Desktop/ardc/ardc/epollcoroutinedoctest/tests$ 
+jjorge@leon:~/Desktop/ardc/ardc/epollcoroutinedoctest/tests$  cat samplestate.txt | nc 10.13.40.149 3490
+/usr/bin/lua
+{"LiMe-fc3abd":{"bleachTTL":27,"data":{"links":["a0:f3:c1:46:28:96","14:cc:20:da:4e:ab","a0:f3:c1:46:28:97","14:cc:20:da:4e:ac"],"coordinates":{"lon":"EEEEE","lat":"EEEEE"},"macs":["c0:4a:00:fc:3a:be","c2:4a:00:fc:3a:bf","02:ab:46:fc:3a:bd","c2:4a:00:fc:3a:be","c0:4a:00:fc:3a:bf","c6:4a:00:fc:3a:bf","c6:4a:00:fc:3a:be","02:58:47:fc:3a:bd"],"hostname":"LiMe-fc3abd"},"author":"LiMe-fc3abd"},"LiMe-da4eaa":{"bleachTTL":3,"data":{"links":["c0:4a:00:fc:3a:be","a0:f3:c1:46:28:96","a0:f3:c1:46:28:97","c0:4a:00:fc:3a:bf"],"coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["02:ab:46:da:4e:aa","12:cc:20:da:4e:ac","16:cc:20:da:4e:ac","02:58:47:da:4e:aa","14:cc:20:da:4e:ac","14:cc:20:da:4e:ab","12:cc:20:da:4e:ab","16:cc:20:da:4e:ab"],"hostname":"LiMe-da4eaa"},"author":"LiMe-da4eaa"},"LiMe-462895":{"bleachTTL":28,"data":{"hostname":"LiMe-462895","coordinates":{"lon":"FIXME","lat":"FIXME"},"macs":["a0:f3:c1:46:28:96","a2:f3:c1:46:28:97","02:58:47:46:28:95","a2:f3:c1:46:28:96","02:ab:46:46:28:95","a0:f3:c1:46:28:97","a6:f3:c1:46:28:97","a6:f3:c1:46:28:96"],"links":["14:cc:20:da:4e:ab","c0:4a:00:fc:3a:be","14:cc:20:da:4e:ac","c0:4a:00:fc:3a:bf"]},"author":"LiMe-462895"}}jjorge@leon:~/Desktop/ardc/ardc/epollcoroutinedoctest/tests$ 
 

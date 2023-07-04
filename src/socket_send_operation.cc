@@ -25,8 +25,8 @@
 
 SocketSendOperation::SocketSendOperation(Socket *socket,
                                          const uint8_t*buffer,
-                                         std::size_t len)
-    : BlockSyscall{}, socket{socket}, buffer_{buffer}, len_{len}
+                                         std::size_t len, std::shared_ptr<std::error_condition> ec)
+    :BlockSyscall{ec}, socket{socket}, mBuffer_{buffer}, len_{len}
 {
     socket->io_context_.watchWrite(socket);
     RS_DBG0("socket_send_operation\n");
@@ -40,8 +40,8 @@ SocketSendOperation::~SocketSendOperation()
 
 ssize_t SocketSendOperation::syscall()
 {
-    RS_DBG0("send(" , socket->fd_ , " content " , (char *)buffer_ ," ammount " , len_ ,")");
-    return send(socket->fd_, buffer_, len_, 0);
+    RS_DBG0("send(" , socket->fd_ , " content " , (char *)mBuffer_ ," ammount " , len_ ,")");
+    return send(socket->fd_, mBuffer_, len_, 0);
 }
 
 void SocketSendOperation::suspend()

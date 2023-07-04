@@ -28,72 +28,110 @@
 #include <iostream>
 #include <array>
 #include <unistd.h>
-#include "async_command.hh"
 #include "piped_async_command.hh"
 #include "debug/rsdebuglevel2.h"
+#include "config.h"
 
+#define BUFFSIZE 3048
 
-#define BUFFSIZE 256
-
-/// @brief coro in charge of information handling. It takes the received states, merges it and return the updated status using the socket.
-/// @param socket
-/// @return true if everything goes fine
-std::task<bool> inside_loop(Socket &socket)
+/**
+ * @brief this task handles each message. It takes receives a message,
+ * calls async cat to implement an echo and returns the same message
+ * using the same socket.
+ * @param socket
+ * @return std::task<bool> returns true if it has not finished or false
+ * to finalize the socket and the communication.
+ */
+std::task<bool> echo_loop(Socket &socket)
 {
     char socbuffer[BUFFSIZE] = {0};
-    // TODO: lo que no entra en el buffer se procesa como otro mensaje...
-    ssize_t nbRecv = co_await socket.recv((uint8_t*)socbuffer, (sizeof socbuffer) - 1);
-    if (nbRecv <= 0)
+    // TODO: lo que no entra en el buffer se procesa como otro mensaje...?
+    ssize_t nbRecv = co_await socket.recv((uint8_t *)socbuffer, (sizeof socbuffer) - 1);
+
+    if (nbRecv <= 0) // todo: if the maximum amount has been received copy to a buffer ?
     {
         co_return false;
     }
-    RS_DBG0("RECIVING (" , socbuffer , "):" );
+    RS_DBG0("RECIVING (", socbuffer, "):");
     std::array<uint8_t, BUFFSIZE> buffer;
+    buffer.fill(0);
+    std::string data = socbuffer;
+    std::string command = SharedState::extractCommand(data);
     std::string merged;
-    std::string cmd = "cat";
+    std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync ";
+    RS_DBG0("executing command -", cmd);
+    cmd = "cat";
+    //cmd = cmd + command;
+    RS_DBG0("executing command -", cmd);
     std::error_condition err;
-    std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket,err);
+    std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket, err);
     if (err != std::errc())
     {
         asyncecho.reset(nullptr);
+        RS_ERR("Error creating new process....");
         co_return false;
     }
-    co_await asyncecho->writepipe((uint8_t*)socbuffer, nbRecv);
-    RS_DBG0("writepipe (" , socbuffer , "):" );
-    co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
-    
-    merged = (char *)buffer.data();
-    RS_DBG0("readpipe (" , merged , "):" );
-    // problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
-    // sin esta linea se genera un enter que no se recibe y el programa explota
-    //merged.erase(std::remove(merged.begin(), merged.end(), '\n'), merged.cend());
-    size_t nbSend = 0;
-    while (nbSend < merged.size()) // probar y hacer un pull request al creador
+    co_await asyncecho->writepipe(reinterpret_cast<const uint8_t *>(&data[0]), data.length());
+    RS_DBG0("writepipe (", data, ")");
+    buffer.fill(0);
+    // some applications read until eof is sent, the only way is closing the write end.
+    asyncecho->finishwriting();
+    ssize_t rec_ammount = 0;
+    ssize_t nbRecvFromPipe = 0;
+    int endlconuter = 0;
+    do
     {
-        RS_DBG0("SENDING (" , merged , "):" );
-        ssize_t res = co_await socket.send((uint8_t*)&(merged.data()[nbSend]), merged.size() - nbSend);
-        if (res <= 0)
+        nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
+        merged += (char *)buffer.data();
+        RS_DBG0(" buffer data ",(char *)buffer.data());
+        if (merged.at(merged.length() - 1) != '\n')
         {
-            RS_DBG0("DONE (" , nbRecv , "):" );
-            co_return false;
+            endlconuter++;
         }
+        buffer.fill(0);
+        rec_ammount += nbRecvFromPipe;
+        RS_DBG0("nbRecvFromPipe (", nbRecvFromPipe, "), done reading? ", asyncecho->doneReading(), " counter ", endlconuter);
+    } while ((nbRecvFromPipe != 0) && (!asyncecho->doneReading()) && endlconuter != 1); 
+    // read from this pipe in openwrt and using shared state never returns 0 it just resturns -1. and the donereading flag is always 0
+    // it seems that the second end of line can be a good candidate for end of transmission
+
+    asyncecho->finishReading();
+    RS_DBG0("PIPE contents ...", merged, " .. ammount ", rec_ammount);
+    merged.erase(0, merged.find('\n') + 1); // cat and shared state excecve read pipecontents echo the command at the first line
+    // TODO: problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
+    size_t nbSend = 0;
+    RS_DBG0("SENDING (", merged, "): ammount ", merged.size());
+    while (nbSend < merged.size()) // todo: probar y hacer un pull request al creador
+    {
+
+        ssize_t res = co_await socket.send((uint8_t *)&(merged.data()[nbSend]), merged.size() - nbSend);
+        // todo: add error handling to avoid program interruption due to socket malfunction
+        RS_DBG0("SENT ", res);
         nbSend += res;
     }
+
     // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
-    RS_DBG0("DONE (" , nbRecv , "):" );
+    RS_DBG0("DONE (", nbRecvFromPipe, "):");
     co_await asyncecho->whaitforprocesstodie();
     asyncecho.reset(nullptr);
     co_return false;
 }
 
-// TODO: Use more descriptive name
+/**
+ * @brief Handles a client socket until the inside task finishes
+ * this can enable a multi message communication over a single socket
+ *
+ * @param socket a socket generated by accept
+ * @return std::task<bool> a task that can be resumed or detached
+ */
 std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
 {
+    // TODO:can be std::task<void> no need to use bool
     bool run = true;
     while (run)
     {
         RS_DBG0("BEGIN");
-        run = co_await inside_loop(*socket);
+        run = co_await echo_loop(*socket);
         RS_DBG0("END");
     }
     socket.reset(nullptr);
@@ -102,22 +140,31 @@ std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
 
 std::task<> accept(Socket &listen)
 {
-	while(true)
-	{
-		RS_DBG0("begin accept");
-		auto socket = co_await listen.accept();
+    while (true)
+    {
+        RS_DBG0("begin accept");
+        auto socket = co_await listen.accept();
 
-		/* Going out of scope the returned task is destroyed, we need to
-		 * detach the coroutine oterwise it will be abruptly stopped too before
-		 * finishing the job */
-		client_socket_handler(std::move(socket)).detach();
+        /* Going out of scope the returned task is destroyed, we need to
+         * detach the coroutine otherwise it will be abruptly stopped too before
+         * finishing the job */
+        client_socket_handler(std::move(socket)).detach();
 
-		RS_DBG0("end accept");
-	}
+        RS_DBG0("end accept");
+    }
 }
 
 int main()
 {
+
+    RS_DBG0("           ___                         ");
+    RS_DBG0("    ____  /   |  _______  ______  _____");
+    RS_DBG0("   / __ \\/ /| | / ___/ / / / __ \\/ ___/");
+    RS_DBG0("  / / / / ___ |(__  ) /_/ / / / / /__  ");
+    RS_DBG0(" /_/ /_/_/  |_/____/\\__, /_/ /_/\\___/  ");
+    RS_DBG0("                   /____/              ");
+    RS_DBG0("          ver:", PROJECT_VERSION_MAJOR, ".", PROJECT_VERSION_MINOR, ".", PROJECT_VERSION_PATCH, ".", PROJECT_VERSION_TWEAK);
+
     IOContext io_context{};
     Socket listen{"3490", io_context};
     auto t = accept(listen);
