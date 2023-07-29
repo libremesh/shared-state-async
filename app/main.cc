@@ -58,7 +58,7 @@ std::task<bool> echo_loop(Socket &socket)
     std::string data = socbuffer;
     std::string command = SharedState::extractCommand(data);
     std::string merged;
-    std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync ";
+	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
     RS_DBG0("executing command -", cmd);
     cmd = "cat";
     //cmd = cmd + command;
@@ -166,8 +166,8 @@ int main()
     RS_DBG0("          ver:", PROJECT_VERSION_MAJOR, ".", PROJECT_VERSION_MINOR, ".", PROJECT_VERSION_PATCH, ".", PROJECT_VERSION_TWEAK);
 
     IOContext io_context{};
-    Socket listen{"3490", io_context};
-    auto t = accept(listen);
+	Socket listener(3490, io_context);
+	auto t = accept(listener);
     t.resume();
     io_context.run();
 }

@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -19,6 +20,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #include "socket.hh"
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -28,31 +30,40 @@
 #include <unistd.h>
 #include <iostream>
 #include "debug/rsdebuglevel2.h"
-#include <errno.h>
+#include <cerrno>
 
-
-Socket::Socket(std::string_view port, IOContext& io_context)
+Socket::Socket(uint16_t port, IOContext& io_context)
     : AsyncFileDescriptor(io_context) 
 {
-    struct addrinfo hints, *res;
+	// TODO: DEAL WITH ERRORS!!!
 
-    std::memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;  //Use IPv4 or IPv6
-    hints.ai_socktype = SOCK_STREAM; //TCP ... if you require UDP you must use SOCK_DGRAM
-    hints.ai_flags = AI_PASSIVE;     //Fill in my IP for me
+	fd_ = socket(PF_INET6, SOCK_STREAM, 0);
 
-    getaddrinfo(NULL, port.data(), &hints, &res);
-    fd_ = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    int opt;
-    setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
-    if (bind(fd_, res->ai_addr, res->ai_addrlen) == -1)
-    {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),mErrorcontainer);
-    }
-    listen(fd_, 8);
-    fcntl(fd_, F_SETFL, O_NONBLOCK);
-    io_context_.attach(this);
-    io_context_.watchRead(this);
+	int err = 0;
+
+#ifdef IPV6_V6ONLY
+	int ipv6only_optval = 0;
+	err = setsockopt( fd_, IPPROTO_IPV6, IPV6_V6ONLY,
+	                  &ipv6only_optval, sizeof(ipv6only_optval) );
+	RS_ERR("Failure setting IPv6 socket dual stack err: ", err);
+#endif // IPV6_V6ONLY
+
+	int reuseaddr_optval = 1;
+	err = setsockopt( fd_, SOL_SOCKET, SO_REUSEADDR,
+	                  &reuseaddr_optval, sizeof(reuseaddr_optval) );
+
+	sockaddr_in6 listenAddr;
+	memset(&listenAddr, 0, sizeof(listenAddr));
+	listenAddr.sin6_port = port;
+
+	bind( fd_, reinterpret_cast<const struct sockaddr *>(&listenAddr),
+	      sizeof(listenAddr) );
+
+	listen(fd_, 8);
+	fcntl(fd_, F_SETFL, O_NONBLOCK);
+
+	io_context_.attach(this);
+	io_context_.watchRead(this);
 }
 
 Socket::~Socket()

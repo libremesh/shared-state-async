@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -19,6 +20,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #pragma once
 
 #include <cstring>
@@ -32,7 +34,7 @@
 #include "socket_send_operation.hh"
 #include "file_read_operation.hh"
 #include "task.hh"
-#include "debug/rsdebug.h"
+
 
 /**
  * @brief Listen tcp non blocking socket
@@ -41,7 +43,9 @@
 class Socket : public AsyncFileDescriptor
 {
 public:
-    Socket(std::string_view port, IOContext &io_context);
+	/* TODO: Setting up a listening socket can fail, use a method with optional
+	 * error reporting instead of a costructor */
+	Socket(std::uint16_t port, IOContext &io_context);
     Socket(const Socket &) = delete;
     Socket(Socket &&socket);
 
