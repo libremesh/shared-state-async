@@ -25,8 +25,7 @@
 
 #include <cstring>
 #include <memory>
-#include <optional>
-#include <string_view>
+
 #include "async_file_desc.hh"
 #include "io_context.hh"
 #include "socket_accept_operation.hh"
@@ -43,19 +42,25 @@
 class Socket : public AsyncFileDescriptor
 {
 public:
-	/* TODO: Setting up a listening socket can fail, use a method with optional
-	 * error reporting instead of a costructor */
-	Socket(std::uint16_t port, IOContext &io_context);
-    Socket(const Socket &) = delete;
-    Socket(Socket &&socket);
+	Socket(const Socket &) = delete;
+	Socket(Socket &&socket);
 
-    ~Socket();
+	~Socket();
 
-    std::task<std::unique_ptr<Socket>> accept();
+	static std::unique_ptr<Socket> setupListener(
+	        uint16_t port, IOContext& ioContext,
+	        std::error_condition* ec = nullptr );
 
-    SocketRecvOperation recv(uint8_t *buffer, std::size_t len,std::shared_ptr<std::error_condition> ec=nullptr);
-    SocketSendOperation send(uint8_t *buffer, std::size_t len);
-    explicit Socket(int fd, IOContext &io_context);
+	std::task<std::unique_ptr<Socket>> accept();
+
+	SocketRecvOperation recv(
+	        uint8_t *buffer, std::size_t len,
+	        std::shared_ptr<std::error_condition> ec = nullptr );
+
+	SocketSendOperation send(uint8_t *buffer, std::size_t len);
+
+	// TODO: make private?
+	Socket(int fd, IOContext &io_context);
 
 private:
     friend SocketAcceptOperation;
@@ -63,5 +68,6 @@ private:
     friend SocketSendOperation;
     friend FileReadOperation;
     friend IOContext;
-    std::error_condition *mErrorcontainer = nullptr;
+
+	static constexpr int DEFAULT_LISTEN_BACKLOG = 8;
 };

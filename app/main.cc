@@ -166,8 +166,8 @@ int main()
     RS_DBG0("          ver:", PROJECT_VERSION_MAJOR, ".", PROJECT_VERSION_MINOR, ".", PROJECT_VERSION_PATCH, ".", PROJECT_VERSION_TWEAK);
 
     IOContext io_context{};
-	Socket listener(3490, io_context);
-	auto t = accept(listener);
+	auto listener = Socket::setupListener(3490, io_context);
+	auto t = accept(*listener.get());
     t.resume();
     io_context.run();
 }

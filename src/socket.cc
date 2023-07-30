@@ -32,40 +32,6 @@
 #include "debug/rsdebuglevel2.h"
 #include <cerrno>
 
-Socket::Socket(uint16_t port, IOContext& io_context)
-    : AsyncFileDescriptor(io_context) 
-{
-	// TODO: DEAL WITH ERRORS!!!
-
-	fd_ = socket(PF_INET6, SOCK_STREAM, 0);
-
-	int err = 0;
-
-#ifdef IPV6_V6ONLY
-	int ipv6only_optval = 0;
-	err = setsockopt( fd_, IPPROTO_IPV6, IPV6_V6ONLY,
-	                  &ipv6only_optval, sizeof(ipv6only_optval) );
-	RS_ERR("Failure setting IPv6 socket dual stack err: ", err);
-#endif // IPV6_V6ONLY
-
-	int reuseaddr_optval = 1;
-	err = setsockopt( fd_, SOL_SOCKET, SO_REUSEADDR,
-	                  &reuseaddr_optval, sizeof(reuseaddr_optval) );
-
-	sockaddr_in6 listenAddr;
-	memset(&listenAddr, 0, sizeof(listenAddr));
-	listenAddr.sin6_port = port;
-
-	bind( fd_, reinterpret_cast<const struct sockaddr *>(&listenAddr),
-	      sizeof(listenAddr) );
-
-	listen(fd_, 8);
-	fcntl(fd_, F_SETFL, O_NONBLOCK);
-
-	io_context_.attach(this);
-	io_context_.watchRead(this);
-}
-
 Socket::~Socket()
 {
     RS_DBG0("------delete the socket(" , fd_ , ")\n");
@@ -77,6 +43,68 @@ Socket::~Socket()
     io_context_.detach(this);
     close(fd_);
     fd_ = -1;*/
+}
+
+std::unique_ptr<Socket> Socket::setupListener(
+        uint16_t port, IOContext& ioContext, std::error_condition* ec )
+{
+	int fd_ = socket(PF_INET6, SOCK_STREAM, 0);
+	if(fd_ < 0)
+	{
+		rs_error_bubble_or_exit(std::errc(errno), ec, "creating socket");
+		return nullptr;
+	}
+
+#ifdef IPV6_V6ONLY
+	int ipv6only_optval = 0;
+	if( setsockopt( fd_, IPPROTO_IPV6, IPV6_V6ONLY,
+	                &ipv6only_optval, sizeof(ipv6only_optval) ) < 0 )
+	{
+		rs_error_bubble_or_exit(
+		            std::errc(errno), ec, "setting IPv6 socket dual stack" );
+		return nullptr;
+	}
+#endif // IPV6_V6ONLY
+
+	int reuseaddr_optval = 1;
+	if( setsockopt( fd_, SOL_SOCKET, SO_REUSEADDR,
+	                &reuseaddr_optval, sizeof(reuseaddr_optval) ) < 0 )
+	{
+		rs_error_bubble_or_exit(
+		            std::errc(errno), ec, "setting SO_REUSEADDR" );
+		return nullptr;
+	}
+
+	sockaddr_in6 listenAddr;
+	memset(&listenAddr, 0, sizeof(listenAddr));
+	listenAddr.sin6_family = AF_INET6;
+	listenAddr.sin6_port = port;
+
+	if( bind( fd_, reinterpret_cast<const struct sockaddr *>(&listenAddr),
+	          sizeof(listenAddr) ) < 0 )
+	{
+		rs_error_bubble_or_exit(
+		            std::errc(errno), ec, "bind" );
+		return nullptr;
+	}
+
+	if( listen(fd_, DEFAULT_LISTEN_BACKLOG) < 0 )
+	{
+		rs_error_bubble_or_exit(
+		            std::errc(errno), ec, "listen" );
+		return nullptr;
+	}
+
+	if( fcntl(fd_, F_SETFL, O_NONBLOCK) < 0 )
+	{
+		rs_error_bubble_or_exit(
+		            std::errc(errno), ec, "O_NONBLOCK" );
+		return nullptr;
+	}
+
+	auto lSocket = std::make_unique<Socket>(fd_, ioContext);
+	ioContext.watchRead(lSocket.get());
+	return lSocket;
 }
 
 std::task<std::unique_ptr<Socket>> Socket::accept()
