@@ -78,7 +78,7 @@ std::unique_ptr<Socket> Socket::setupListener(
 	sockaddr_in6 listenAddr;
 	memset(&listenAddr, 0, sizeof(listenAddr));
 	listenAddr.sin6_family = AF_INET6;
-	listenAddr.sin6_port = port;
+	listenAddr.sin6_port = htons(port);
 
 	if( bind( fd_, reinterpret_cast<const struct sockaddr *>(&listenAddr),
 	          sizeof(listenAddr) ) < 0 )
