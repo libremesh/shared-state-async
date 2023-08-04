@@ -19,8 +19,10 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-#include "popen_file_read_operation.hh"
+
 #include <iostream>
+
+#include "popen_file_read_operation.hh"
 #include "popen_async_command.hh"
 
 PopenFileReadOperation::PopenFileReadOperation(PopenAsyncCommand* socket,
@@ -56,5 +58,6 @@ ssize_t PopenFileReadOperation::syscall()
 
 void PopenFileReadOperation::suspend()
 {
-    socket->coroRecv_ = awaitingCoroutine_;
+	RS_DBG3("");
+	socket->coroRecv_ = mAwaitingCoroutine;
 }

@@ -64,6 +64,6 @@ pid_t DyingProcessWaitOperation::syscall()
 
 void DyingProcessWaitOperation::suspend()
 {
-    RS_DBG0(__PRETTY_FUNCTION__);
-    socket->coroRecv_ = awaitingCoroutine_;
+	RS_DBG0("");
+	socket->coroRecv_ = mAwaitingCoroutine;
 }

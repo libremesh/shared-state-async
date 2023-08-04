@@ -63,6 +63,6 @@ ssize_t SocketRecvOperation::syscall()
 
 void SocketRecvOperation::suspend()
 {
-    RS_DBG0("");
-    socket->coroRecv_ = awaitingCoroutine_;
+	RS_DBG3("");
+	socket->coroRecv_ = mAwaitingCoroutine;
 }

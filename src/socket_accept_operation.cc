@@ -1,8 +1,9 @@
 /*
  * Shared State
  *
- * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
- * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023  Javier Jorge <jjorge@inti.gob.ar>
+ * Copyright (C) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -19,33 +20,38 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #include "socket_accept_operation.hh"
-#include <iostream>
 #include "socket.hh"
 
-SocketAcceptOperation::SocketAcceptOperation(Socket *socket,std::shared_ptr<std::error_condition> ec)
-    : BlockSyscall{ec}, socket{socket}
+SocketAcceptOperation::SocketAcceptOperation(
+        Socket* socket, std::shared_ptr<std::error_condition> ec ):
+    BlockSyscall(ec), socket(socket)
 {
-    socket->io_context_.watchRead(socket);
-    RS_DBG0("socket_accept_operation\n)");
+	RS_DBG3("");
+	socket->io_context_.watchRead(socket);
 }
 
 SocketAcceptOperation::~SocketAcceptOperation()
 {
-    socket->io_context_.unwatchRead(socket);
-    RS_DBG0("~socket_accept_operation\n");
+	RS_DBG3("");
+	socket->io_context_.unwatchRead(socket);
 }
 
 int SocketAcceptOperation::syscall()
 {
-    struct sockaddr_storage their_addr;
-    socklen_t addr_size = sizeof their_addr;
-    RS_DBG0("accept(" , socket->fd_ , ", ...)" );
-    return accept(socket->fd_, (struct sockaddr *)&their_addr, &addr_size);
+	sockaddr_storage their_addr;
+	socklen_t addr_size = sizeof their_addr;
+
+	/* TODO: Saving/recording the address of the peer connecting to us might be
+	 * useful for debugging */
+
+	return accept(socket->fd_, (struct sockaddr *)&their_addr, &addr_size);
 }
 
 void SocketAcceptOperation::suspend()
 {
-    RS_DBG0("");
-    socket->coroRecv_ = awaitingCoroutine_;
+	RS_DBG3("");
+	socket->coroRecv_ = mAwaitingCoroutine;
 }
+

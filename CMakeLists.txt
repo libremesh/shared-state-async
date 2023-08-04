@@ -54,10 +54,14 @@ set(SOURCES          # All .cpp files in src/
     src/dying_process_wait_operation.cc
     src/debug/rsdebug.cc
 )
+
 set(TESTFILES        # All .cpp files in tests/
     tests/main.cpp
 )
-set(LIBRARY_NAME engine)  # Default name for the library built from src/*.cpp (change if you wish)
+
+set(LIBRARY_NAME shared-state)
+set(SERVER_NAME shared-state-async-server)
+set(CLIENT_NAME shared-state-async-client)
 
 # --------------------------------------------------------------------------------
 #                            Build! (Change as needed)
@@ -77,14 +81,19 @@ target_set_warnings(${LIBRARY_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 
 # Add an executable for the file app/main.cpp.
 # If you add more executables, copy these lines accordingly.
-add_executable(main app/main.cc)   # Name of exec. and location of file.
-target_link_libraries(main PRIVATE ${LIBRARY_NAME})  # Link the executable to library (if it uses it).
-target_set_warnings(main ENABLE ALL AS_ERROR ALL DISABLE Annoying) # Set warnings (if needed).
-target_enable_lto(main optimized)  # enable link-time-optimization if available for non-debug configurations
+
+
+
+# Name of exec. and location of file.
+add_executable(${SERVER_NAME} app/main.cc)
+
+target_link_libraries(${SERVER_NAME} PRIVATE ${LIBRARY_NAME})  # Link the executable to library (if it uses it).
+target_set_warnings(${SERVER_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying) # Set warnings (if needed).
+target_enable_lto(${SERVER_NAME} optimized)  # enable link-time-optimization if available for non-debug configurations
 
 # Set the properties you require, e.g. what C++ standard to use. Here applied to library and main (change as needed).
 set_target_properties(
-    ${LIBRARY_NAME} main
+    ${LIBRARY_NAME} ${SERVER_NAME}
       PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES

@@ -60,6 +60,6 @@ ssize_t FileReadOperation::syscall()
 
 void FileReadOperation::suspend()
 {
-    RS_DBG0("#");
-    socket->coroRecv_ = awaitingCoroutine_;
+	RS_DBG0("#");
+	socket->coroRecv_ = mAwaitingCoroutine;
 }

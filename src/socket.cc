@@ -51,7 +51,8 @@ std::unique_ptr<Socket> Socket::setupListener(
 	int fd_ = socket(PF_INET6, SOCK_STREAM, 0);
 	if(fd_ < 0)
 	{
-		rs_error_bubble_or_exit(std::errc(errno), ec, "creating socket");
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), ec, "creating socket" );
 		return nullptr;
 	}
 
@@ -61,7 +62,8 @@ std::unique_ptr<Socket> Socket::setupListener(
 	                &ipv6only_optval, sizeof(ipv6only_optval) ) < 0 )
 	{
 		rs_error_bubble_or_exit(
-		            std::errc(errno), ec, "setting IPv6 socket dual stack" );
+		            rs_errno_to_condition(errno), ec,
+		            "setting IPv6 socket dual stack" );
 		return nullptr;
 	}
 #endif // IPV6_V6ONLY
@@ -71,7 +73,7 @@ std::unique_ptr<Socket> Socket::setupListener(
 	                &reuseaddr_optval, sizeof(reuseaddr_optval) ) < 0 )
 	{
 		rs_error_bubble_or_exit(
-		            std::errc(errno), ec, "setting SO_REUSEADDR" );
+		            rs_errno_to_condition(errno), ec, "setting SO_REUSEADDR" );
 		return nullptr;
 	}
 
@@ -84,21 +86,21 @@ std::unique_ptr<Socket> Socket::setupListener(
 	          sizeof(listenAddr) ) < 0 )
 	{
 		rs_error_bubble_or_exit(
-		            std::errc(errno), ec, "bind" );
+		            rs_errno_to_condition(errno), ec, "bind" );
 		return nullptr;
 	}
 
 	if( listen(fd_, DEFAULT_LISTEN_BACKLOG) < 0 )
 	{
 		rs_error_bubble_or_exit(
-		            std::errc(errno), ec, "listen" );
+		            rs_errno_to_condition(errno), ec, "listen" );
 		return nullptr;
 	}
 
 	if( fcntl(fd_, F_SETFL, O_NONBLOCK) < 0 )
 	{
 		rs_error_bubble_or_exit(
-		            std::errc(errno), ec, "O_NONBLOCK" );
+		            rs_errno_to_condition(errno), ec, "O_NONBLOCK" );
 		return nullptr;
 	}
 
@@ -109,8 +111,7 @@ std::unique_ptr<Socket> Socket::setupListener(
 
 std::task<std::unique_ptr<Socket>> Socket::accept()
 {
-    
-    int fd = co_await SocketAcceptOperation{this}; //in case of failure the app will exit
+	int fd = co_await SocketAcceptOperation(this);
     /*
     std::shared_ptr error_info = std::make_shared<std::error_condition>();
     //in case of failure, error_info wil have information about the problem.

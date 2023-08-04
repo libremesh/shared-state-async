@@ -39,10 +39,10 @@ class PopenAsyncCommand;
 class PipedAsyncCommand;
 
 /**
- * This class works work as dispacher, notifying suspended blocksyscall when 
- * ready to be activated. blocksyscalls must suscribe to this class in order 
+ * This class works as dispacher, notifying suspended blocksyscall when
+ * ready to be activated. Blocksyscalls must suscribe to this class in order
  * to be notified.
- * 
+ *
  * @brief This class is an Just an epoll wrapper 
  */
 class IOContext

@@ -37,14 +37,16 @@ class Socket;
 class SocketAcceptOperation : public BlockSyscall<SocketAcceptOperation, int>
 {
 public:
-    SocketAcceptOperation(Socket *socket,std::shared_ptr<std::error_condition> ec=nullptr);
-    ~SocketAcceptOperation();
+	SocketAcceptOperation(
+	        Socket *socket,
+	        std::shared_ptr<std::error_condition> ec = nullptr );
+	~SocketAcceptOperation();
 
-    int syscall();
-    void suspend();
+	int syscall();
+	void suspend();
 
 private:
-    Socket *socket;
-    uint8_t*mBuffer_;
-    std::size_t len_;
+	Socket* socket;
+	uint8_t* mBuffer_;
+	size_t len_;
 };

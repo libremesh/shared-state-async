@@ -53,7 +53,6 @@ ssize_t FileWriteOperation::syscall()
 
 void FileWriteOperation::suspend()
 {
-    RS_DBG0(__PRETTY_FUNCTION__);
-
-    socket->coroSend_ = awaitingCoroutine_;
+	RS_DBG0("");
+	socket->coroSend_ = mAwaitingCoroutine;
 }

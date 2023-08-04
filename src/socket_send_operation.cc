@@ -46,7 +46,6 @@ ssize_t SocketSendOperation::syscall()
 
 void SocketSendOperation::suspend()
 {
-    RS_DBG0(__PRETTY_FUNCTION__  );
-
-    socket->coroSend_ = awaitingCoroutine_;
+	RS_DBG3("");
+	socket->coroSend_ = mAwaitingCoroutine;
 }

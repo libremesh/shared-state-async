@@ -44,33 +44,40 @@
  */
 std::task<bool> echo_loop(Socket &socket)
 {
-    char socbuffer[BUFFSIZE] = {0};
-    // TODO: lo que no entra en el buffer se procesa como otro mensaje...?
-    ssize_t nbRecv = co_await socket.recv((uint8_t *)socbuffer, (sizeof socbuffer) - 1);
+	char socbuffer[BUFFSIZE] = {0};
+
+	// TODO: lo que no entra en el buffer se procesa como otro mensaje...?
+	ssize_t nbRecv = co_await socket.recv(
+	            (uint8_t *)socbuffer, (sizeof socbuffer) - 1 );
 
     if (nbRecv <= 0) // todo: if the maximum amount has been received copy to a buffer ?
     {
         co_return false;
     }
+
     RS_DBG0("RECIVING (", socbuffer, "):");
     std::array<uint8_t, BUFFSIZE> buffer;
-    buffer.fill(0);
+	buffer.fill(0);
+
     std::string data = socbuffer;
-    std::string command = SharedState::extractCommand(data);
+	std::string dataTypeName = SharedState::extractCommand(data);
     std::string merged;
+
 	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
-    RS_DBG0("executing command -", cmd);
-    cmd = "cat";
-    //cmd = cmd + command;
-    RS_DBG0("executing command -", cmd);
-    std::error_condition err;
-    std::unique_ptr<PipedAsyncCommand> asyncecho = PipedAsyncCommand::factory(cmd, &socket, err);
+	cmd = cmd + " " + dataTypeName;
+	RS_DBG0("executing command -", cmd);
+
+	std::error_condition err;
+	std::unique_ptr<PipedAsyncCommand> asyncecho =
+	        PipedAsyncCommand::factory(cmd, &socket, err);
+
     if (err != std::errc())
     {
         asyncecho.reset(nullptr);
         RS_ERR("Error creating new process....");
         co_return false;
     }
+
     co_await asyncecho->writepipe(reinterpret_cast<const uint8_t *>(&data[0]), data.length());
     RS_DBG0("writepipe (", data, ")");
     buffer.fill(0);
