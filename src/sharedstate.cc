@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -19,17 +20,89 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #include "sharedstate.hh"
-#include <algorithm>
-#include <optional>
 #include "shared_state_error_code.hh"
+#include "debug/rsdebuglevel4.h"
+
 #include <chrono>
-#include "socket.hh"
 #include <iostream>
 #include <regex>
+#include <algorithm>
+#include <optional>
+#include <arpa/inet.h>
+
 
 namespace SharedState
 {
+std::task<NetworkMessage> receiveNetworkMessage(
+        Socket& socket, std::error_condition* errbub)
+{
+	// TODO: define and use proper error_conditions to return
+	// TODO: deal with socket errors
+
+	NetworkMessage networkMessage;
+
+	uint8_t dataTypeNameLenght = 0;
+	co_await socket.recv(&dataTypeNameLenght, 1);
+
+	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::invalid_argument, errbub,
+		            "Got data type name invalid lenght: ", dataTypeNameLenght );
+		co_return networkMessage;
+	}
+
+	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
+	co_await socket.recv(
+	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
+	            dataTypeNameLenght );
+
+	uint32_t dataLenght = 0;
+	co_await socket.recv(reinterpret_cast<uint8_t*>(&dataLenght), 4);
+	dataLenght = ntohl(dataLenght);
+
+
+	if(dataLenght < 2 || dataLenght > DATA_MAX_LENGHT)
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::invalid_argument, errbub,
+		            "Got data invalid lenght: ", dataLenght);
+		co_return networkMessage;
+	}
+
+	networkMessage.mData.resize(dataLenght, static_cast<char>(0));
+	co_await socket.recv(
+	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
+	            dataLenght );
+
+	co_return networkMessage;
+}
+
+std::task<size_t> sendNetworkMessage(
+        Socket& socket, const NetworkMessage& netMsg,
+        std::error_condition* errbub )
+{
+	size_t sentBytes = 0;
+
+	uint8_t dataTypeLen = netMsg.mTypeName.length();
+	sentBytes += co_await socket.send(&dataTypeLen, 1);
+
+	sentBytes += co_await socket.send(
+	            reinterpret_cast<const uint8_t*>(netMsg.mTypeName.data()),
+	            dataTypeLen );
+
+	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.length());
+	sentBytes += co_await socket.send(
+	            reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4);
+
+	sentBytes += co_await socket.send(
+	            reinterpret_cast<const uint8_t*>(netMsg.mData.data()),
+	            netMsg.mData.length() );
+
+	co_return sentBytes;
+}
 
     std::string extractCommand(std::string &inputString)
     {

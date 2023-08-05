@@ -38,12 +38,12 @@ find_lto(CXX)
 # --------------------------------------------------------------------------------
 #                         Locate files (change as needed).
 # --------------------------------------------------------------------------------
-set(SOURCES          # All .cpp files in src/
-    src/io_context.cc  
-    src/sharedstate.cc  
-    src/socket_accept_operation.cc  
-    src/socket.cc  
-    src/socket_recv_operation.cc  
+set(SOURCES
+    src/io_context.cc
+    src/sharedstate.cc
+    src/socket_accept_operation.cc
+    src/socket.cc
+    src/socket_recv_operation.cc
     src/socket_send_operation.cc
     src/shared_state_error_code.cc
     src/file_read_operation.cc
@@ -55,7 +55,7 @@ set(SOURCES          # All .cpp files in src/
     src/debug/rsdebug.cc
 )
 
-set(TESTFILES        # All .cpp files in tests/
+set(TESTFILES
     tests/main.cpp
 )
 
@@ -79,13 +79,8 @@ target_link_libraries(${LIBRARY_NAME} PUBLIC doctest)
 target_set_warnings(${LIBRARY_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 # target_compile_options(${LIBRARY_NAME} ... )  # For setting manually.
 
-# Add an executable for the file app/main.cpp.
-# If you add more executables, copy these lines accordingly.
-
-
-
-# Name of exec. and location of file.
-add_executable(${SERVER_NAME} app/main.cc)
+add_executable(${SERVER_NAME} app/${SERVER_NAME}.cc)
+#add_executable(${CLIENT_NAME} app/${CLIENT_NAME}.cc)
 
 target_link_libraries(${SERVER_NAME} PRIVATE ${LIBRARY_NAME})  # Link the executable to library (if it uses it).
 target_set_warnings(${SERVER_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying) # Set warnings (if needed).
@@ -93,7 +88,7 @@ target_enable_lto(${SERVER_NAME} optimized)  # enable link-time-optimization if 
 
 # Set the properties you require, e.g. what C++ standard to use. Here applied to library and main (change as needed).
 set_target_properties(
-    ${LIBRARY_NAME} ${SERVER_NAME}
+    ${LIBRARY_NAME} ${SERVER_NAME} #${CLIENT_NAME}
       PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES

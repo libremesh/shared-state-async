@@ -21,18 +21,23 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+
+#include <array>
+#include <unistd.h>
+
 #include "io_context.hh"
 #include "socket.hh"
 #include "task.hh"
 #include "sharedstate.hh"
-#include <iostream>
-#include <array>
-#include <unistd.h>
 #include "piped_async_command.hh"
 #include "debug/rsdebuglevel2.h"
 #include "config.h"
+#include "sharedstate.hh"
 
-#define BUFFSIZE 3048
+
+static constexpr int BUFFSIZE = 3048;
+
+using namespace SharedState;
 
 /**
  * @brief this task handles each message. It takes receives a message,
@@ -42,86 +47,72 @@
  * @return std::task<bool> returns true if it has not finished or false
  * to finalize the socket and the communication.
  */
-std::task<bool> echo_loop(Socket &socket)
+std::task<bool> echo_loop(Socket& socket)
 {
-	char socbuffer[BUFFSIZE] = {0};
-
-	// TODO: lo que no entra en el buffer se procesa como otro mensaje...?
-	ssize_t nbRecv = co_await socket.recv(
-	            (uint8_t *)socbuffer, (sizeof socbuffer) - 1 );
-
-    if (nbRecv <= 0) // todo: if the maximum amount has been received copy to a buffer ?
-    {
-        co_return false;
-    }
-
-    RS_DBG0("RECIVING (", socbuffer, "):");
-    std::array<uint8_t, BUFFSIZE> buffer;
-	buffer.fill(0);
-
-    std::string data = socbuffer;
-	std::string dataTypeName = SharedState::extractCommand(data);
-    std::string merged;
+	NetworkMessage networkMessage = co_await receiveNetworkMessage(socket);
 
 	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
-	cmd = cmd + " " + dataTypeName;
+	cmd = cmd + " " + networkMessage.mTypeName;
+
 	RS_DBG0("executing command -", cmd);
 
 	std::error_condition err;
-	std::unique_ptr<PipedAsyncCommand> asyncecho =
+	std::unique_ptr<PipedAsyncCommand> luaSharedState =
 	        PipedAsyncCommand::factory(cmd, &socket, err);
 
-    if (err != std::errc())
-    {
-        asyncecho.reset(nullptr);
-        RS_ERR("Error creating new process....");
-        co_return false;
-    }
+	co_await luaSharedState->writepipe(
+	            reinterpret_cast<const uint8_t*>(networkMessage.mData.data()),
+	            networkMessage.mData.length() );
+	luaSharedState->finishwriting();
 
-    co_await asyncecho->writepipe(reinterpret_cast<const uint8_t *>(&data[0]), data.length());
-    RS_DBG0("writepipe (", data, ")");
-    buffer.fill(0);
-    // some applications read until eof is sent, the only way is closing the write end.
-    asyncecho->finishwriting();
-    ssize_t rec_ammount = 0;
-    ssize_t nbRecvFromPipe = 0;
-    int endlconuter = 0;
-    do
-    {
-        nbRecvFromPipe = co_await asyncecho->readpipe(buffer.data(), BUFFSIZE);
-        merged += (char *)buffer.data();
-        RS_DBG0(" buffer data ",(char *)buffer.data());
-        if (merged.at(merged.length() - 1) != '\n')
-        {
-            endlconuter++;
-        }
-        buffer.fill(0);
-        rec_ammount += nbRecvFromPipe;
-        RS_DBG0("nbRecvFromPipe (", nbRecvFromPipe, "), done reading? ", asyncecho->doneReading(), " counter ", endlconuter);
-    } while ((nbRecvFromPipe != 0) && (!asyncecho->doneReading()) && endlconuter != 1); 
-    // read from this pipe in openwrt and using shared state never returns 0 it just resturns -1. and the donereading flag is always 0
-    // it seems that the second end of line can be a good candidate for end of transmission
+	networkMessage.mData.clear();
+	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-    asyncecho->finishReading();
-    RS_DBG0("PIPE contents ...", merged, " .. ammount ", rec_ammount);
-    merged.erase(0, merged.find('\n') + 1); // cat and shared state excecve read pipecontents echo the command at the first line
-    // TODO: problema de manejo de errores... que pasa cuando se cuelgan los endpoints y ya no reciben.
-    size_t nbSend = 0;
-    RS_DBG0("SENDING (", merged, "): ammount ", merged.size());
-    while (nbSend < merged.size()) // todo: probar y hacer un pull request al creador
-    {
+	/* some applications read until eof is sent, the only way is closing the
+	 * write end. */
+	ssize_t rec_ammount = 0;
+	ssize_t nbRecvFromPipe = 0;
+	int endlconuter = 0;
+	int totalReadBytes = 0;
+	uint8_t* dataPtr = reinterpret_cast<uint8_t*>(networkMessage.mData.data());
+	do
+	{
+		nbRecvFromPipe = co_await luaSharedState->readpipe(
+		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
+		totalReadBytes += nbRecvFromPipe;
 
-        ssize_t res = co_await socket.send((uint8_t *)&(merged.data()[nbSend]), merged.size() - nbSend);
-        // todo: add error handling to avoid program interruption due to socket malfunction
-        RS_DBG0("SENT ", res);
-        nbSend += res;
-    }
+		// TODO: should'nt it be == ?
+		if (*dataPtr != '\n') endlconuter++;
 
-    // TODO: esto va al std error ?? SERA QUE PODEMOS USAR UNA LIBRERIA DE LOGGFILE
-    RS_DBG0("DONE (", nbRecvFromPipe, "):");
-    co_await asyncecho->whaitforprocesstodie();
-    asyncecho.reset(nullptr);
-    co_return false;
+		RS_DBG0( "nbRecvFromPipe: ", nbRecvFromPipe,
+		         ", done reading? ", luaSharedState->doneReading(),
+		         " endlconuter: ", endlconuter);
+	}
+	while (
+	       (nbRecvFromPipe != 0) &&
+	       (!luaSharedState->doneReading()) &&
+	       endlconuter != 1
+	      );
+
+	/* read from this pipe in openwrt and using shared state never returns 0 it
+	 * just resturns -1. and the donereading flag is always 0
+	 * it seems that the second end of line can be a good candidate for end of
+	 * transmission */
+
+	luaSharedState->finishReading();
+
+	RS_DBG0( "PIPE contents ...", networkMessage.mData,
+	         " .. amount ", rec_ammount );
+
+	// cat and shared state excecve read pipecontents echo the command at the first line
+	networkMessage.mData.erase(0, networkMessage.mData.find('\n') + 1);
+
+	co_await sendNetworkMessage(socket, networkMessage);
+
+	co_await luaSharedState->whaitforprocesstodie();
+	luaSharedState.reset(nullptr);
+
+	co_return false;
 }
 
 /**

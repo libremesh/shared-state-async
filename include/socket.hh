@@ -57,7 +57,7 @@ public:
 	        uint8_t *buffer, std::size_t len,
 	        std::shared_ptr<std::error_condition> ec = nullptr );
 
-	SocketSendOperation send(uint8_t *buffer, std::size_t len);
+	SocketSendOperation send(const uint8_t* buffer, std::size_t len);
 
 	// TODO: make private?
 	Socket(int fd, IOContext &io_context);

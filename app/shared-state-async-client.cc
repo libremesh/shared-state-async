@@ -1,8 +1,7 @@
 /*
  * Shared State
  *
- * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
- * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -19,32 +18,4 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-#pragma once
 
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#include "block_syscall.hh"
-
-class Socket;
-
-/**
- * @brief Implements an asynchronous Socket Receive Operation
- * 
- */
-class SocketRecvOperation : public BlockSyscall<SocketRecvOperation, ssize_t>
-{
-public:
-	SocketRecvOperation(
-	        Socket* socket, uint8_t* buffer, std::size_t len,
-	        std::shared_ptr<std::error_condition> ec = nullptr );
-	~SocketRecvOperation();
-
-	ssize_t syscall();
-    void suspend();
-
-private:
-    Socket *socket;
-    uint8_t *mBuffer_;
-    std::size_t len_;
-};

@@ -125,11 +125,14 @@ std::task<std::unique_ptr<Socket>> Socket::accept()
     co_return clientsocket;
 }
 
-SocketRecvOperation Socket::recv(uint8_t* buffer, std::size_t len,std::shared_ptr<std::error_condition> ec)
+SocketRecvOperation Socket::recv(
+        uint8_t* buffer, std::size_t len,
+        std::shared_ptr<std::error_condition> ec )
 {
-    return SocketRecvOperation{this, buffer, len,ec};
+	return SocketRecvOperation(this, buffer, len, ec);
 }
-SocketSendOperation Socket::send(uint8_t* buffer, std::size_t len)
+
+SocketSendOperation Socket::send(const uint8_t* buffer, std::size_t len)
 {
     return SocketSendOperation{this, buffer, len};
 }
