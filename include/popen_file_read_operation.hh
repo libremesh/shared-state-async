@@ -19,6 +19,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #pragma once
 
 #include <sys/socket.h>
@@ -35,13 +36,17 @@ class PopenAsyncCommand;
 class PopenFileReadOperation : public BlockSyscall<PopenFileReadOperation, ssize_t>
 {
 public:
-    PopenFileReadOperation(PopenAsyncCommand* socket, uint8_t* buffer, std::size_t len,std::shared_ptr<std::error_condition> ec=nullptr);
-    ~PopenFileReadOperation();
+	PopenFileReadOperation(
+	        PopenAsyncCommand& cmd,
+	        uint8_t* buffer, std::size_t len,
+	        std::error_condition* ec = nullptr );
+	~PopenFileReadOperation();
 
-    ssize_t syscall();
-    void suspend();
+	ssize_t syscall();
+	void suspend();
+
 private:
-    PopenAsyncCommand* socket;
-    uint8_t* mBuffer_;
-    std::size_t len_;
+	PopenAsyncCommand& mCmd;
+	uint8_t* mBuffer;
+	std::size_t mLen;
 };

@@ -35,13 +35,16 @@
 
 namespace SharedState
 {
-std::task<NetworkMessage> receiveNetworkMessage(
-        Socket& socket, std::error_condition* errbub)
+std::task<int> receiveNetworkMessage(
+        Socket& socket, NetworkMessage& networkMessage,
+        std::error_condition* errbub )
 {
 	// TODO: define and use proper error_conditions to return
 	// TODO: deal with socket errors
 
-	NetworkMessage networkMessage;
+	networkMessage.mTypeName.clear();
+	networkMessage.mData.clear();
+
 
 	uint8_t dataTypeNameLenght = 0;
 	co_await socket.recv(&dataTypeNameLenght, 1);
@@ -51,7 +54,7 @@ std::task<NetworkMessage> receiveNetworkMessage(
 		rs_error_bubble_or_exit(
 		            std::errc::invalid_argument, errbub,
 		            "Got data type name invalid lenght: ", dataTypeNameLenght );
-		co_return networkMessage;
+		co_return -1;
 	}
 
 	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
@@ -69,7 +72,7 @@ std::task<NetworkMessage> receiveNetworkMessage(
 		rs_error_bubble_or_exit(
 		            std::errc::invalid_argument, errbub,
 		            "Got data invalid lenght: ", dataLenght);
-		co_return networkMessage;
+		co_return -dataTypeNameLenght-1-2;
 	}
 
 	networkMessage.mData.resize(dataLenght, static_cast<char>(0));
@@ -77,14 +80,14 @@ std::task<NetworkMessage> receiveNetworkMessage(
 	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
 	            dataLenght );
 
-	co_return networkMessage;
+	co_return dataLenght+dataTypeNameLenght+1+2;
 }
 
-std::task<size_t> sendNetworkMessage(
+std::task<int> sendNetworkMessage(
         Socket& socket, const NetworkMessage& netMsg,
         std::error_condition* errbub )
 {
-	size_t sentBytes = 0;
+	int sentBytes = 0;
 
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
 	sentBytes += co_await socket.send(&dataTypeLen, 1);

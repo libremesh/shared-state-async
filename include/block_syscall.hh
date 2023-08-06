@@ -50,6 +50,10 @@
  * void suspend();
  * @endcode
  *
+ * The syscall method is where the actuall syscall must happen.
+ *
+ * TODO: What is the suspend method supposed to do?
+ *
  * Pure virtual definition not included at moment to virtual method tables
  * generation (haven't verified if this is necessary or not).
  */
@@ -57,8 +61,7 @@ template <typename SyscallOpt, typename ReturnValue>
 class BlockSyscall // Awaiter
 {
 public:
-	BlockSyscall(std::shared_ptr<std::error_condition> ec) :
-	    mHaveSuspend{false}, mErrorConditionStorage{ec} {}
+	BlockSyscall(std::error_condition* ec): mHaveSuspend{false}, mError{ec} {}
 
 	bool await_ready() const noexcept
 	{
@@ -85,13 +88,14 @@ public:
             static_cast<SyscallOpt *>(this)->suspend();
         }
 		else if (mReturnValue == -1)
-        {
-            /// haveSuspend_ false but returnValue -1 resumes the current coroutine. 
-            /// but the system call has failed..the caller has to be notified
-            rs_error_bubble_or_exit(
-			    rs_errno_to_condition(errno), mErrorConditionStorage,
-                "A syscall has failed");
-        }
+		{
+			/* haveSuspend_ false but returnValue -1 resumes the current
+			 * coroutine.
+			 * But the system call has failed.. the caller has to be notified */
+			rs_error_bubble_or_exit(
+			            rs_errno_to_condition(errno), mError,
+			            "A syscall has failed" );
+		}
         // the haveSuspend_ false resumes the current coroutine. (doesn't suspend)
 		return mHaveSuspend;
     }
@@ -108,12 +112,8 @@ public:
 
 protected:
 	bool mHaveSuspend;
-
-	/* TODO: is a shared_ptr really needed here? Consider a plain view_ptr when
-	 * looking for performance optimization */
-	std::shared_ptr<std::error_condition> mErrorConditionStorage;
-
 	std::coroutine_handle<> mAwaitingCoroutine;
 
+	std::error_condition* mError;
 	ReturnValue mReturnValue;
 };

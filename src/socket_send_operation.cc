@@ -19,33 +19,31 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
+#include <sys/socket.h>
+
 #include "socket_send_operation.hh"
-#include <iostream>
 #include "socket.hh"
 
-SocketSendOperation::SocketSendOperation(Socket *socket,
-                                         const uint8_t*buffer,
-                                         std::size_t len, std::shared_ptr<std::error_condition> ec)
-    :BlockSyscall{ec}, socket{socket}, mBuffer_{buffer}, len_{len}
+SocketSendOperation::SocketSendOperation(
+        Socket& socket, const uint8_t* buffer, std::size_t len,
+        std::error_condition* ec ):
+    BlockSyscall{ec}, mSocket{socket}, mBuffer{buffer}, mLen{len}
 {
-    socket->io_context_.watchWrite(socket);
-    RS_DBG0("socket_send_operation\n");
+	mSocket.io_context_.watchWrite(&mSocket);
 }
 
 SocketSendOperation::~SocketSendOperation()
 {
-    socket->io_context_.unwatchWrite(socket);
-    RS_DBG0("~socket_send_operation\n");
+	mSocket.io_context_.unwatchWrite(&mSocket);
 }
 
 ssize_t SocketSendOperation::syscall()
 {
-    RS_DBG0("send(" , socket->fd_ , " content " , (char *)mBuffer_ ," ammount " , len_ ,")");
-    return send(socket->fd_, mBuffer_, len_, 0);
+	return send(mSocket.mFD, mBuffer, mLen, 0);
 }
 
 void SocketSendOperation::suspend()
 {
-	RS_DBG3("");
-	socket->coroSend_ = mAwaitingCoroutine;
+	mSocket.coroSend_ = mAwaitingCoroutine;
 }

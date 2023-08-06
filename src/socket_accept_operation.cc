@@ -25,17 +25,17 @@
 #include "socket.hh"
 
 SocketAcceptOperation::SocketAcceptOperation(
-        Socket* socket, std::shared_ptr<std::error_condition> ec ):
-    BlockSyscall(ec), socket(socket)
+        ListeningSocket& socket, std::error_condition* ec ):
+    BlockSyscall(ec), mLSocket(socket)
 {
 	RS_DBG3("");
-	socket->io_context_.watchRead(socket);
+	mLSocket.io_context_.watchRead(&mLSocket);
 }
 
 SocketAcceptOperation::~SocketAcceptOperation()
 {
 	RS_DBG3("");
-	socket->io_context_.unwatchRead(socket);
+	mLSocket.io_context_.unwatchRead(&mLSocket);
 }
 
 int SocketAcceptOperation::syscall()
@@ -46,12 +46,12 @@ int SocketAcceptOperation::syscall()
 	/* TODO: Saving/recording the address of the peer connecting to us might be
 	 * useful for debugging */
 
-	return accept(socket->fd_, (struct sockaddr *)&their_addr, &addr_size);
+	return accept(mLSocket.mFD, (struct sockaddr *)&their_addr, &addr_size);
 }
 
 void SocketAcceptOperation::suspend()
 {
 	RS_DBG3("");
-	socket->coroRecv_ = mAwaitingCoroutine;
+	mLSocket.coroRecv_ = mAwaitingCoroutine;
 }
 

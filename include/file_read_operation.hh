@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -21,24 +22,27 @@
  */
 #pragma once
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include "block_syscall.hh"
 #include <memory>
+#include <cstdint>
+
+#include "block_syscall.hh"
 
 class AsyncFileDescriptor;
 
-class FileReadOperation : public BlockSyscall<FileReadOperation, ssize_t>
+class ReadOp : public BlockSyscall<ReadOp, ssize_t>
 {
 public:
-    FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket, uint8_t *buffer, std::size_t len, std::shared_ptr<std::error_condition> ec=nullptr);
-    ~FileReadOperation();
+	ReadOp(
+	        std::shared_ptr<AsyncFileDescriptor> afd,
+	        uint8_t* buffer, std::size_t len,
+	        std::error_condition* ec = nullptr );
+	~ReadOp();
 
-    ssize_t syscall();
-    void suspend();
+	ssize_t syscall();
+	void suspend();
 
 private:
-    std::shared_ptr<AsyncFileDescriptor> socket;
-    uint8_t *mBuffer_;
-    std::size_t len_;
+	std::shared_ptr<AsyncFileDescriptor> mAFD;
+	uint8_t* mBuffer;
+	std::size_t mLen;
 };

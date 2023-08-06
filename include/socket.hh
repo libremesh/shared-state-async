@@ -36,38 +36,61 @@
 
 
 /**
- * @brief Listen tcp non blocking socket
- * 
+ * @brief Non blocking socket
+ * TODO: Is this class needed or is AsyncFileDescriptor enough?
  */
 class Socket : public AsyncFileDescriptor
 {
 public:
-	Socket(const Socket &) = delete;
-	Socket(Socket &&socket);
-
-	~Socket();
-
-	static std::unique_ptr<Socket> setupListener(
-	        uint16_t port, IOContext& ioContext,
-	        std::error_condition* ec = nullptr );
-
-	std::task<std::unique_ptr<Socket>> accept();
+	Socket(const Socket&) = delete;
 
 	SocketRecvOperation recv(
 	        uint8_t *buffer, std::size_t len,
-	        std::shared_ptr<std::error_condition> ec = nullptr );
+	        std::error_condition* ec = nullptr );
 
-	SocketSendOperation send(const uint8_t* buffer, std::size_t len);
+	SocketSendOperation send(
+	        const uint8_t* buffer, std::size_t len,
+	        std::error_condition* ec = nullptr );
 
-	// TODO: make private?
+protected:
 	Socket(int fd, IOContext &io_context);
 
-private:
-    friend SocketAcceptOperation;
-    friend SocketRecvOperation;
-    friend SocketSendOperation;
-    friend FileReadOperation;
-    friend IOContext;
+	friend SocketAcceptOperation;
+	friend SocketRecvOperation;
+	friend SocketSendOperation;
+	friend ReadOp;
+	friend IOContext;
+	friend ListeningSocket;
+};
 
+class ConnectingSocket: public Socket
+{
+public:
+	ConnectingSocket() = delete;
+	ConnectingSocket(const ConnectingSocket&) = delete;
+
+	static std::task<std::unique_ptr<ConnectingSocket>> connect(
+	        const sockaddr_storage& address,
+	        IOContext& ioContext,
+	        std::error_condition* ec = nullptr );
+
+protected:
+	ConnectingSocket(int fd, IOContext &io_context): Socket(fd, io_context) {}
+};
+
+class ListeningSocket: public Socket
+{
+public:
+	ListeningSocket() = delete;
+	ListeningSocket(const ListeningSocket&) = delete;
+
+	std::task<std::unique_ptr<Socket>> accept();
+
+	static std::unique_ptr<ListeningSocket> setupListener(
+	        uint16_t port, IOContext& ioContext,
+	        std::error_condition* ec = nullptr );
+
+protected:
+	ListeningSocket(int fd, IOContext &io_context): Socket(fd, io_context) {}
 	static constexpr int DEFAULT_LISTEN_BACKLOG = 8;
 };

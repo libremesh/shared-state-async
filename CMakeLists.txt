@@ -12,8 +12,6 @@ cmake_minimum_required(VERSION 3.14)
 # the source. See exampleConfig.h.in for some more details.
 project(SHAREDSTATE VERSION 0.0.0.1 LANGUAGES CXX)
 
-add_compile_options("-fcoroutines")
-
 # Options: Things you can set via commandline options to cmake (e.g. -DENABLE_LTO=[ON|OFF])
 option(ENABLE_WARNINGS_SETTINGS "Allow target_set_warnings to add flags and defines.
                                  Set this to OFF if you want to provide your own warning parameters." OFF)
@@ -41,6 +39,7 @@ find_lto(CXX)
 set(SOURCES
     src/io_context.cc
     src/sharedstate.cc
+    src/connect_operation.cc
     src/socket_accept_operation.cc
     src/socket.cc
     src/socket_recv_operation.cc
@@ -75,20 +74,31 @@ target_include_directories(${LIBRARY_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 # There's also (probably) doctests within the library, so we need to see this as well.
 target_link_libraries(${LIBRARY_NAME} PUBLIC doctest)
 
+# TODO: check if coroutines support has been added to target_compile_features()
+target_compile_options(${LIBRARY_NAME} PUBLIC "-fcoroutines")
+
 # Set the compile options you want (change as needed).
 target_set_warnings(${LIBRARY_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 # target_compile_options(${LIBRARY_NAME} ... )  # For setting manually.
 
 add_executable(${SERVER_NAME} app/${SERVER_NAME}.cc)
-#add_executable(${CLIENT_NAME} app/${CLIENT_NAME}.cc)
+target_link_libraries(${SERVER_NAME} PRIVATE ${LIBRARY_NAME})
+target_set_warnings(${SERVER_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
+target_enable_lto(${SERVER_NAME} optimized)
+# TODO: check if coroutines support has been added to target_compile_features()
+target_compile_options(${SERVER_NAME} PRIVATE "-fcoroutines")
 
-target_link_libraries(${SERVER_NAME} PRIVATE ${LIBRARY_NAME})  # Link the executable to library (if it uses it).
-target_set_warnings(${SERVER_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying) # Set warnings (if needed).
-target_enable_lto(${SERVER_NAME} optimized)  # enable link-time-optimization if available for non-debug configurations
+add_executable(${CLIENT_NAME} app/${CLIENT_NAME}.cc)
+target_link_libraries(${CLIENT_NAME} PRIVATE ${LIBRARY_NAME})
+target_set_warnings(${CLIENT_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
+target_enable_lto(${CLIENT_NAME} optimized)
+# TODO: check if coroutines support has been added to target_compile_features()
+target_compile_options(${CLIENT_NAME} PRIVATE "-fcoroutines")
 
-# Set the properties you require, e.g. what C++ standard to use. Here applied to library and main (change as needed).
+# Set the properties you require, e.g. what C++ standard to use.
+# Here applied to library and main (change as needed).
 set_target_properties(
-    ${LIBRARY_NAME} ${SERVER_NAME} #${CLIENT_NAME}
+    ${LIBRARY_NAME} ${SERVER_NAME} ${CLIENT_NAME}
       PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES

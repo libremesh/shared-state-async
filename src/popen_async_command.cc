@@ -33,46 +33,53 @@
 PopenAsyncCommand::PopenAsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)
     : AsyncFileDescriptor(socket->io_context_), mPipe{fdFromStream}
 {
-    fd_ = fileno(fdFromStream);
+    mFD = fileno(fdFromStream);
 
-    int flags = fcntl(fd_, F_GETFL, 0);
+    int flags = fcntl(mFD, F_GETFL, 0);
     // put into "nonblocking mode"
-    fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
+    fcntl(mFD, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
-    RS_DBG0("PopenAsyncCommand created and filedescriptor # ", fd_);
+    RS_DBG0("PopenAsyncCommand created and filedescriptor # ", mFD);
 }
 
-PopenAsyncCommand::PopenAsyncCommand(std::string cmd, AsyncFileDescriptor *socket) : AsyncFileDescriptor(socket->io_context_)
+PopenAsyncCommand::PopenAsyncCommand(
+        std::string cmd,
+        AsyncFileDescriptor& AFD ):
+    AsyncFileDescriptor(AFD.io_context_)
 {
-    mPipe = popen(cmd.c_str(), "r");
+	// TODO: this stuff can fail!! Move it on a factory method not a costructor!
+
+	mPipe = popen(cmd.c_str(), "r");
     // partir el popen
-    if (!pipe)
+
+	if(!mPipe)
     {
         RS_ERR("we have a problem... you don't have a pipe");
     }
 
-    fd_ = fileno(mPipe);
+    mFD = fileno(mPipe);
 
-    int flags = fcntl(fd_, F_GETFL, 0);
+    int flags = fcntl(mFD, F_GETFL, 0);
     // put into "nonblocking mode"
-    fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
+    fcntl(mFD, F_SETFL, flags | O_NONBLOCK);
     io_context_.attachReadonly(this);
     // io_context_.watchRead(this);
-    RS_DBG0("PopenAsyncCommand created and filedescriptor # ", fd_);
+    RS_DBG0("PopenAsyncCommand created and filedescriptor # ", mFD);
 }
 
 PopenAsyncCommand::~PopenAsyncCommand()
 {
-    RS_DBG0("------ delete the PopenAsyncCommand(", fd_);
-    if (fd_ == -1)
+    RS_DBG0("------ delete the PopenAsyncCommand(", mFD);
+    if (mFD == -1)
         return;
     io_context_.detach(this);
-    close(fd_);
+    close(mFD);
     pclose(mPipe);
 }
 
-PopenFileReadOperation PopenAsyncCommand::recvfile(uint8_t *buffer, std::size_t len)
+PopenFileReadOperation PopenAsyncCommand::recvfile(
+        uint8_t *buffer, std::size_t len )
 {
-    return PopenFileReadOperation{this, buffer, len};
+	return PopenFileReadOperation{*this, buffer, len};
 }

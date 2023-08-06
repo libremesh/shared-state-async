@@ -19,40 +19,38 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #include "file_write_operation.hh"
-#include <iostream>
-#include <unistd.h>
 #include "async_file_desc.hh"
 
-FileWriteOperation::FileWriteOperation(std::shared_ptr<AsyncFileDescriptor> socket,
-                                       const uint8_t *buffer,
-                                       std::size_t len, std::shared_ptr<std::error_condition> ec)
-    :BlockSyscall{ec}, socket{socket}, mBuffer_{buffer}, len_{len}
+#include <unistd.h>
+
+
+FileWriteOperation::FileWriteOperation(
+        AsyncFileDescriptor& AFD,
+        const uint8_t* buffer, std::size_t len,
+        std::error_condition* ec ):
+    BlockSyscall{ec},
+    mAFD{AFD}, mBuffer{buffer}, mLen{len}
 {
-    socket->io_context_.watchWrite(socket.get());
-    RS_DBG0("FileWriteOperation created\n");
+	mAFD.io_context_.watchWrite(&mAFD);
 }
 
 FileWriteOperation::~FileWriteOperation()
 {
-    socket->io_context_.unwatchWrite(socket.get());
-    RS_DBG0("~FileWriteOperation\n");
+	mAFD.io_context_.unwatchWrite(&mAFD);
 }
 
 ssize_t FileWriteOperation::syscall()
 {
-    RS_DBG0("FileWriteOperation write(", socket->fd_, ",", (char *)mBuffer_, ",", len_, ")\n");
-    ssize_t bytes_writen = write(socket->fd_, (char *)mBuffer_, len_);
-    if (bytes_writen == -1)
-    {
-        RS_ERR("**** error ****", strerror(errno));
-    }
-    RS_DBG0("bytes_writen", bytes_writen);
-    return bytes_writen;
+	ssize_t bytes_writen = write(
+	            mAFD.mFD,
+	            reinterpret_cast<const char*>(mBuffer), mLen );
+
+	return bytes_writen;
 }
 
 void FileWriteOperation::suspend()
 {
-	RS_DBG0("");
-	socket->coroSend_ = mAwaitingCoroutine;
+	mAFD.coroSend_ = mAwaitingCoroutine;
 }

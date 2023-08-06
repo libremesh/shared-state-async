@@ -21,8 +21,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-
-#include <array>
 #include <unistd.h>
 
 #include "io_context.hh"
@@ -49,7 +47,9 @@ using namespace SharedState;
  */
 std::task<bool> echo_loop(Socket& socket)
 {
-	NetworkMessage networkMessage = co_await receiveNetworkMessage(socket);
+	NetworkMessage networkMessage;
+
+	co_await receiveNetworkMessage(socket, networkMessage);
 
 	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
 	cmd = cmd + " " + networkMessage.mTypeName;
@@ -58,7 +58,7 @@ std::task<bool> echo_loop(Socket& socket)
 
 	std::error_condition err;
 	std::unique_ptr<PipedAsyncCommand> luaSharedState =
-	        PipedAsyncCommand::factory(cmd, &socket, err);
+	        PipedAsyncCommand::factory(cmd, socket, &err);
 
 	co_await luaSharedState->writepipe(
 	            reinterpret_cast<const uint8_t*>(networkMessage.mData.data()),
@@ -136,20 +136,17 @@ std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
     co_return true;
 }
 
-std::task<> accept(Socket &listen)
+std::task<> acceptConnections(ListeningSocket& listener)
 {
-    while (true)
-    {
-        RS_DBG0("begin accept");
-        auto socket = co_await listen.accept();
+	while(true)
+	{
+		auto socket = co_await listener.accept();
 
-        /* Going out of scope the returned task is destroyed, we need to
-         * detach the coroutine otherwise it will be abruptly stopped too before
-         * finishing the job */
-        client_socket_handler(std::move(socket)).detach();
-
-        RS_DBG0("end accept");
-    }
+		/* Going out of scope the returned task is destroyed, we need to
+		 * detach the coroutine otherwise it will be abruptly stopped too before
+		 * finishing the job */
+		client_socket_handler(std::move(socket)).detach();
+	}
 }
 
 int main()
@@ -164,8 +161,8 @@ int main()
     RS_DBG0("          ver:", PROJECT_VERSION_MAJOR, ".", PROJECT_VERSION_MINOR, ".", PROJECT_VERSION_PATCH, ".", PROJECT_VERSION_TWEAK);
 
     IOContext io_context{};
-	auto listener = Socket::setupListener(3490, io_context);
-	auto t = accept(*listener.get());
+	auto listener = ListeningSocket::setupListener(3490, io_context);
+	auto t = acceptConnections(*listener.get());
     t.resume();
     io_context.run();
 }

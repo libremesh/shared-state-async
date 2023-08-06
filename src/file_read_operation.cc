@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -19,33 +20,34 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-#include "file_read_operation.hh"
+
 #include <iostream>
-#include "async_file_desc.hh"
 #include <unistd.h>
+
+#include "file_read_operation.hh"
+#include "async_file_desc.hh"
 #include "debug/rsdebuglevel2.h"
 
-FileReadOperation::FileReadOperation(std::shared_ptr<AsyncFileDescriptor> socket,
-                                     uint8_t *buffer,
-                                     std::size_t len, std::shared_ptr<std::error_condition> ec)
-    :BlockSyscall{ec}
-    , socket{socket}
-    , mBuffer_{buffer}
-    , len_{len}
+ReadOp::ReadOp(
+        std::shared_ptr<AsyncFileDescriptor> afd,
+        uint8_t* buffer, std::size_t len,
+        std::error_condition* ec ):
+    BlockSyscall<ReadOp, ssize_t>(ec),
+    mAFD{afd}, mBuffer{buffer}, mLen{len}
 {
-    socket->io_context_.watchRead(socket.get());
-    RS_DBG0("FileReadOperation created for fd" , socket->fd_);
+	mAFD->io_context_.watchRead(mAFD.get());
 }
 
-FileReadOperation::~FileReadOperation()
+ReadOp::~ReadOp()
 {
-    socket->io_context_.unwatchRead(socket.get());
-    RS_DBG0("~FileReadOperation for fd ", socket->fd_);
+	mAFD->io_context_.unwatchRead(mAFD.get());
+	RS_DBG2("fd: ", mAFD->mFD);
 }
 
-ssize_t FileReadOperation::syscall()
+ssize_t ReadOp::syscall()
 {
-    ssize_t bytesread = read(socket->fd_, mBuffer_, len_);
+	ssize_t bytesread = read(mAFD->mFD, mBuffer, mLen);
+
     /* this method is invoked at least once but the pipe is not free.
      * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
      * and then suspend the execution until a new notification arrives
@@ -58,8 +60,7 @@ ssize_t FileReadOperation::syscall()
     return bytesread;
 }
 
-void FileReadOperation::suspend()
+void ReadOp::suspend()
 {
-	RS_DBG0("#");
-	socket->coroRecv_ = mAwaitingCoroutine;
+	mAFD->coroRecv_ = mAwaitingCoroutine;
 }

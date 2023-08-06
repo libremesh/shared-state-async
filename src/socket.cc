@@ -22,6 +22,9 @@
  */
 
 #include "socket.hh"
+#include "debug/rsdebuglevel2.h"
+#include "connect_operation.hh"
+
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -29,23 +32,37 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
-#include "debug/rsdebuglevel2.h"
 #include <cerrno>
 
-Socket::~Socket()
+std::task<std::unique_ptr<ConnectingSocket>> ConnectingSocket::connect(
+        const sockaddr_storage& address,
+        IOContext& ioContext, std::error_condition* ec )
 {
-    RS_DBG0("------delete the socket(" , fd_ , ")\n");
-    /*if (fd_ == -1)
-    {
-        RS_WARN(" socket(" , fd_ , ") already deleted \n");
-        return;
-    }
-    io_context_.detach(this);
-    close(fd_);
-    fd_ = -1;*/
+	int fd_ = socket(PF_INET6, SOCK_STREAM, 0);
+	if(fd_ < 0)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), ec, "creating socket" );
+		co_return nullptr;
+	}
+
+	if( fcntl(fd_, F_SETFL, O_NONBLOCK) < 0 )
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), ec, "O_NONBLOCK" );
+		co_return nullptr;
+	}
+
+	auto lSocket = std::unique_ptr<ConnectingSocket>(
+	            new ConnectingSocket(fd_, ioContext) );
+	ioContext.watchRead(lSocket.get());
+
+	co_await ConnectOperation(*lSocket.get(), address, ec);
+
+	co_return lSocket;
 }
 
-std::unique_ptr<Socket> Socket::setupListener(
+std::unique_ptr<ListeningSocket> ListeningSocket::setupListener(
         uint16_t port, IOContext& ioContext, std::error_condition* ec )
 {
 	int fd_ = socket(PF_INET6, SOCK_STREAM, 0);
@@ -104,40 +121,34 @@ std::unique_ptr<Socket> Socket::setupListener(
 		return nullptr;
 	}
 
-	auto lSocket = std::make_unique<Socket>(fd_, ioContext);
+	auto lSocket = std::unique_ptr<ListeningSocket>(
+	            new ListeningSocket(fd_, ioContext) );
 	ioContext.watchRead(lSocket.get());
 	return lSocket;
 }
 
-std::task<std::unique_ptr<Socket>> Socket::accept()
+std::task<std::unique_ptr<Socket>> ListeningSocket::accept()
 {
-	int fd = co_await SocketAcceptOperation(this);
-    /*
-    std::shared_ptr error_info = std::make_shared<std::error_condition>();
-    //in case of failure, error_info wil have information about the problem.
-    int fd = co_await SocketAcceptOperation{this,error_info}; 
-    if (*error_info.get())
-    {
-        rs_error_bubble_or_exit(rs_errno_to_condition(errno),errorcontainer);
-    }*/
-    RS_DBG0("aceptando");
-    auto clientsocket = std::make_unique<Socket>(fd, io_context_);
-    co_return clientsocket;
+	int fd = co_await SocketAcceptOperation(*this);
+	co_return std::unique_ptr<Socket>(new Socket(fd, io_context_));
 }
 
 SocketRecvOperation Socket::recv(
         uint8_t* buffer, std::size_t len,
-        std::shared_ptr<std::error_condition> ec )
+        std::error_condition* ec )
 {
-	return SocketRecvOperation(this, buffer, len, ec);
+	return SocketRecvOperation(*this, buffer, len, ec);
 }
 
-SocketSendOperation Socket::send(const uint8_t* buffer, std::size_t len)
+SocketSendOperation Socket::send(
+        const uint8_t* buffer, std::size_t len,
+        std::error_condition* ec )
 {
-    return SocketSendOperation{this, buffer, len};
+	return SocketSendOperation{*this, buffer, len, ec};
 }
 
-Socket::Socket(int fd, IOContext& io_context):AsyncFileDescriptor(fd,io_context)
+Socket::Socket(int fd, IOContext& io_context):
+    AsyncFileDescriptor(fd,io_context)
 {
-    io_context_.attach(this);
+	io_context_.attach(this);
 }

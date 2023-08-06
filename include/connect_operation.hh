@@ -1,9 +1,7 @@
 /*
  * Shared State
  *
- * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
- * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -21,27 +19,28 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#pragma once
+#include <sys/socket.h>
 
 #include "block_syscall.hh"
+#include "async_file_desc.hh"
 
-class ListeningSocket;
+class Socket;
 
 /**
- * @brief Implements an asynchronous Socket Accept Operation
- * 
+ * @brief Wrap connect system call for asynchronous operation
  */
-class SocketAcceptOperation : public BlockSyscall<SocketAcceptOperation, int>
+class ConnectOperation : public BlockSyscall<ConnectOperation, int>
 {
 public:
-	explicit SocketAcceptOperation(
-	        ListeningSocket& socket,
+	ConnectOperation(
+	        AsyncFileDescriptor& socket, const sockaddr_storage& address,
 	        std::error_condition* ec = nullptr );
-	~SocketAcceptOperation();
+	~ConnectOperation();
 
 	int syscall();
 	void suspend();
 
 private:
-	ListeningSocket& mLSocket;
+	AsyncFileDescriptor& mSocket;
+	sockaddr_storage mAddr;
 };

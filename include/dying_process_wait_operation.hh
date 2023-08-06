@@ -21,21 +21,28 @@
  */
 #pragma once
 
+#include "block_syscall.hh"
+
 #include <sys/socket.h>
 #include <sys/types.h>
-#include "block_syscall.hh"
 #include <memory>
 
 class AsyncFileDescriptor;
 
-class DyingProcessWaitOperation : public BlockSyscall<DyingProcessWaitOperation, pid_t>
+class DyingProcessWaitOperation:
+        public BlockSyscall<DyingProcessWaitOperation, pid_t>
 {
 public:
-    DyingProcessWaitOperation(std::shared_ptr<AsyncFileDescriptor> socket, pid_t process_to_wait,std::shared_ptr<std::error_condition> ec=nullptr);
-    ~DyingProcessWaitOperation();
-    pid_t syscall();
-    void suspend();
+	DyingProcessWaitOperation(
+	        AsyncFileDescriptor& AFD,
+	        pid_t process_to_wait,
+	        std::error_condition* ec = nullptr );
+	~DyingProcessWaitOperation();
+
+	pid_t syscall();
+	void suspend();
+
 private:
-    std::shared_ptr<AsyncFileDescriptor> socket;
-    pid_t pid;
+	AsyncFileDescriptor& mAFD;
+	pid_t mPid;
 };

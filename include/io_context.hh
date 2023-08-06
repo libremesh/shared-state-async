@@ -19,6 +19,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #pragma once
 
 #include <set>
@@ -37,6 +38,9 @@ class Socket;
 class AsyncFileDescriptor;
 class PopenAsyncCommand;
 class PipedAsyncCommand;
+class ListeningSocket;
+class ConnectOperation;
+class ConnectingSocket;
 
 /**
  * This class works as dispacher, notifying suspended blocksyscall when
@@ -93,16 +97,21 @@ private:
     std::set<AsyncFileDescriptor*> managed_fd;
 
     friend AsyncFileDescriptor;
-    friend Socket;
+	friend Socket;
     friend PopenAsyncCommand;
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
-    friend FileReadOperation;
+	friend ReadOp;
     friend FileWriteOperation;
     friend PopenFileReadOperation;
     friend PipedAsyncCommand;
     friend DyingProcessWaitOperation;
+	friend ListeningSocket;
+	friend ConnectOperation;
+	friend ConnectingSocket;
+
+	// TODO: do we really need to make this API methods private?
     void attach(AsyncFileDescriptor* socket);
     void attachReadonly(AsyncFileDescriptor* socket);
     void attachWriteOnly(AsyncFileDescriptor* socket);

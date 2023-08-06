@@ -20,6 +20,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #pragma once
 
 #include <iostream>
@@ -47,10 +48,11 @@ struct NetworkMessage
 	std::string mData;
 };
 
-std::task<NetworkMessage> receiveNetworkMessage(
-        Socket& socket, std::error_condition* errbub = nullptr );
+std::task<int> receiveNetworkMessage(
+        Socket& socket, NetworkMessage& netMsg,
+        std::error_condition* errbub = nullptr );
 
-std::task<size_t> sendNetworkMessage(
+std::task<int> sendNetworkMessage(
         Socket& socket, const NetworkMessage& netMsg,
         std::error_condition* errbub = nullptr );
 

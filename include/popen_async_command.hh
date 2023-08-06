@@ -19,16 +19,16 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #pragma once
 
-#include <cstring>
-#include <memory>
-#include <optional>
 #include <string_view>
+#include <cstdio>
+
 #include "async_file_desc.hh"
 #include "io_context.hh"
 #include "popen_file_read_operation.hh"
-#include "socket.hh"
+
 
 /**
  * @brief AsyncCommand implementation using popen.
@@ -40,7 +40,7 @@ public:
     PopenAsyncCommand(const PopenAsyncCommand&) = delete;
     PopenAsyncCommand(PopenAsyncCommand&& command);
     PopenAsyncCommand(FILE * fdFromStream, AsyncFileDescriptor* socket);
-    PopenAsyncCommand(std::string cmd, AsyncFileDescriptor* socket);
+	PopenAsyncCommand(std::string cmd, AsyncFileDescriptor& AFD);
     ~PopenAsyncCommand();
 
     PopenFileReadOperation recvfile(uint8_t* buffer, std::size_t len);
@@ -48,7 +48,7 @@ public:
 
 private:
     friend PopenFileReadOperation;
-    FILE * mPipe= nullptr;
+	FILE* mPipe = nullptr;
     friend IOContext;
     explicit PopenAsyncCommand(int fd, IOContext& io_context);
 

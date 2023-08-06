@@ -19,12 +19,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #pragma once
 
-#include <sys/socket.h>
-#include <sys/types.h>
-
 #include "block_syscall.hh"
+
+#include <cstdint>
 
 class Socket;
 /**
@@ -34,14 +34,17 @@ class Socket;
 class SocketSendOperation : public BlockSyscall<SocketSendOperation, ssize_t>
 {
 public:
-    SocketSendOperation(Socket *socket, const uint8_t *buffer, std::size_t len, std::shared_ptr<std::error_condition> ec = nullptr);
-    ~SocketSendOperation();
+	SocketSendOperation(
+	        Socket& socket,
+	        const uint8_t* buffer, std::size_t len,
+	        std::error_condition* ec = nullptr );
+	~SocketSendOperation();
 
-    ssize_t syscall();
-    void suspend();
+	ssize_t syscall();
+	void suspend();
 
 private:
-    Socket *socket;
-    const uint8_t *mBuffer_;
-    std::size_t len_;
+	Socket& mSocket;
+	const uint8_t* mBuffer;
+	std::size_t mLen;
 };

@@ -21,10 +21,9 @@
  */
 #pragma once
 
-#include <cstring>
 #include <memory>
-#include <optional>
-#include <string_view>
+#include <string>
+
 #include "async_file_desc.hh"
 #include "io_context.hh"
 #include "file_read_operation.hh"
@@ -43,11 +42,15 @@ class PipedAsyncCommand
 
 public:
     friend std::unique_ptr<PipedAsyncCommand> std::make_unique<PipedAsyncCommand>();
-    static std::unique_ptr<PipedAsyncCommand> factory(std::string cmd, AsyncFileDescriptor *socket, std::error_condition &err)
+
+	static std::unique_ptr<PipedAsyncCommand> factory(
+	        std::string cmd,
+	        AsyncFileDescriptor& AFD,
+	        std::error_condition* err = nullptr )
     {
         auto retptr = std::make_unique<PipedAsyncCommand>();
-        err = retptr->init(cmd, socket->io_context_);
-        if (err == std::errc())
+		*err = retptr->init(cmd, AFD.io_context_);
+		if (*err == std::errc())
         {
             return retptr;
         }
@@ -57,7 +60,7 @@ public:
 
     ~PipedAsyncCommand();
 
-    FileReadOperation readpipe(uint8_t *buffer, std::size_t len);
+	ReadOp readpipe(uint8_t* buffer, std::size_t len);
     FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
     DyingProcessWaitOperation whaitforprocesstodie();
     void finishwriting();
@@ -69,9 +72,7 @@ private:
     std::error_condition init(std::string cmd, IOContext &context);
     PipedAsyncCommand(const PipedAsyncCommand &) = delete;
     PipedAsyncCommand();
-    friend FileReadOperation;
-    friend AsyncFileDescriptor;
-    friend Socket;
+
     /// we need two file descriptors to interact with the forked process
     ///      parent        child
     ///      fd1[1]        fd1[0]
@@ -84,4 +85,8 @@ private:
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_process_wait_fd;
+
+	friend ReadOp;
+	friend AsyncFileDescriptor;
+	friend Socket;
 };
