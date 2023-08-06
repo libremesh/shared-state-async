@@ -61,19 +61,20 @@ template <typename SyscallOpt, typename ReturnValue>
 class BlockSyscall // Awaiter
 {
 public:
-	BlockSyscall(std::error_condition* ec): mHaveSuspend{false}, mError{ec} {}
+	BlockSyscall(std::error_condition* ec):
+	    mHaveSuspend{false}, mError{ec} {}
 
 	bool await_ready() const noexcept
 	{
-		RS_DBG0("");
+		RS_DBG3("");
 		return false;
 	}
 
-    bool await_suspend(std::coroutine_handle<> awaitingCoroutine)
-    {
-        RS_DBG0("await_suspend");
+	bool await_suspend(std::coroutine_handle<> awaitingCoroutine)
+	{
+		RS_DBG3("");
 
-        static_assert(std::is_base_of_v<BlockSyscall, SyscallOpt>);
+		static_assert(std::is_base_of_v<BlockSyscall, SyscallOpt>);
 		mAwaitingCoroutine = awaitingCoroutine;
 		mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
 		mHaveSuspend =
@@ -82,30 +83,35 @@ public:
 		            errno == EWOULDBLOCK ||
 		            errno == EINPROGRESS );
 		if (mHaveSuspend)
-        {
-            /// haveSuspend_ true returns control to the caller/resumer of the current coroutine
-            RS_WARN("...suspendiendo ... por un -1");
-            static_cast<SyscallOpt *>(this)->suspend();
-        }
+		{
+			/* The syscall indicated we must wait, and retry later so let's
+			 * suspend to return the control to the caller and be resumed later
+			 */
+			RS_DBG2( "let suspend for now mReturnValue: ", mReturnValue,
+			         " && errno: ", rs_errno_to_condition(errno) );
+			static_cast<SyscallOpt *>(this)->suspend();
+		}
 		else if (mReturnValue == -1)
 		{
-			/* haveSuspend_ false but returnValue -1 resumes the current
-			 * coroutine.
-			 * But the system call has failed.. the caller has to be notified */
+			/* The syscall failed for other reasonf let's notify the caller if
+			 * possible or close the program printing an error */
 			rs_error_bubble_or_exit(
 			            rs_errno_to_condition(errno), mError,
-			            "A syscall has failed" );
+			            " syscall failed" );
 		}
-        // the haveSuspend_ false resumes the current coroutine. (doesn't suspend)
+		// We can keep going, no need to do suspend, no failure
 		return mHaveSuspend;
-    }
+	}
 
 	ReturnValue await_resume()
 	{
 		RS_DBG3("");
 
-		if (mHaveSuspend)
+		if(mHaveSuspend)
+		{
+			// We had to suspend last time, so we need to call the syscall again
 			mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
+		}
 
 		return mReturnValue;
 	}

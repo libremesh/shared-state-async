@@ -25,8 +25,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#include <string>
-
 ConnectOperation::ConnectOperation(
          AsyncFileDescriptor& socket, const sockaddr_storage& address,
         std::error_condition* ec ) :
@@ -62,5 +60,7 @@ int ConnectOperation::syscall()
 
 void ConnectOperation::suspend()
 {
+	/* TODO: connect is neither read or write per se ATM it seems to work like
+	 * this, but we should think a bit more about this */
 	mSocket.coroRecv_ = mAwaitingCoroutine;
 }
