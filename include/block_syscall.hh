@@ -74,7 +74,10 @@ public:
 		mAwaitingCoroutine = awaitingCoroutine;
 		mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
 		mHaveSuspend =
-		    mReturnValue == -1 && (errno == EAGAIN || errno == EWOULDBLOCK);
+		    mReturnValue == -1 && (
+		            errno == EAGAIN ||
+		            errno == EWOULDBLOCK ||
+		            errno == EINPROGRESS );
 		if (mHaveSuspend)
         {
             /// haveSuspend_ true returns control to the caller/resumer of the current coroutine
