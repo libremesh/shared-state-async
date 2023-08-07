@@ -53,7 +53,8 @@ std::task<int> receiveNetworkMessage(
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::invalid_argument, errbub,
-		            "Got data type name invalid lenght: ", dataTypeNameLenght );
+		            "Got data type name invalid lenght: ",
+		            static_cast<int>(dataTypeNameLenght) );
 		co_return -1;
 	}
 

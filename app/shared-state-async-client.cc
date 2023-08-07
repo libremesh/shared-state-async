@@ -157,7 +157,7 @@ std::task<> sendStdInput(
 	netMessage.mData.resize(totalRead);
 
 	RS_DBG2( "netMessage.mTypeName: ", netMessage.mTypeName,
-	         "netMessage.mData:\n", netMessage.mData );
+	         " netMessage.mData:\n", netMessage.mData );
 
 	sockaddr_storage peerAddr;
 	sockaddr_storage_inet_pton(peerAddr, peerAddrStr);
