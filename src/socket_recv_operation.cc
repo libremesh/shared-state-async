@@ -43,6 +43,7 @@ ssize_t SocketRecvOperation::syscall()
 {
 	ssize_t bytesread = recv(mSocket.mFD, mBuffer, mLen, 0);
 
+#if 0
 	/* this method is invoked at least once but the socket is not free.
 	 * this is not problem since the BlockSyscall::await_suspend will test for
 	 * -1 return value and test errno (EWOULDBLOCK or EAGAIN)
@@ -60,6 +61,7 @@ ssize_t SocketRecvOperation::syscall()
 		mBuffer[bytesread+1]='\0';
 		bytesread = bytesread +2;
 	}
+#endif
 
 	return bytesread;
 }
