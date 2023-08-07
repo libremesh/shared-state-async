@@ -42,12 +42,14 @@ std::task<int> receiveNetworkMessage(
 	// TODO: define and use proper error_conditions to return
 	// TODO: deal with socket errors
 
+	int receivedBytes = 0;
+
 	networkMessage.mTypeName.clear();
 	networkMessage.mData.clear();
 
 
 	uint8_t dataTypeNameLenght = 0;
-	co_await socket.recv(&dataTypeNameLenght, 1);
+	receivedBytes += co_await socket.recv(&dataTypeNameLenght, 1);
 
 	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
 	{
@@ -55,16 +57,19 @@ std::task<int> receiveNetworkMessage(
 		            std::errc::invalid_argument, errbub,
 		            "Got data type name invalid lenght: ",
 		            static_cast<int>(dataTypeNameLenght) );
-		co_return -1;
+		co_return -receivedBytes;
 	}
 
 	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
-	co_await socket.recv(
+	receivedBytes += co_await socket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
 	            dataTypeNameLenght );
 
+	RS_DBG1("networkMessage.mTypeName: ", networkMessage.mTypeName);
+
 	uint32_t dataLenght = 0;
-	co_await socket.recv(reinterpret_cast<uint8_t*>(&dataLenght), 4);
+	receivedBytes += co_await socket.recv(
+	            reinterpret_cast<uint8_t*>(&dataLenght), 4 );
 	dataLenght = ntohl(dataLenght);
 
 
@@ -73,15 +78,18 @@ std::task<int> receiveNetworkMessage(
 		rs_error_bubble_or_exit(
 		            std::errc::invalid_argument, errbub,
 		            "Got data invalid lenght: ", dataLenght);
-		co_return -dataTypeNameLenght-1-2;
+		co_return -receivedBytes;
 	}
 
 	networkMessage.mData.resize(dataLenght, static_cast<char>(0));
-	co_await socket.recv(
+	receivedBytes += co_await socket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
 	            dataLenght );
 
-	co_return dataLenght+dataTypeNameLenght+1+2;
+	RS_DBG1("networkMessage.mData: ", networkMessage.mData);
+
+	RS_DBG1("Total received bytes: ", receivedBytes);
+	co_return receivedBytes;
 }
 
 std::task<int> sendNetworkMessage(
@@ -93,18 +101,27 @@ std::task<int> sendNetworkMessage(
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
 	sentBytes += co_await socket.send(&dataTypeLen, 1);
 
+	RS_DBG1("sent dataTypeLen: ", dataTypeLen);
+
 	sentBytes += co_await socket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mTypeName.data()),
 	            dataTypeLen );
+
+	RS_DBG1("sent netMsg.mTypeName: ", netMsg.mTypeName);
 
 	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.length());
 	sentBytes += co_await socket.send(
 	            reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4);
 
+	RS_DBG1("sent netMsg.mData.length(): ", netMsg.mData.length());
+
 	sentBytes += co_await socket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mData.data()),
 	            netMsg.mData.length() );
 
+	RS_DBG1("sent netMsg.mData: ", netMsg.mData);
+
+	RS_DBG1("Total bytes sent: ", sentBytes);
 	co_return sentBytes;
 }
 
