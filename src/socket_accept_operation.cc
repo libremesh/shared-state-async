@@ -54,4 +54,3 @@ void SocketAcceptOperation::suspend()
 	RS_DBG3("");
 	mLSocket.coroRecv_ = mAwaitingCoroutine;
 }
-

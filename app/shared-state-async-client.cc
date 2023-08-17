@@ -23,10 +23,18 @@
 #include "socket.hh"
 #include "file_read_operation.hh"
 #include "sharedstate.hh"
-#include "debug/rsdebug.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <arpa/inet.h>
+
+#include <util/rsdebug.h>
+#include <util/stacktrace.h>
+
+static CrashStackTrace gCrashStackTrace;
+
+/* TODO: Remove copy pasted sockaddr_* functions, instead use the directly from
+ * libretroshare which is downloaded automaticalle by CMake */
 
 void sockaddr_storage_clear(struct sockaddr_storage &addr)
 {
@@ -132,16 +140,21 @@ std::task<> sendStdInput(
         std::string dataTypeName, std::string peerAddrStr,
         IOContext& ioContext )
 {
+	SharedState::NetworkMessage netMessage;
+
+#ifdef GIO_DUMMY_TEST
+	netMessage.mTypeName = dataTypeName;
+	netMessage.mData = "cacapisciapuzza";
+#else
 	auto flags = fcntl(STDIN_FILENO, F_GETFL, 0);
 	fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
 	auto aStdIn = std::make_shared<AsyncFileDescriptor>(
 	            STDIN_FILENO, ioContext );
 
-	SharedState::NetworkMessage netMessage;
-	netMessage.mTypeName = dataTypeName;
 	netMessage.mData.clear();
 	netMessage.mData.resize(SharedState::DATA_MAX_LENGHT);
+
 
 	bool finish = false;
 	std::size_t totalRead = 0;
@@ -158,6 +171,7 @@ std::task<> sendStdInput(
 
 	RS_DBG2( "netMessage.mTypeName: ", netMessage.mTypeName,
 	         " netMessage.mData:\n", netMessage.mData );
+#endif
 
 	sockaddr_storage peerAddr;
 	sockaddr_storage_inet_pton(peerAddr, peerAddrStr);
@@ -170,21 +184,29 @@ std::task<> sendStdInput(
 
 	co_await SharedState::receiveNetworkMessage(*socket.get(), netMessage);
 
-	co_return;
+	std::cout << netMessage.mData << std::endl;
+
+	exit(0);
 }
 
 int main(int argc, char* argv[])
 {
-	IOContext io_context;
+	if(argc < 3)
+	{
+		RS_FATAL("Need type name and peer IP address");
+		return -EINVAL;
+	}
+
+	auto ioContext = IOContext::setup();
 
 	std::string dataTypeName(argv[1]);
 	std::string peerAddrStr(argv[2]);
 
 	RS_INFO("Got dataTypeName: ", dataTypeName, " peerAddrStr: ", peerAddrStr);
 
-	auto sendTask = sendStdInput(dataTypeName, peerAddrStr, io_context);
+	auto sendTask = sendStdInput(dataTypeName, peerAddrStr, *ioContext.get());
 	sendTask.resume();
 
-	io_context.run();
+	ioContext->run();
 	return 0;
 }

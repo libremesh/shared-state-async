@@ -23,7 +23,8 @@
 
 #include "socket_recv_operation.hh"
 #include "socket.hh"
-#include "debug/rsdebug.h"
+
+#include <util/rsdebug.h>
 
 SocketRecvOperation::SocketRecvOperation(
         Socket& socket,
@@ -68,5 +69,6 @@ ssize_t SocketRecvOperation::syscall()
 
 void SocketRecvOperation::suspend()
 {
+	RS_DBG2("");
 	mSocket.coroRecv_ = mAwaitingCoroutine;
 }

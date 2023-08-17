@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -23,7 +24,6 @@
 #pragma once
 
 #include <set>
-#include <stdexcept>
 #include <sys/epoll.h>
 
 #include "socket_accept_operation.hh"
@@ -52,19 +52,16 @@ class ConnectingSocket;
 class IOContext
 {
 public:
-    IOContext()
-        : fd_{epoll_create1(0)}
-    {
-        if (fd_ == -1)
-            throw std::runtime_error{"epoll_create1"};
-            //todo: fix a esto no usaremos exept hacer un factory con un unique pointer que tire error
-            //ver que pasa cuando falla 
-    }
+	static std::unique_ptr<IOContext> setup(std::error_condition* errc = nullptr);
 
-    void run();
+	void run();
+
 private:
-    constexpr static std::size_t max_events = 20;
-    const int fd_; //iocontext epool fd
+	IOContext(int epollFD);
+
+	static constexpr int DEFAULT_MAX_EVENTS = 20;
+
+	const int mEpollFD;
 
     //TODO: verify if we still need processedSockets now that we have managed_fd 
     // Fill it by watchRead / watchWrite

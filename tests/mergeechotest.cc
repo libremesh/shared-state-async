@@ -24,8 +24,9 @@
 #include "sharedstate.hh"
 #include "shared_state_error_code.hh"
 #include "piped_async_command.hh"
-#include "debug/rsdebuglevel2.h"
+
 #include <vector>
+#include <util/rsdebuglevel2.h>
 
 // Tests that don't naturally fit in the headers/.cpp files directly
 // can be placed in a tests/*.cpp file. Integration tests are a good example.

@@ -91,6 +91,9 @@ public:
 	        std::error_condition* ec = nullptr );
 
 protected:
-	ListeningSocket(int fd, IOContext &io_context): Socket(fd, io_context) {}
+	ListeningSocket(int fd, IOContext &io_context): Socket(fd, io_context)
+	{
+		io_context_.attach(this);
+	}
 	static constexpr int DEFAULT_LISTEN_BACKLOG = 8;
 };

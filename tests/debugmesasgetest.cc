@@ -19,8 +19,10 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 #include "doctest/doctest.h"
-#include "debug/rsdebuglevel2.h"
+
+#include <util/rsdebuglevel2.h>
 
 void print_debug_message()
 {

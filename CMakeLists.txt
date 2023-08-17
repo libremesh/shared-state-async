@@ -12,6 +12,9 @@ cmake_minimum_required(VERSION 3.14)
 # the source. See exampleConfig.h.in for some more details.
 project(SHAREDSTATE VERSION 0.0.0.1 LANGUAGES CXX)
 
+set(FETCHCONTENT_QUIET OFF)
+include(FetchContent)
+
 # Options: Things you can set via commandline options to cmake (e.g. -DENABLE_LTO=[ON|OFF])
 option(ENABLE_WARNINGS_SETTINGS "Allow target_set_warnings to add flags and defines.
                                  Set this to OFF if you want to provide your own warning parameters." OFF)
@@ -51,7 +54,6 @@ set(SOURCES
     src/popen_file_read_operation.cc
     src/file_write_operation.cc
     src/dying_process_wait_operation.cc
-    src/debug/rsdebug.cc
 )
 
 set(TESTFILES
@@ -61,6 +63,42 @@ set(TESTFILES
 set(LIBRARY_NAME shared-state)
 set(SERVER_NAME shared-state-async-server)
 set(CLIENT_NAME shared-state-async-client)
+
+
+################################################################################
+
+add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
+
+set(LIBRETROSHARE_DEVEL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libretroshare/")
+if(EXISTS "${LIBRETROSHARE_DEVEL_DIR}/CMakeLists.txt" )
+        message(
+                STATUS
+                "libretroshare source found at ${LIBRETROSHARE_DEVEL_DIR} using it" )
+#        add_subdirectory("${LIBRETROSHARE_DEVEL_DIR}" "${CMAKE_BINARY_DIR}/libretroshare")
+    set(LIBRETROSHARE_DIR "${LIBRETROSHARE_DEVEL_DIR}")
+else()
+        FetchContent_Declare(
+                libretroshare
+                GIT_REPOSITORY "https://gitlab.com/RetroShare/libretroshare.git"
+                GIT_TAG "origin/master"
+                GIT_SHALLOW TRUE
+                GIT_PROGRESS TRUE
+                TIMEOUT 10
+        )
+        FetchContent_MakeAvailable(libretroshare)
+        set(LIBRETROSHARE_DIR "${libretroshare_SOURCE_DIR}")
+endif()
+
+#target_link_libraries(${PROJECT_NAME} PRIVATE libretroshare)
+
+include_directories(${LIBRETROSHARE_DIR}/src/)
+
+set(SOURCES
+    ${SOURCES}
+    ${LIBRETROSHARE_DIR}/src/util/rsdebug.cc
+)
+
+################################################################################
 
 # --------------------------------------------------------------------------------
 #                            Build! (Change as needed)

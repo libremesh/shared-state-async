@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -30,87 +31,105 @@
 #include <unistd.h>
 
 #include "io_context.hh"
-#include "block_syscall.hh"
-#include "socket_accept_operation.hh"
-#include "socket_recv_operation.hh"
-#include "socket_send_operation.hh"
-#include "file_read_operation.hh"
 
- static int mTotalAsyncFileDescriptor;
+#include <util/rsdebuglevel2.h>
 
 class AsyncFileDescriptor
 {
 public:
-    /* Listen tcp non blocking socket */
-    AsyncFileDescriptor(IOContext &io_context) : io_context_{io_context}
-    {
-    }
-    AsyncFileDescriptor(const AsyncFileDescriptor &) = delete;
-    AsyncFileDescriptor(AsyncFileDescriptor &&socket)
-	    : io_context_{socket.io_context_}, mFD{socket.mFD}, io_state_{socket.io_state_}, io_new_state_{socket.io_new_state_}
-    {
-		socket.mFD = -1;
-        mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) % 50;
-        number = mTotalAsyncFileDescriptor;
-    }
+	AsyncFileDescriptor(int fd, IOContext &io_context):
+	    io_context_{io_context}, mFD{fd}
+	{
+		RS_DBG0("fd: ", fd);
 
-    AsyncFileDescriptor(int fd, IOContext &io_context)
-	    : io_context_{io_context}, mFD{fd}
-    {
-        mTotalAsyncFileDescriptor = (mTotalAsyncFileDescriptor + 1) %50;
-        number = mTotalAsyncFileDescriptor;
-        RS_DBG0("AsyncFileDescriptor ", fd, "Created ", "AsyncFileDescriptor ", number);
+		// TODO: This can fail do not do it in the costructor!!
 		fcntl(mFD, F_SETFL, O_NONBLOCK);
-        // io_context_.attach(this);
-    }
+
+		/* Why not attaching here?
+		 * Because child classes may have speciall attacching needs,
+		 * see ConnectingSocket which need attaching read only as an example */
+	}
+
+	AsyncFileDescriptor(const AsyncFileDescriptor &) = delete;
+	explicit AsyncFileDescriptor(IOContext &io_context):
+	    io_context_{io_context} {}
 
     ~AsyncFileDescriptor()
     {
-		RS_DBG0("------delete the AsyncFileDescriptor(", mFD, ")"," AsyncFileDescriptor ", number);
-        number = -1;
+		RS_DBG0("fd: ", mFD);
 		if (mFD == -1)
         {
             return;
         }
         io_context_.detach(this);
 		close(mFD);
-		mFD = -1;
     }
 
     bool resumeRecv()
     {
+		RS_DBG0("fd: ", mFD);
+
         //this guard is necesary because attach method subscribes the fd to 
         //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroRecv_)
-            return false;
-        RS_DBG0("resumeRecv AsyncFileDescriptor ", number);
+		{
+			RS_DBG0("fd: ", mFD, "missing coroutine");
+			return false;
+		}
         coroRecv_.resume();
         return true;
     }
 
     bool resumeSend()
     {
+		RS_DBG0("fd: ", mFD);
         //this guard is necesary because attach method subscribes the fd to 
         //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroSend_)
-            return false;
-        RS_DBG0("resumeSend AsyncFileDescriptor ", number);
+		{
+			RS_DBG0("fd: ", mFD, " missing coroutine");
+			return false;
+		}
         coroSend_.resume();
         return true;
     }
 
-    // protected:
+	inline uint32_t getIoState() { return io_state_; }
+	inline uint32_t setIoState(uint32_t state)
+	{
+		RS_DBG2(state);
+		io_state_ = state;
+		return io_state_;
+	}
+
+	inline uint32_t getNewIoState() { return io_new_state_; }
+	inline uint32_t setNewIoState(uint32_t state)
+	{
+		RS_DBG2(state);
+		io_new_state_ = state;
+		return io_new_state_;
+	}
+
+	inline int getFD() { return mFD; }
+
+#if 0
+protected:
     friend SocketAcceptOperation;
     friend SocketRecvOperation;
     friend SocketSendOperation;
 	friend ReadOp;
     friend IOContext;
-    IOContext &io_context_;
+	friend ConnectOperation;
+#endif
+
+	IOContext& io_context_;
 	int mFD = -1;
-    uint32_t io_state_ = 0;
-    uint32_t io_new_state_ = 0;
-    int number = 0;
+
     std::coroutine_handle<> coroRecv_;
     bool doneRecv_ = false;
     std::coroutine_handle<> coroSend_;
+
+private:
+	uint32_t io_state_ = 0;
+	uint32_t io_new_state_ = 0;
 };

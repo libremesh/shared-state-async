@@ -23,7 +23,6 @@
 
 #include "sharedstate.hh"
 #include "shared_state_error_code.hh"
-#include "debug/rsdebuglevel4.h"
 
 #include <chrono>
 #include <iostream>
@@ -32,6 +31,8 @@
 #include <optional>
 #include <arpa/inet.h>
 
+#include <util/stacktrace.h>
+#include <util/rsdebuglevel4.h>
 
 namespace SharedState
 {
@@ -39,6 +40,7 @@ std::task<int> receiveNetworkMessage(
         Socket& socket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
+	RS_DBG2("");
 	// TODO: define and use proper error_conditions to return
 	// TODO: deal with socket errors
 
@@ -50,6 +52,8 @@ std::task<int> receiveNetworkMessage(
 
 	uint8_t dataTypeNameLenght = 0;
 	receivedBytes += co_await socket.recv(&dataTypeNameLenght, 1);
+
+	RS_DBG1("dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
 
 	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
 	{

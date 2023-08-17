@@ -28,10 +28,13 @@
 #include "task.hh"
 #include "sharedstate.hh"
 #include "piped_async_command.hh"
-#include "debug/rsdebuglevel2.h"
 #include "config.h"
 #include "sharedstate.hh"
 
+#include <util/stacktrace.h>
+#include <util/rsdebuglevel2.h>
+
+static CrashStackTrace gCrashStackTrace;
 
 static constexpr int BUFFSIZE = 3048;
 
@@ -51,8 +54,12 @@ std::task<bool> echo_loop(Socket& socket)
 
 	co_await receiveNetworkMessage(socket, networkMessage);
 
+#ifdef GIO_DUMMY_TEST
+	std::string cmd = "cat /home/gio/Builds/gomblot.json";
+#else
 	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
 	cmd = cmd + " " + networkMessage.mTypeName;
+#endif
 
 	RS_DBG0("executing command -", cmd);
 
@@ -160,9 +167,9 @@ int main()
     RS_DBG0("                   /____/              ");
     RS_DBG0("          ver:", PROJECT_VERSION_MAJOR, ".", PROJECT_VERSION_MINOR, ".", PROJECT_VERSION_PATCH, ".", PROJECT_VERSION_TWEAK);
 
-    IOContext io_context{};
-	auto listener = ListeningSocket::setupListener(3490, io_context);
+	auto ioContext = IOContext::setup();
+	auto listener = ListeningSocket::setupListener(3490, *ioContext.get());
 	auto t = acceptConnections(*listener.get());
-    t.resume();
-    io_context.run();
+	t.resume();
+	ioContext->run();
 }

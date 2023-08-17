@@ -22,7 +22,6 @@
  */
 
 #include "socket.hh"
-#include "debug/rsdebuglevel2.h"
 #include "connect_operation.hh"
 
 #include <arpa/inet.h>
@@ -33,6 +32,9 @@
 #include <unistd.h>
 #include <iostream>
 #include <cerrno>
+
+#include <util/stacktrace.h>
+#include <util/rsdebuglevel2.h>
 
 std::task<std::unique_ptr<ConnectingSocket>> ConnectingSocket::connect(
         const sockaddr_storage& address,
@@ -55,7 +57,8 @@ std::task<std::unique_ptr<ConnectingSocket>> ConnectingSocket::connect(
 
 	auto lSocket = std::unique_ptr<ConnectingSocket>(
 	            new ConnectingSocket(fd_, ioContext) );
-	ioContext.watchRead(lSocket.get());
+
+	ioContext.attachWriteOnly(lSocket.get());
 
 	co_await ConnectOperation(*lSocket.get(), address, ec);
 
@@ -130,7 +133,9 @@ std::unique_ptr<ListeningSocket> ListeningSocket::setupListener(
 std::task<std::unique_ptr<Socket>> ListeningSocket::accept()
 {
 	int fd = co_await SocketAcceptOperation(*this);
-	co_return std::unique_ptr<Socket>(new Socket(fd, io_context_));
+	auto rsk = std::unique_ptr<Socket>(new Socket(fd, io_context_));
+	io_context_.attach(rsk.get());
+	co_return rsk;
 }
 
 SocketRecvOperation Socket::recv(
@@ -148,7 +153,4 @@ SocketSendOperation Socket::send(
 }
 
 Socket::Socket(int fd, IOContext& io_context):
-    AsyncFileDescriptor(fd,io_context)
-{
-	io_context_.attach(this);
-}
+    AsyncFileDescriptor(fd,io_context) {}

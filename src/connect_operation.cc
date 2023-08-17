@@ -20,21 +20,27 @@
  */
 
 #include "connect_operation.hh"
-#include "debug/rsdebuglevel4.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+
+#include <util/rsdebuglevel4.h>
 
 ConnectOperation::ConnectOperation(
          AsyncFileDescriptor& socket, const sockaddr_storage& address,
         std::error_condition* ec ) :
     BlockSyscall<ConnectOperation, int>(ec),
-    mSocket(socket), mAddr(address) {};
+    mSocket(socket), mAddr(address)
+{
+	RS_DBG2("");
+	mSocket.io_context_.watchWrite(&mSocket);
+};
 
 
 ConnectOperation::~ConnectOperation()
 {
-	mSocket.io_context_.unwatchRead(&mSocket);
+	RS_DBG2("");
+	mSocket.io_context_.unwatchWrite(&mSocket);
 }
 
 int ConnectOperation::syscall()
@@ -60,7 +66,8 @@ int ConnectOperation::syscall()
 
 void ConnectOperation::suspend()
 {
+	RS_DBG2("");
 	/* TODO: connect is neither read or write per se ATM it seems to work like
 	 * this, but we should think a bit more about this */
-	mSocket.coroRecv_ = mAwaitingCoroutine;
+	mSocket.coroSend_ = mAwaitingCoroutine;
 }
