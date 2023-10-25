@@ -29,6 +29,7 @@
 #include <arpa/inet.h>
 
 #include <util/rsdebug.h>
+#include <util/rsdebuglevel2.h>
 #include <util/rsnet.h>
 #include <util/stacktrace.h>
 
@@ -42,7 +43,8 @@ std::task<> sendStdInput(
 
 #ifdef GIO_DUMMY_TEST
 	netMessage.mTypeName = dataTypeName;
-	netMessage.mData = "cacapisciapuzza";
+	std::string caccaData = "cacapisciapuzza";
+	netMessage.mData.assign(caccaData.begin(), caccaData.end());
 #else
 	auto flags = fcntl(STDIN_FILENO, F_GETFL, 0);
 	fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
@@ -61,13 +63,13 @@ std::task<> sendStdInput(
 		totalRead += co_await ReadOp(
 		            aStdIn,
 		            reinterpret_cast<uint8_t*>(netMessage.mData.data()),
-		            netMessage.mData.length() - totalRead );
+		            netMessage.mData.size() - totalRead );
 		finish = true;
 	}
 	fcntl(STDIN_FILENO, F_SETFL, flags);
 	netMessage.mData.resize(totalRead);
 
-	RS_DBG2( "netMessage.mTypeName: ", netMessage.mTypeName,
+	RS_DBG4( "netMessage.mTypeName: ", netMessage.mTypeName,
 	         " netMessage.mData:\n", netMessage.mData );
 #endif
 
@@ -76,13 +78,21 @@ std::task<> sendStdInput(
 	sockaddr_storage_setport(peerAddr, 3490);
 
 	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
-
+	auto sentMessageSize = netMessage.mData.size();
 	auto totalSent = co_await
 	        SharedState::sendNetworkMessage(*socket.get(), netMessage);
+	auto totalReceived = co_await
+	        SharedState::receiveNetworkMessage(*socket.get(), netMessage);
 
-	co_await SharedState::receiveNetworkMessage(*socket.get(), netMessage);
+	RS_DBG2( "Sent message type: ", dataTypeName,
+	         " Sent message size: ", sentMessageSize,
+	         " Received message type: ", netMessage.mTypeName,
+	         " Received message size: ", netMessage.mTypeName.size(),
+	         " Total sent bytes: ", totalSent,
+	         " Total received bytes: ", totalReceived );
 
-	std::cout << netMessage.mData << std::endl;
+	std::cout << std::string(netMessage.mData.begin(), netMessage.mData.end())
+	          << std::endl;
 
 	exit(0);
 }

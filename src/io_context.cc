@@ -24,6 +24,7 @@
 #include "io_context.hh"
 #include "async_file_desc.hh"
 
+#include <util/rsdebuglevel2.h>
 
 /**
  * @brief Epoll handler and notification
@@ -49,7 +50,7 @@ void IOContext::run()
 	struct epoll_event ev, events[DEFAULT_MAX_EVENTS];
 	for (;;)
 	{
-		RS_DBG0("Waiting epoll events");
+		RS_DBG2("Waiting epoll events");
 		auto nfds = epoll_wait(mEpollFD, events, DEFAULT_MAX_EVENTS, -1);
 		if (nfds == -1)
 		{
@@ -78,19 +79,19 @@ void IOContext::run()
 
 				if (events[n].events & EPOLLIN)
 				{
-					RS_DBG0( "llamando al ptr ", (intptr_t)events[n].data.ptr,
+					RS_DBG4( "llamando al ptr ", (intptr_t)events[n].data.ptr,
 					         " fd ", socket->mFD );
 					if (events[n].events & EPOLLERR)
                     {
-                        RS_DBG0("llamando por EPOLLERR");
+						RS_DBG4("llamando por EPOLLERR");
                     }
                     if (events[n].events & EPOLLRDHUP)
                     {
-                        RS_DBG0("llamando por EPOLLRDHUP");
+						RS_DBG4("llamando por EPOLLRDHUP");
                     }
                     if (events[n].events & EPOLLHUP)
                     {
-                        RS_DBG0("llamando por EPOLLHUP");
+						RS_DBG4("llamando por EPOLLHUP");
                         socket->doneRecv_ = true;
 						/*
               man epoll: EPOLLHUP
@@ -110,7 +111,7 @@ void IOContext::run()
                     }
                     if (events[n].events & EPOLLPRI)
                     {
-                        RS_DBG0("llamando por EPOLLPRI");
+						RS_DBG4("llamando por EPOLLPRI");
                     }
                     socket->resumeRecv();
                 }
@@ -118,7 +119,7 @@ void IOContext::run()
 				{
 					bool socketHasOut = socket->getNewIoState() & EPOLLOUT;
 
-					RS_DBG0( "Got EPOLLOUT for socket: ",
+					RS_DBG3( "Got EPOLLOUT for socket: ",
 					         (intptr_t)events[n].data.ptr,
 					         " fd: ", socket->mFD,
 					         " which has EPOLLOUT? ",
@@ -141,12 +142,9 @@ void IOContext::run()
 			ev.data.ptr = socket;
 			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, socket->mFD, &ev) == -1)
 			{
-				RS_FATAL("error", strerror(errno), socket->mFD);
-				perror("processedSockets new state failed");
-				// throw std::runtime_error{"epoll_ctl: mod "+ errno};
-				// todo: eliminate
+				RS_ERR(rs_errno_to_condition(errno), socket->mFD);
 			}
-			RS_DBG0( "successfull EPOLL_CTL_MOD fd: ", socket->mFD,
+			RS_DBG3( "successfull EPOLL_CTL_MOD fd: ", socket->mFD,
 			         " epoll flags: ", io_state );
 			socket->setIoState(io_state);
 		}
@@ -165,14 +163,15 @@ void IOContext::attach(AsyncFileDescriptor *socket)
 	/* TODO: This seems to be the exact same og IOContext::attachReadonly
 	 * check which one makes sense to keep of the two */
 
-	RS_DBG2("fd: ", socket->mFD);
+	RS_DBG4("fd: ", socket->mFD);
+
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ev.events = io_state;
     ev.data.ptr = socket;
 	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, socket->mFD, &ev) == -1)
-    {
-        RS_FATAL("error", strerror(errno), socket->mFD);
+	{
+		RS_ERR(rs_errno_to_condition(errno), " mFD: ", socket->mFD);
         perror("epoll_ctl EPOLL_CTL_ADD");
     }
 	socket->setIoState(io_state);
@@ -189,7 +188,7 @@ void IOContext::attach(AsyncFileDescriptor *socket)
  */
 void IOContext::attachReadonly(AsyncFileDescriptor *socket)
 {
-	RS_DBG2("fd: ", socket->mFD);
+	RS_DBG4("fd: ", socket->mFD);
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ev.events = io_state;
@@ -197,7 +196,8 @@ void IOContext::attachReadonly(AsyncFileDescriptor *socket)
 	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, socket->mFD, &ev) == -1)
         throw std::runtime_error{"epoll_ctl: attach"};
 	socket->setIoState(io_state);
-    RS_DBG0("successfully attached for reading # ", socket->mFD, " pointer ", (intptr_t)ev.data.ptr);
+	RS_DBG4( "successfully attached for reading mFD: ", socket->mFD,
+	         " pointer: ", (intptr_t)ev.data.ptr );
     managed_fd.insert(socket);
 }
 
@@ -208,21 +208,21 @@ void IOContext::attachReadonly(AsyncFileDescriptor *socket)
  */
 void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
 {
-	RS_DBG2("fd: ", socket->mFD);
+	RS_DBG4("mFD: ", socket->mFD);
+
     struct epoll_event ev;
     auto io_state = EPOLLOUT | EPOLLET;
     ev.events = io_state;
     ev.data.ptr = socket;
 	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, socket->mFD, &ev) == -1)
-    {
-        RS_FATAL("error attaching # ", socket->mFD);
-        perror("attachWriteOnly failed");
-        // throw std::runtime_error{"epoll_ctl: attach"};
-    }
+	{
+		RS_ERR( "failure attaching mFD ", socket->mFD, " ",
+		        rs_errno_to_condition(errno) );
+	}
 	socket->setIoState(io_state);
-    managed_fd.insert(socket);
+	managed_fd.insert(socket);
 
-	RS_DBG0( "fd: ", socket->mFD, " ptr: ", (uint64_t)ev.data.ptr,
+	RS_DBG4( "fd: ", socket->mFD, " ptr: ", (uint64_t)ev.data.ptr,
 	         " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -233,13 +233,10 @@ void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
  */
 void IOContext::watchRead(AsyncFileDescriptor *socket)
 {
-	RS_DBG2("A fd: ", socket->mFD,
-	        " getNewIoState() " , socket->getNewIoState() );
-
 	socket->setNewIoState(socket->getNewIoState() | EPOLLIN);
 	processedSockets.insert(socket);
 
-	RS_DBG2("B fd: ", socket->mFD,
+	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -253,7 +250,7 @@ void IOContext::unwatchRead(AsyncFileDescriptor *socket)
 	socket->setNewIoState(socket->getNewIoState() & ~EPOLLIN);
 	processedSockets.insert(socket);
 
-	RS_DBG2("fd: ", socket->mFD,
+	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -267,7 +264,7 @@ void IOContext::watchWrite(AsyncFileDescriptor *socket)
 	socket->setNewIoState(socket->getNewIoState() | EPOLLOUT);
 	processedSockets.insert(socket);
 
-	RS_DBG2("fd: ", socket->mFD,
+	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -281,7 +278,7 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 	socket->setNewIoState(socket->getNewIoState() & ~EPOLLOUT);
 	processedSockets.insert(socket);
 
-	RS_DBG2("fd: ", socket->mFD,
+	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -292,12 +289,11 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
  */
 void IOContext::detach(AsyncFileDescriptor *socket)
 {
-	RS_DBG0("fd: ", socket->mFD);
+	RS_DBG4("mFD: ", socket->mFD);
 	if (epoll_ctl(mEpollFD, EPOLL_CTL_DEL, socket->mFD, nullptr) == -1)
-    {
-		RS_ERR("epoll_ctl: detach error maybe the fd is not attached");
-        // exit(EXIT_FAILURE);
-    }
+	{
+		RS_ERR("epoll_ctl failure detaching: ", rs_errno_to_condition(errno));
+	}
     processedSockets.erase(socket);
     managed_fd.erase(socket);
 }

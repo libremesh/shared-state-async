@@ -15,6 +15,9 @@ project(SHAREDSTATE VERSION 0.0.0.1 LANGUAGES CXX)
 set(FETCHCONTENT_QUIET OFF)
 include(FetchContent)
 
+option( SS_OPENWRT_CMD_LEAK_WORKAROUND
+        "Workaround OpenWrt the execvp unxpected behaviour" OFF )
+
 # Options: Things you can set via commandline options to cmake (e.g. -DENABLE_LTO=[ON|OFF])
 option(ENABLE_WARNINGS_SETTINGS "Allow target_set_warnings to add flags and defines.
                                  Set this to OFF if you want to provide your own warning parameters." OFF)
@@ -150,6 +153,11 @@ set_target_properties(
         CXX_STANDARD_REQUIRED YES
         #CXX_EXTENSIONS YES
 )
+
+if(SS_OPENWRT_CMD_LEAK_WORKAROUND)
+        target_compile_definitions(
+                ${PROJECT_NAME} PUBLIC SS_OPENWRT_CMD_LEAK_WORKAROUND )
+endif(SS_OPENWRT_CMD_LEAK_WORKAROUND)
 
 # Set up tests (see tests/CMakeLists.txt).
 add_subdirectory(tests)

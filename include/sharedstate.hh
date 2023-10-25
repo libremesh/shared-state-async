@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <optional>
 #include <cstdint>
+#include <vector>
 
 #include "socket.hh"
 
@@ -35,7 +36,7 @@
 namespace SharedState
 {
 constexpr uint16_t DATA_TYPE_NAME_MAX_LENGHT = 128;
-constexpr uint32_t DATA_MAX_LENGHT = 1024*1024*1024; // 1MB
+constexpr uint32_t DATA_MAX_LENGHT = 1024*1024; // 1MB
 
 
 /** The message format on the wire is:
@@ -45,7 +46,7 @@ constexpr uint32_t DATA_MAX_LENGHT = 1024*1024*1024; // 1MB
 struct NetworkMessage
 {
 	std::string mTypeName;
-	std::string mData;
+	std::vector<uint8_t> mData;
 };
 
 std::task<int> receiveNetworkMessage(

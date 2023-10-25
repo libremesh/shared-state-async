@@ -26,13 +26,14 @@
 #include <iostream>
 #include <atomic>
 
+#include <util/rsdebuglevel1.h>
+
 namespace std
 {
     template <typename T>
     struct task;
     namespace detail
     {
-        static size_t mTotal_;
         template <typename T>
 
         /**
@@ -42,17 +43,8 @@ namespace std
          */
         struct promise_type_base
         {
-            size_t number;
-            promise_type_base()
-            {
-                mTotal_ = mTotal_ + 1;
-                number = mTotal_;
-                RS_DBG0(" #", number);
-            }
-            ~promise_type_base()
-            {
-                RS_DBG0(number, " -- Promise: dtor");
-            }
+			promise_type_base() { RS_DBG4(""); }
+			~promise_type_base() { RS_DBG4(""); }
             coroutine_handle<> waiter; // who waits on this coroutine
             task<T> get_return_object();
             suspend_always initial_suspend() { return {}; }
@@ -136,37 +128,30 @@ namespace std
      */
     template <typename T = void>
     struct [[nodiscard]] task
-    {
-        using promise_type = detail::promise_type<T>;
-        task()
-            : mCoroutineHandle{nullptr}
-        {
-            RS_DBG0("#");
-        }
-        task(coroutine_handle<promise_type> handle)
-            : mCoroutineHandle{handle}
-        {
-            RS_DBG0(" #", mCoroutineHandle.promise().number);
-        }
-        ~task()
-        {
-            RS_DBG0(" #", mCoroutineHandle.promise().number);
+	{
+		using promise_type = detail::promise_type<T>;
+		task(): mCoroutineHandle(nullptr) { RS_DBG4(""); }
+		task(coroutine_handle<promise_type> handle): mCoroutineHandle(handle)
+		{ RS_DBG4("", mCoroutineHandle.promise().number); }
+		~task()
+		{
+			RS_DBG4("");
             if (mCoroutineHandle)
-            {
-                RS_DBG0("have you finished ? ", mCoroutineHandle.done(), ", task disposable = ", mDetached);
+			{
+				RS_DBG4( "Task finished? ", mCoroutineHandle.done(),
+				         ", task disposable? ", mDetached );
                 if (mCoroutineHandle.done() && mDetached)
                 {
-                    RS_DBG0("do noting");
+					RS_DBG4("do noting");
                 }
                 else if (mCoroutineHandle.done() || !mDetached)
                 {
-                    RS_DBG0("I'll destroy m_coro");
+					RS_DBG4("Destroing m_coro");
                     mCoroutineHandle.destroy();
-                    RS_DBG0("i've just destroyed m_coro");
                 }
                 else
                 {
-                    RS_DBG0("do not destroy coro");
+					RS_DBG4("do not destroy coro");
                 }
             }
         }

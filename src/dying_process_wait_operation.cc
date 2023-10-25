@@ -23,6 +23,8 @@
 #include "dying_process_wait_operation.hh"
 #include "async_file_desc.hh"
 
+#include <util/rsdebuglevel1.h>
+
 #include <unistd.h>
 #include <sys/wait.h>
 
@@ -61,8 +63,8 @@ pid_t DyingProcessWaitOperation::syscall()
 	}
 	else if (cpid == mPid)
 	{
-		RS_DBG0( "Successful wait process id ", cpid,
-		         "FD ", mAFD.mFD );
+		RS_DBG2( "Success waiting process id: ", cpid,
+		         " mFD: ", mAFD.mFD );
 	}
 	return cpid;
 }

@@ -52,7 +52,9 @@ std::task<bool> echo_loop(Socket& socket)
 {
 	NetworkMessage networkMessage;
 
-	co_await receiveNetworkMessage(socket, networkMessage);
+	auto totalReceived = co_await
+	        receiveNetworkMessage(socket, networkMessage);
+	auto receivedMessageSize = networkMessage.mData.size();
 
 #ifdef GIO_DUMMY_TEST
 	std::string cmd = "cat /home/gio/Builds/gomblot.json";
@@ -61,22 +63,20 @@ std::task<bool> echo_loop(Socket& socket)
 	cmd = cmd + " " + networkMessage.mTypeName;
 #endif
 
-	RS_DBG0("executing command -", cmd);
-
-	std::error_condition err;
+	// TODO: gracefully deal with errors
 	std::unique_ptr<PipedAsyncCommand> luaSharedState =
-	        PipedAsyncCommand::factory(cmd, socket, &err);
+	        PipedAsyncCommand::execute(cmd, socket.io_context_);
 
 	co_await luaSharedState->writepipe(
 	            reinterpret_cast<const uint8_t*>(networkMessage.mData.data()),
-	            networkMessage.mData.length() );
+	            networkMessage.mData.size() );
 	luaSharedState->finishwriting();
 
 	networkMessage.mData.clear();
 	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-	/* some applications read until eof is sent, the only way is closing the
-	 * write end. */
+	/* Some applications keep reading until EOF is sent, the only way to ensure
+	 * termination is closing the write end */
 	ssize_t rec_ammount = 0;
 	ssize_t nbRecvFromPipe = 0;
 	int endlconuter = 0;
@@ -88,7 +88,7 @@ std::task<bool> echo_loop(Socket& socket)
 		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
 		totalReadBytes += nbRecvFromPipe;
 
-		// TODO: should'nt it be == ?
+		// TODO: shouldn't it be == ?
 		if (*dataPtr != '\n') endlconuter++;
 
 		RS_DBG0( "nbRecvFromPipe: ", nbRecvFromPipe,
@@ -101,23 +101,52 @@ std::task<bool> echo_loop(Socket& socket)
 	       endlconuter != 1
 	      );
 
-	/* read from this pipe in openwrt and using shared state never returns 0 it
-	 * just resturns -1. and the donereading flag is always 0
+	/* Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
+	 * just returns -1 and the donereading flag is always 0
 	 * it seems that the second end of line can be a good candidate for end of
 	 * transmission */
-
 	luaSharedState->finishReading();
 
-	RS_DBG0( "PIPE contents ...", networkMessage.mData,
-	         " .. amount ", rec_ammount );
+	/* Truncate data size to necessary. Avoid sending millions of zeros around.
+	 *
+	 * While testing on my Gentoo machine, I noticed that printing to the
+	 * terminal networkMessage.mData seemed to be extremely costly to the point
+	 * to keep my CPU usage at 100% for at least 20 seconds doing something
+	 * unclear, even more curious the process being reported to eat the CPU was
+	 * not shared-state-server but the parent console on which the process is
+	 * running, in my case either Qt Creator or Konsole, even when running under
+	 * gdb. When redirecting the output to either a file or /dev/null the
+	 * problem didn't happen, but the created file was 1GB, aka
+	 * DATA_MAX_LENGHT of that time.
+	 *
+	 * Similar behavior appeared if printing networkMessage.mData on the
+	 * shared-state-client.
+	 *
+	 * The culprit wasn't that obvious at first all those nullbytes where
+	 * invisible.
+	 */
+	networkMessage.mData.resize(totalReadBytes);
 
-	// cat and shared state excecve read pipecontents echo the command at the first line
+#ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
+	/* When running on OpenWrt the execvp command line is read as first line
+	 * of the pipe content.
+	 * It happens with both shared-state lua command and with cat command.
+	 * TODO: investivate why this is happening, and if a better way to deal with
+	 * it exists
+	 */
 	networkMessage.mData.erase(0, networkMessage.mData.find('\n') + 1);
+#endif // def SS_OPENWRT_BUILD
 
-	co_await sendNetworkMessage(socket, networkMessage);
+	auto totalSent = co_await sendNetworkMessage(socket, networkMessage);
 
-	co_await luaSharedState->whaitforprocesstodie();
+	co_await luaSharedState->waitForProcessTermination();
 	luaSharedState.reset(nullptr);
+
+	RS_DBG2( "Received message type: ", networkMessage.mTypeName,
+	         " Received message size: ", receivedMessageSize,
+	         " Sent message size: ", networkMessage.mData.size(),
+	         " Total sent bytes: ", totalSent,
+	         " Total received bytes: ", totalReceived );
 
 	co_return false;
 }

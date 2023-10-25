@@ -40,7 +40,7 @@ public:
 	AsyncFileDescriptor(int fd, IOContext &io_context):
 	    io_context_{io_context}, mFD{fd}
 	{
-		RS_DBG0("fd: ", fd);
+		RS_DBG4("mFD: ", mFD);
 
 		// TODO: This can fail do not do it in the costructor!!
 		fcntl(mFD, F_SETFL, O_NONBLOCK);
@@ -56,7 +56,7 @@ public:
 
     ~AsyncFileDescriptor()
     {
-		RS_DBG0("fd: ", mFD);
+		RS_DBG4("fd: ", mFD);
 		if (mFD == -1)
         {
             return;
@@ -67,13 +67,13 @@ public:
 
     bool resumeRecv()
     {
-		RS_DBG0("fd: ", mFD);
+		RS_DBG4("fd: ", mFD);
 
         //this guard is necesary because attach method subscribes the fd to 
         //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroRecv_)
 		{
-			RS_DBG0("fd: ", mFD, "missing coroutine");
+			RS_DBG2("fd: ", mFD, "missing coroutine");
 			return false;
 		}
         coroRecv_.resume();
@@ -82,12 +82,12 @@ public:
 
     bool resumeSend()
     {
-		RS_DBG0("fd: ", mFD);
+		RS_DBG4("fd: ", mFD);
         //this guard is necesary because attach method subscribes the fd to 
         //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroSend_)
 		{
-			RS_DBG0("fd: ", mFD, " missing coroutine");
+			RS_DBG2("fd: ", mFD, " missing coroutine");
 			return false;
 		}
         coroSend_.resume();
@@ -97,7 +97,7 @@ public:
 	inline uint32_t getIoState() { return io_state_; }
 	inline uint32_t setIoState(uint32_t state)
 	{
-		RS_DBG2(state);
+		RS_DBG4(state);
 		io_state_ = state;
 		return io_state_;
 	}
@@ -105,7 +105,7 @@ public:
 	inline uint32_t getNewIoState() { return io_new_state_; }
 	inline uint32_t setNewIoState(uint32_t state)
 	{
-		RS_DBG2(state);
+		RS_DBG4(state);
 		io_new_state_ = state;
 		return io_new_state_;
 	}

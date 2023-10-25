@@ -1,8 +1,9 @@
 /*
  * Shared State
  *
- * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
- * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023  Javier Jorge <jjorge@inti.gob.ar>
+ * Copyright (C) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -34,54 +35,62 @@
 /**
  * @brief AsyncCommand implementation using fork excec and dual pipes
  * 
- * This implementation is fully async supporting async reading, writing and waiting 
- * for the child process to die.  
+ * This implementation is fully async supporting async reading, writing and
+ * waiting for the child process to die.
+ *
+ * TODO: implement a way to return process exit code
  */
 class PipedAsyncCommand
 {
-
 public:
-    friend std::unique_ptr<PipedAsyncCommand> std::make_unique<PipedAsyncCommand>();
+	/**
+	 * Start execution of a command.
+	 *
+	 * @param cmd command to be executed asynchronously. This parameter is
+	 * passed by value, it wont be a large string and it is a secure way to send
+	 * the parameter for detachable coroutines in multithread scenarios.
+	 * @param ioContext IO context that will deal with input and output
+	 * operations.
+	 * @param errbub optional storage for error details, to deal more gracefully
+	 * with them on the caller side, if null the program will be terminated on
+	 * error.
+	 * @return nullptr on failure, pointer to the command handle on success
+	 *
+	 * @warning remember to call @see waitForProcessTermination after using the
+	 * object to prevent zombi process creation.
+	 * More interesting insights/explanations might be found at
+	 * http://unixwiz.net/techtips/remap-pipe-fds.html
+	 */
+	static std::unique_ptr<PipedAsyncCommand> execute(
+	        std::string cmd, IOContext& ioContext,
+	        std::error_condition* errbub = nullptr );
 
-	static std::unique_ptr<PipedAsyncCommand> factory(
-	        std::string cmd,
-	        AsyncFileDescriptor& AFD,
-	        std::error_condition* err = nullptr )
-    {
-        auto retptr = std::make_unique<PipedAsyncCommand>();
-		*err = retptr->init(cmd, AFD.io_context_);
-		if (*err == std::errc())
-        {
-            return retptr;
-        }
-        //retptr.reset(nullptr);
-        return nullptr;
-    }
-
-    ~PipedAsyncCommand();
+	~PipedAsyncCommand();
 
 	ReadOp readpipe(uint8_t* buffer, std::size_t len);
     FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
-    DyingProcessWaitOperation whaitforprocesstodie();
+	DyingProcessWaitOperation waitForProcessTermination();
     void finishwriting();
     void finishReading();
     bool doneReading();
 
 
 private:
-    std::error_condition init(std::string cmd, IOContext &context);
-    PipedAsyncCommand(const PipedAsyncCommand &) = delete;
-    PipedAsyncCommand();
+	PipedAsyncCommand(const PipedAsyncCommand &) = delete;
+	PipedAsyncCommand() = default;
 
-    /// we need two file descriptors to interact with the forked process
-    ///      parent        child
-    ///      fd1[1]        fd1[0]
-    ///        4 -- mfd_W --> 3
-    ///      fd2[0]        fd2[1]
-    ///        5 <-- mFd_r -- 6
+	// we need two file descriptors to interact with the forked process
+	//      parent        child
+	//      fd1[1]        fd1[0]
+	//        4 -- mfd_W --> 3
+	//      fd2[0]        fd2[1]
+	//        5 <-- mFd_r -- 6
+	// TODO: use proper naming and mapping @see execute code
     int mFd_w[2];
     int mFd_r[2];
     pid_t forked_proces_id = -1;
+
+	// TODO: are shared_ptr really needed here? Check if unique_ptr is enough
     std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
     std::shared_ptr<AsyncFileDescriptor> async_process_wait_fd;
