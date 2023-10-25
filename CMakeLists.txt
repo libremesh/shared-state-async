@@ -95,7 +95,15 @@ include_directories(${LIBRETROSHARE_DIR}/src/)
 
 set(SOURCES
     ${SOURCES}
+    ${LIBRETROSHARE_DIR}/src/serialiser/rsbaseserial.cc
+    ${LIBRETROSHARE_DIR}/src/serialiser/rstlvbase.cc
+    ${LIBRETROSHARE_DIR}/src/serialiser/rstypeserializer.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsbase64.cc
     ${LIBRETROSHARE_DIR}/src/util/rsdebug.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsnet.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsnet_ss.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsstring.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsurl.cc
 )
 
 ################################################################################
