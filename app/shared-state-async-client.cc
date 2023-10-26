@@ -36,7 +36,7 @@
 static CrashStackTrace gCrashStackTrace;
 
 std::task<> sendStdInput(
-        std::string dataTypeName, std::string peerAddrStr,
+        std::string dataTypeName, const sockaddr_storage& peerAddr,
         IOContext& ioContext )
 {
 	SharedState::NetworkMessage netMessage;
@@ -73,10 +73,6 @@ std::task<> sendStdInput(
 	         " netMessage.mData:\n", netMessage.mData );
 #endif
 
-	sockaddr_storage peerAddr;
-	sockaddr_storage_inet_pton(peerAddr, peerAddrStr);
-	sockaddr_storage_setport(peerAddr, 3490);
-
 	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
 	auto sentMessageSize = netMessage.mData.size();
 	auto totalSent = co_await
@@ -105,16 +101,23 @@ int main(int argc, char* argv[])
 		return -EINVAL;
 	}
 
-	auto ioContext = IOContext::setup();
-
 	std::string dataTypeName(argv[1]);
 	std::string peerAddrStr(argv[2]);
 
+	sockaddr_storage peerAddr;
+	if(!sockaddr_storage_inet_pton(peerAddr, peerAddrStr))
+	{
+		RS_FATAL("Invalid IP address");
+		return -static_cast<int>(std::errc::bad_address);
+	}
+	sockaddr_storage_setport(peerAddr, 3490);
+
 	RS_INFO("Got dataTypeName: ", dataTypeName, " peerAddrStr: ", peerAddrStr);
 
-	auto sendTask = sendStdInput(dataTypeName, peerAddrStr, *ioContext.get());
+	auto ioContext = IOContext::setup();
+	auto sendTask = sendStdInput(dataTypeName, peerAddr, *ioContext.get());
 	sendTask.resume();
-
 	ioContext->run();
+
 	return 0;
 }
