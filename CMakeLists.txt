@@ -132,6 +132,8 @@ set_target_properties(
         #CXX_EXTENSIONS YES
 )
 
+install(TARGETS ${LIBRARY_NAME} ${SERVER_NAME} ${CLIENT_NAME} )
+
 # Optional IPO/LTO. Do not enable them if it's not supported by compiler.
 # @see https://cmake.org/cmake/help/latest/module/CheckIPOSupported.html#module:CheckIPOSupported
 include(CheckIPOSupported)
