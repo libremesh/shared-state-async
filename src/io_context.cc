@@ -61,72 +61,68 @@ void IOContext::run()
 
 		for(int n = 0; n < nfds; ++n)
 		{
-			auto socket = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
-			if (!managed_fd.contains(socket))
+			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
+			uint32_t evFlags = events[n].events;
+
+			RS_DBG2( "Got epoll events: ", evFlags,
+			         " for aFD: ", reinterpret_cast<intptr_t>(aFD),
+			         " fd: ", aFD->mFD );
+
+			if (!managed_fd.contains(aFD))
 			{
-				RS_INFO( "the fd is no longer suscribed, ",
-				         (intptr_t)socket, " flags:",
-				         (uint32_t)events[n].events,
-				         " fd ", (int)events[n].data.fd );
+				RS_INFO( "Got alien epoll events: ", evFlags,
+				         " for aFD: ", reinterpret_cast<intptr_t>(aFD),
+				         " fd: ", aFD->mFD,
+				         " which is not subscribed (anymore?)" );
 				continue;
 			}
 
-				RS_DBG2( "Got epoll events: ",
-				         static_cast<uint32_t>(events[n].events),
-				         " for fd: ", socket->mFD,
-				         " ptr: ",
-				         reinterpret_cast<intptr_t>(events[n].data.ptr) );
+			if (events[n].events & EPOLLHUP)
+			{
+				/* man epoll: EPOLLHUP
+				 * Hang up happened on the associated file descriptor.
+				 * epoll_wait(2) will always wait for this event; it is
+				 * not necessary to set it in events when calling
+				 * epoll_ctl().
+				 *
+				 * Note that when reading from a channel such as a pipe
+				 * or a stream socket, this event merely indicates that
+				 * the peer closed its end of the channel.
+				 *
+				 * Subsequent reads from the channel will return 0 (end
+				 * of file) only after all outstanding data in the
+				 * channel has been consumed.
+				 * jj: the last is not always true...
+				 * subsequent reads only responds with -1
+				 */
+				RS_DBG1("FD: ", aFD->mFD, " Got EPOLLHUP");
+				aFD->doneRecv_ = true;
+			}
+			if (events[n].events & EPOLLIN)
+			{
+				RS_DBG4("FD: ", socket->mFD, " Got EPOLLIN");
+				aFD->resumeRecv();
+			}
+			if (events[n].events & EPOLLERR)
+			{
+				RS_DBG4("llamando por EPOLLERR");
+			}
+			if (events[n].events & EPOLLRDHUP)
+			{
+				RS_DBG4("llamando por EPOLLRDHUP");
+			}
+			if (events[n].events & EPOLLPRI)
+			{
+				RS_DBG4("llamando por EPOLLPRI");
+			}
+			if(events[n].events & EPOLLOUT)
+			{
+				bool socketHasOut = aFD->getNewIoState() & EPOLLOUT;
+				RS_DBG3("FD: ", aFD->mFD, " Got EPOLLOUT",
+				        " which has EPOLLOUT? ", socketHasOut? "yes" : "no" );
 
-				if (events[n].events & EPOLLIN)
-				{
-					RS_DBG4( "llamando al ptr ", (intptr_t)events[n].data.ptr,
-					         " fd ", socket->mFD );
-					if (events[n].events & EPOLLERR)
-                    {
-						RS_DBG4("llamando por EPOLLERR");
-                    }
-                    if (events[n].events & EPOLLRDHUP)
-                    {
-						RS_DBG4("llamando por EPOLLRDHUP");
-                    }
-                    if (events[n].events & EPOLLHUP)
-                    {
-						RS_DBG4("llamando por EPOLLHUP");
-                        socket->doneRecv_ = true;
-						/*
-              man epoll: EPOLLHUP
-              Hang up happened on the associated file descriptor.
-
-              epoll_wait(2) will always wait for this event; it is not
-              necessary to set it in events when calling epoll_ctl().
-
-              Note that when reading from a channel such as a pipe or a
-              stream socket, this event merely indicates that the peer
-              closed its end of the channel.  Subsequent reads from the
-              channel will return 0 (end of file) only after all
-              outstanding data in the channel has been consumed.
-
-              jj: the last is not always true... subsequent reads only responds with -1
-                        */
-                    }
-                    if (events[n].events & EPOLLPRI)
-                    {
-						RS_DBG4("llamando por EPOLLPRI");
-                    }
-                    socket->resumeRecv();
-                }
-				if(events[n].events & EPOLLOUT)
-				{
-					bool socketHasOut = socket->getNewIoState() & EPOLLOUT;
-
-					RS_DBG3( "Got EPOLLOUT for socket: ",
-					         (intptr_t)events[n].data.ptr,
-					         " fd: ", socket->mFD,
-					         " which has EPOLLOUT? ",
-					         socketHasOut? "yes" : "no" );
-
-					socket->resumeSend();
-				}
+				aFD->resumeSend();
+			}
 		}
 
 		for (auto *socket : processedSockets)
