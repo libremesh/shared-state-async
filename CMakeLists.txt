@@ -1,47 +1,19 @@
-# This file specifies how the project should be built, using CMake.
-# If you are unfamiliar with CMake, don't worry about all the details.
-# The sections you might want to edit are marked as such, and
-# the comments should hopefully make most of it clear.
-#
-# For many purposes, you may not need to change anything about this file.
-
 cmake_minimum_required(VERSION 3.14)
+
+include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
 
 # Set project name, version and laguages here. (change as needed)
 # Version numbers are available by including "exampleConfig.h" in
 # the source. See exampleConfig.h.in for some more details.
-project(SHAREDSTATE VERSION 0.0.0.1 LANGUAGES CXX)
-
-set(FETCHCONTENT_QUIET OFF)
-include(FetchContent)
+project(shared-state VERSION 0.0.0.1 LANGUAGES CXX)
 
 option( SS_OPENWRT_CMD_LEAK_WORKAROUND
         "Workaround OpenWrt the execvp unxpected behaviour" OFF )
 
-# Options: Things you can set via commandline options to cmake (e.g. -DENABLE_LTO=[ON|OFF])
-option(ENABLE_WARNINGS_SETTINGS "Allow target_set_warnings to add flags and defines.
-                                 Set this to OFF if you want to provide your own warning parameters." OFF)
-option(ENABLE_LTO "Enable link time optimization" ON)
-option(ENABLE_DOCTESTS "Include tests in the library. Setting this to OFF will remove all doctest related code.
-                        Tests in tests/*.cpp will still be enabled." ON)
+option( SS_TESTS
+        "Build tests" OFF )
 
-# Include stuff. No change needed.
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
-#include(ConfigSafeGuards)
-include(Colors)
-include(CTest)
-include(Doctest)
-include(Documentation)
-include(LTO)
-include(Misc)
-include(Warnings)
-
-# Check for LTO support.
-find_lto(CXX)
-
-# --------------------------------------------------------------------------------
-#                         Locate files (change as needed).
-# --------------------------------------------------------------------------------
 set(SOURCES
     src/io_context.cc
     src/sharedstate.cc
@@ -69,30 +41,37 @@ set(CLIENT_NAME shared-state-async-client)
 
 
 ################################################################################
-
-add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
-
+# Fetch libretroshare without adding it to the build and avoid consequent error
+# for missing dependencies at OpenWrt build time.
+# We just need a few source file not libretroshare full build.
+# Use FetchContent_Populate plus a bit of custom logit
+# @see https://cmake.org/cmake/help/latest/module/FetchContent.html#command:fetchcontent_populate
+# @see https://www.reddit.com/r/cmake/comments/13frtwr/fetchcontent_without_adding_to_the_build/jjy3lmg/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
+# and not
+# @see https://cmake.org/cmake/help/latest/module/FetchContent.html#populating-content-without-adding-it-to-the-build
+# which add libretroshare to the build anyway -_-
 set(LIBRETROSHARE_DEVEL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libretroshare/")
 if(EXISTS "${LIBRETROSHARE_DEVEL_DIR}/CMakeLists.txt" )
-        message(
-                STATUS
-                "libretroshare source found at ${LIBRETROSHARE_DEVEL_DIR} using it" )
-#        add_subdirectory("${LIBRETROSHARE_DEVEL_DIR}" "${CMAKE_BINARY_DIR}/libretroshare")
+    message( STATUS
+             "libretroshare source found at ${LIBRETROSHARE_DEVEL_DIR} using it" )
     set(LIBRETROSHARE_DIR "${LIBRETROSHARE_DEVEL_DIR}")
 else()
-        FetchContent_Declare(
-                libretroshare
-                GIT_REPOSITORY "https://gitlab.com/RetroShare/libretroshare.git"
-                GIT_TAG "origin/master"
-                GIT_SHALLOW TRUE
-                GIT_PROGRESS TRUE
-                TIMEOUT 10
+    FetchContent_Declare(
+        libretroshare
+        GIT_REPOSITORY "https://gitlab.com/RetroShare/libretroshare.git"
+        GIT_TAG "origin/master"
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+        TIMEOUT 10
         )
-        FetchContent_MakeAvailable(libretroshare)
+    FetchContent_GetProperties(libretroshare)
+    if(NOT libretroshare_POPULATED)
+        FetchContent_Populate(libretroshare)
         set(LIBRETROSHARE_DIR "${libretroshare_SOURCE_DIR}")
+    endif()
 endif()
 
-#target_link_libraries(${PROJECT_NAME} PRIVATE libretroshare)
+add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
 
 include_directories(${LIBRETROSHARE_DIR}/src/)
 
@@ -111,36 +90,18 @@ set(SOURCES
 
 ################################################################################
 
-# --------------------------------------------------------------------------------
-#                            Build! (Change as needed)
-# --------------------------------------------------------------------------------
-# Compile all sources into a library.
 add_library(${LIBRARY_NAME} OBJECT ${SOURCES})
-
-# Lib needs its header files, and users of the library must also see these (PUBLIC). (No change needed)
 target_include_directories(${LIBRARY_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-
-# There's also (probably) doctests within the library, so we need to see this as well.
-target_link_libraries(${LIBRARY_NAME} PUBLIC doctest)
-
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${LIBRARY_NAME} PUBLIC "-fcoroutines")
 
-# Set the compile options you want (change as needed).
-target_set_warnings(${LIBRARY_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
-# target_compile_options(${LIBRARY_NAME} ... )  # For setting manually.
-
 add_executable(${SERVER_NAME} app/${SERVER_NAME}.cc)
 target_link_libraries(${SERVER_NAME} PRIVATE ${LIBRARY_NAME})
-target_set_warnings(${SERVER_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
-target_enable_lto(${SERVER_NAME} optimized)
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${SERVER_NAME} PRIVATE "-fcoroutines")
 
 add_executable(${CLIENT_NAME} app/${CLIENT_NAME}.cc)
 target_link_libraries(${CLIENT_NAME} PRIVATE ${LIBRARY_NAME})
-target_set_warnings(${CLIENT_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
-target_enable_lto(${CLIENT_NAME} optimized)
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${CLIENT_NAME} PRIVATE "-fcoroutines")
 
@@ -154,10 +115,23 @@ set_target_properties(
         #CXX_EXTENSIONS YES
 )
 
+# Optional IPO/LTO. Do not enable them if it's not supported by compiler.
+# @see https://cmake.org/cmake/help/latest/module/CheckIPOSupported.html#module:CheckIPOSupported
+include(CheckIPOSupported)
+check_ipo_supported(RESULT IPO_LTO_AVAILABLE)
+if(IPO_LTO_AVAILABLE)
+    set_target_properties(
+        ${LIBRARY_NAME} ${SERVER_NAME} ${CLIENT_NAME}
+          PROPERTIES
+            INTERPROCEDURAL_OPTIMIZATION YES
+    )
+endif(IPO_LTO_AVAILABLE)
+
 if(SS_OPENWRT_CMD_LEAK_WORKAROUND)
         target_compile_definitions(
                 ${PROJECT_NAME} PUBLIC SS_OPENWRT_CMD_LEAK_WORKAROUND )
 endif(SS_OPENWRT_CMD_LEAK_WORKAROUND)
 
-# Set up tests (see tests/CMakeLists.txt).
-add_subdirectory(tests)
+if(SS_TESTS)
+    add_subdirectory(tests)
+endif(SS_TESTS)

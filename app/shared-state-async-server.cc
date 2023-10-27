@@ -28,7 +28,6 @@
 #include "task.hh"
 #include "sharedstate.hh"
 #include "piped_async_command.hh"
-#include "config.h"
 #include "sharedstate.hh"
 
 #include <util/stacktrace.h>
@@ -187,15 +186,6 @@ std::task<> acceptConnections(ListeningSocket& listener)
 
 int main()
 {
-
-    RS_DBG0("           ___                         ");
-    RS_DBG0("    ____  /   |  _______  ______  _____");
-    RS_DBG0("   / __ \\/ /| | / ___/ / / / __ \\/ ___/");
-    RS_DBG0("  / / / / ___ |(__  ) /_/ / / / / /__  ");
-    RS_DBG0(" /_/ /_/_/  |_/____/\\__, /_/ /_/\\___/  ");
-    RS_DBG0("                   /____/              ");
-    RS_DBG0("          ver:", PROJECT_VERSION_MAJOR, ".", PROJECT_VERSION_MINOR, ".", PROJECT_VERSION_PATCH, ".", PROJECT_VERSION_TWEAK);
-
 	auto ioContext = IOContext::setup();
 	auto listener = ListeningSocket::setupListener(3490, *ioContext.get());
 	auto t = acceptConnections(*listener.get());
