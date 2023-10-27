@@ -11,6 +11,11 @@ project(shared-state VERSION 0.0.0.1 LANGUAGES CXX)
 option( SS_OPENWRT_CMD_LEAK_WORKAROUND
         "Workaround OpenWrt the execvp unxpected behaviour" OFF )
 
+option( SS_DEVELOPMENT_BUILD
+        "Disable optimization to speed up build, enable verbose build log. \
+         just for development purposes, not suitable for library usage"
+         OFF )
+
 option( SS_TESTS
         "Build tests" OFF )
 
@@ -29,10 +34,6 @@ set(SOURCES
     src/popen_file_read_operation.cc
     src/file_write_operation.cc
     src/dying_process_wait_operation.cc
-)
-
-set(TESTFILES
-    tests/main.cpp
 )
 
 set(LIBRARY_NAME shared-state)
@@ -58,7 +59,7 @@ if(EXISTS "${LIBRETROSHARE_DEVEL_DIR}/CMakeLists.txt" )
 else()
     FetchContent_Declare(
         libretroshare
-        GIT_REPOSITORY "https://gitlab.com/RetroShare/libretroshare.git"
+        GIT_REPOSITORY "https://github.com/RetroShare/libretroshare.git"
         GIT_TAG "origin/master"
         GIT_SHALLOW TRUE
         GIT_PROGRESS TRUE
@@ -69,11 +70,27 @@ else()
         FetchContent_Populate(libretroshare)
         set(LIBRETROSHARE_DIR "${libretroshare_SOURCE_DIR}")
     endif()
+
+    FetchContent_Declare(
+        rapidjson
+        GIT_REPOSITORY "https://github.com/Tencent/rapidjson.git"
+        GIT_TAG "origin/master"
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+        TIMEOUT 10
+    )
+    FetchContent_GetProperties(rapidjson)
+    if(NOT rapidjson_POPULATED)
+        FetchContent_Populate(rapidjson)
+        set(RAPIDJSON_DIR "${rapidjson_SOURCE_DIR}")
+    endif()
+
+    include_directories(${RAPIDJSON_DIR}/include)
 endif()
 
-add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
-
 include_directories(${LIBRETROSHARE_DIR}/src/)
+
+add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
 
 set(SOURCES
     ${SOURCES}
@@ -131,6 +148,11 @@ if(SS_OPENWRT_CMD_LEAK_WORKAROUND)
         target_compile_definitions(
                 ${PROJECT_NAME} PUBLIC SS_OPENWRT_CMD_LEAK_WORKAROUND )
 endif(SS_OPENWRT_CMD_LEAK_WORKAROUND)
+
+if(SS_DEVELOPMENT_BUILD)
+        set(CMAKE_VERBOSE_MAKEFILE ON)
+        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif(RS_DEVELOPMENT_BUILD)
 
 if(SS_TESTS)
     add_subdirectory(tests)
