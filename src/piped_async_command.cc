@@ -179,7 +179,7 @@ FileWriteOperation PipedAsyncCommand::writepipe(
 }
 void PipedAsyncCommand::finishwriting()
 {
-    RS_DBG0("async_write_end_fd.use_count()",  async_write_end_fd.use_count());
+	RS_DBG0("async_write_end_fd.use_count() ",  async_write_end_fd.use_count());
     async_write_end_fd.get()->io_context_.unwatchWrite(async_write_end_fd.get());
     async_write_end_fd.reset();
     //close(PARENT_WRITE); //no funciona

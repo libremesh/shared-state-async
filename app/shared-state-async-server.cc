@@ -104,8 +104,8 @@ std::task<bool> echo_loop(Socket& socket)
 	}
 	while (
 	       (nbRecvFromPipe != 0) &&
-	       (!luaSharedState->doneReading()) &&
-	       endlconuter != 1
+	       (!luaSharedState->doneReading()) /*&&
+		   endlconuter != 1*/
 	      );
 
 	/* Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
@@ -138,9 +138,8 @@ std::task<bool> echo_loop(Socket& socket)
 	/* When running on OpenWrt the execvp command line is read as first line
 	 * of the pipe content.
 	 * It happens with both shared-state lua command and with cat command.
-	 * TODO: investivate why this is happening, and if a better way to deal with
-	 * it exists
-	 */
+	 * TODO: investigate why this is happening, and if a better way to deal with
+	 * it exists */
 	{
 		auto& mData = networkMessage.mData;
 		auto&& cmdEnd = std::find(mData.begin(), mData.end(), '\n');
