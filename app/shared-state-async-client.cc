@@ -40,9 +40,9 @@ std::task<> sendStdInput(
         IOContext& ioContext )
 {
 	SharedState::NetworkMessage netMessage;
+	netMessage.mTypeName = dataTypeName;
 
 #ifdef GIO_DUMMY_TEST
-	netMessage.mTypeName = dataTypeName;
 	std::string caccaData = "cacapisciapuzza";
 	netMessage.mData.assign(caccaData.begin(), caccaData.end());
 #else
@@ -54,7 +54,6 @@ std::task<> sendStdInput(
 
 	netMessage.mData.clear();
 	netMessage.mData.resize(SharedState::DATA_MAX_LENGHT);
-
 
 	bool finish = false;
 	std::size_t totalRead = 0;
