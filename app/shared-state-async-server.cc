@@ -84,11 +84,14 @@ std::task<bool> echo_loop(Socket& socket)
 	ssize_t nbRecvFromPipe = 0;
 	int endlconuter = 0;
 	int totalReadBytes = 0;
-	uint8_t* dataPtr = reinterpret_cast<uint8_t*>(networkMessage.mData.data());
+	auto dataPtr = networkMessage.mData.data();
 	do
 	{
 		nbRecvFromPipe = co_await luaSharedState->readpipe(
 		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
+		std::string justRecv(
+		            reinterpret_cast<char*>(dataPtr + totalReadBytes),
+		            nbRecvFromPipe );
 		totalReadBytes += nbRecvFromPipe;
 
 		// TODO: shouldn't it be == ?
@@ -96,7 +99,8 @@ std::task<bool> echo_loop(Socket& socket)
 
 		RS_DBG0( "nbRecvFromPipe: ", nbRecvFromPipe,
 		         ", done reading? ", luaSharedState->doneReading(),
-		         " endlconuter: ", endlconuter);
+		         " endlconuter: ", endlconuter,
+		         " data read: ", justRecv );
 	}
 	while (
 	       (nbRecvFromPipe != 0) &&
