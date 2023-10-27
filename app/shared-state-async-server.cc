@@ -23,6 +23,10 @@
 
 #include <unistd.h>
 
+#ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
+#	include <algorithm>
+#endif
+
 #include "io_context.hh"
 #include "socket.hh"
 #include "task.hh"
@@ -133,7 +137,11 @@ std::task<bool> echo_loop(Socket& socket)
 	 * TODO: investivate why this is happening, and if a better way to deal with
 	 * it exists
 	 */
-	networkMessage.mData.erase(0, networkMessage.mData.find('\n') + 1);
+	{
+		auto& mData = networkMessage.mData;
+		auto&& cmdEnd = std::find(mData.begin(), mData.end(), '\n');
+		mData.erase(mData.begin(), ++cmdEnd);
+	}
 #endif // def SS_OPENWRT_BUILD
 
 	auto totalSent = co_await sendNetworkMessage(socket, networkMessage);
