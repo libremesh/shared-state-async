@@ -59,11 +59,14 @@ std::task<bool> echo_loop(Socket& socket)
 	        receiveNetworkMessage(socket, networkMessage);
 	auto receivedMessageSize = networkMessage.mData.size();
 
-#ifdef GIO_DUMMY_TEST
+#if 0 //def GIO_DUMMY_TEST
 	std::string cmd = "cat /home/gio/Builds/gomblot.json";
-#else
+#elif 0
 	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
 	cmd = cmd + " " + networkMessage.mTypeName;
+#else
+	std::string cmd = "cat /tmp/shared-state/data/" +
+	        networkMessage.mTypeName + ".json";
 #endif
 
 	// TODO: gracefully deal with errors
