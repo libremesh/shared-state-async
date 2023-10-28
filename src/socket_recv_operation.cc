@@ -69,6 +69,6 @@ ssize_t SocketRecvOperation::syscall()
 
 void SocketRecvOperation::suspend()
 {
-	RS_DBG2("");
-	mSocket.coroRecv_ = mAwaitingCoroutine;
+	// mSocket.coroRecv_ = mAwaitingCoroutine;
+	mSocket.addPendingOp(mAwaitingCoroutine);
 }

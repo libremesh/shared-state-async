@@ -1,9 +1,7 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
- * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
- * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -21,38 +19,17 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "file_write_operation.hh"
+#include "close_operation.hh"
 #include "async_file_desc.hh"
 
 #include <unistd.h>
 
-
-FileWriteOperation::FileWriteOperation(
-        AsyncFileDescriptor& AFD,
-        const uint8_t* buffer, std::size_t len,
-        std::error_condition* ec ):
-    BlockSyscall{ec},
-    mAFD{AFD}, mBuffer{buffer}, mLen{len}
+int CloseOperation::syscall()
 {
-	mAFD.io_context_.watchWrite(&mAFD);
+	return close(mAFD.mFD);
 }
 
-FileWriteOperation::~FileWriteOperation()
+void CloseOperation::suspend()
 {
-	mAFD.io_context_.unwatchWrite(&mAFD);
-}
-
-ssize_t FileWriteOperation::syscall()
-{
-	ssize_t bytes_writen = write(
-	            mAFD.mFD,
-	            reinterpret_cast<const char*>(mBuffer), mLen );
-
-	return bytes_writen;
-}
-
-void FileWriteOperation::suspend()
-{
-	//mAFD.coroSend_ = mAwaitingCoroutine;
 	mAFD.addPendingOp(mAwaitingCoroutine);
 }

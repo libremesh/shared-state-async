@@ -51,6 +51,6 @@ int SocketAcceptOperation::syscall()
 
 void SocketAcceptOperation::suspend()
 {
-	RS_DBG3("");
-	mLSocket.coroRecv_ = mAwaitingCoroutine;
+	// mLSocket.coroRecv_ = mAwaitingCoroutine;
+	mLSocket.addPendingOp(mAwaitingCoroutine);
 }

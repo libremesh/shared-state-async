@@ -160,13 +160,6 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 	return pCmd;
 }
 
-PipedAsyncCommand::~PipedAsyncCommand()
-{
-	async_read_end_fd.reset();
-	//async_write_end_fd.reset();
-	async_process_wait_fd.reset();
-}
-
 ReadOp PipedAsyncCommand::readpipe(uint8_t *buffer, std::size_t len)
 {
 	return ReadOp{async_read_end_fd, buffer, len};
@@ -177,12 +170,12 @@ FileWriteOperation PipedAsyncCommand::writepipe(
 {
 	return FileWriteOperation{*async_write_end_fd, buffer, len};
 }
-void PipedAsyncCommand::finishwriting()
+
+std::task<bool>  PipedAsyncCommand::finishwriting(std::error_condition* errbub)
 {
-	RS_DBG0("async_write_end_fd.use_count() ",  async_write_end_fd.use_count());
-    async_write_end_fd.get()->io_context_.unwatchWrite(async_write_end_fd.get());
-    async_write_end_fd.reset();
-    //close(PARENT_WRITE); //no funciona
+	auto mRet = co_await async_write_end_fd->close(errbub);
+	if(mRet) async_write_end_fd.reset();
+	co_return mRet;
 }
 
 /**
@@ -194,11 +187,11 @@ bool PipedAsyncCommand::doneReading()
     return async_read_end_fd.get()->doneRecv_;
 }
 
-void PipedAsyncCommand::finishReading()
+std::task<bool> PipedAsyncCommand::finishReading(std::error_condition* errbub)
 {
-	RS_DBG0("async_read_end_fd.use_count() ",  async_read_end_fd.use_count());
-    async_read_end_fd.get()->io_context_.unwatchRead(async_read_end_fd.get());
-    async_read_end_fd.reset();
+	auto mRet = co_await async_read_end_fd->close(errbub);
+	if(mRet) async_read_end_fd.reset();
+	co_return mRet;
 }
 
 /**
@@ -206,9 +199,10 @@ void PipedAsyncCommand::finishReading()
  * @warning if this method is not called the forked process will be
  * a zombi.
  */
-DyingProcessWaitOperation PipedAsyncCommand::waitForProcessTermination()
+std::task<pid_t> PipedAsyncCommand::waitForProcessTermination()
 {
-	return DyingProcessWaitOperation(
-	            *async_process_wait_fd.get(),
-	            forked_proces_id );
+	auto dPid = co_await DyingProcessWaitOperation(
+	            *async_process_wait_fd.get(), forked_proces_id );
+	co_await async_process_wait_fd->close();
+	co_return dPid;
 }

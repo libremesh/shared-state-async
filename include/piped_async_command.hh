@@ -64,15 +64,17 @@ public:
 	static std::unique_ptr<PipedAsyncCommand> execute(
 	        std::string cmd, IOContext& ioContext,
 	        std::error_condition* errbub = nullptr );
-
-	~PipedAsyncCommand();
+	~PipedAsyncCommand() = default;
 
 	ReadOp readpipe(uint8_t* buffer, std::size_t len);
-    FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
-	DyingProcessWaitOperation waitForProcessTermination();
-    void finishwriting();
-    void finishReading();
-    bool doneReading();
+	FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
+	std::task<pid_t> waitForProcessTermination();
+
+	std::task<bool> finishwriting(std::error_condition* errbub = nullptr);
+	std::task<bool> finishReading(std::error_condition* errbub = nullptr);
+
+	// TODO: really working?
+	bool doneReading();
 
 
 private:

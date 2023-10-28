@@ -34,7 +34,7 @@
  * @brief AsyncCommand implementation using popen.
  * @warning this implementation is under development, you can use piped_async
  */
-class PopenAsyncCommand :AsyncFileDescriptor
+class PopenAsyncCommand : AsyncFileDescriptor
 {
 public:
     PopenAsyncCommand(const PopenAsyncCommand&) = delete;

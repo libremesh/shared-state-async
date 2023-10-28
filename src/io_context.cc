@@ -101,7 +101,7 @@ void IOContext::run()
 			if (events[n].events & EPOLLIN)
 			{
 				RS_DBG4("FD: ", socket->mFD, " Got EPOLLIN");
-				aFD->resumeRecv();
+				aFD->resumePendingOps();
 			}
 			if (events[n].events & EPOLLERR)
 			{
@@ -121,7 +121,7 @@ void IOContext::run()
 				RS_DBG3("FD: ", aFD->mFD, " Got EPOLLOUT",
 				        " which has EPOLLOUT? ", socketHasOut? "yes" : "no" );
 
-				aFD->resumeSend();
+				aFD->resumePendingOps();
 			}
 		}
 
@@ -138,7 +138,7 @@ void IOContext::run()
 			ev.data.ptr = socket;
 			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, socket->mFD, &ev) == -1)
 			{
-				RS_ERR(rs_errno_to_condition(errno), socket->mFD);
+				RS_ERR(rs_errno_to_condition(errno), " FD: ", socket->mFD);
 			}
 			RS_DBG3( "successfull EPOLL_CTL_MOD fd: ", socket->mFD,
 			         " epoll flags: ", io_state );
@@ -283,13 +283,25 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
  *
  * @param socket
  */
-void IOContext::detach(AsyncFileDescriptor *socket)
+void IOContext::detach(AsyncFileDescriptor* aFD, std::error_condition* errbub)
 {
-	RS_DBG4("mFD: ", socket->mFD);
-	if (epoll_ctl(mEpollFD, EPOLL_CTL_DEL, socket->mFD, nullptr) == -1)
+	RS_DBG4("FD: ", aFD->mFD);
+
+	if (epoll_ctl(mEpollFD, EPOLL_CTL_DEL, aFD->mFD, nullptr) == -1)
 	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            " failed EPOLL_CTL_DEL for FD: ", aFD->mFD );
 		RS_ERR("epoll_ctl failure detaching: ", rs_errno_to_condition(errno));
 	}
-    processedSockets.erase(socket);
-    managed_fd.erase(socket);
+
+	discard(*aFD);
+}
+
+void IOContext::discard(AsyncFileDescriptor& aFD)
+{
+	RS_DBG4("FD: ", aFD->mFD);
+
+	processedSockets.erase(&aFD);
+	managed_fd.erase(&aFD);
 }

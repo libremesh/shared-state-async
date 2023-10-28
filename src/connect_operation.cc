@@ -66,8 +66,5 @@ int ConnectOperation::syscall()
 
 void ConnectOperation::suspend()
 {
-	RS_DBG2("");
-	/* TODO: connect is neither read or write per se ATM it seems to work like
-	 * this, but we should think a bit more about this */
-	mSocket.coroSend_ = mAwaitingCoroutine;
+	mSocket.addPendingOp(mAwaitingCoroutine);
 }

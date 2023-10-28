@@ -64,5 +64,6 @@ ssize_t ReadOp::syscall()
 
 void ReadOp::suspend()
 {
-	mAFD->coroRecv_ = mAwaitingCoroutine;
+	// mAFD->coroRecv_ = mAwaitingCoroutine;
+	mAFD->addPendingOp(mAwaitingCoroutine);
 }

@@ -109,6 +109,8 @@ private:
 	friend ConnectingSocket;
 
 	// TODO: do we really need to make this API methods private?
+	// TODO: Take a reference to an AsyncFileDescriptor instead of a pointer
+	// TODO: This methods can fail add error bubbling paramether
     void attach(AsyncFileDescriptor* socket);
     void attachReadonly(AsyncFileDescriptor* socket);
     void attachWriteOnly(AsyncFileDescriptor* socket);
@@ -116,5 +118,11 @@ private:
     void unwatchRead(AsyncFileDescriptor* socket);
     void watchWrite(AsyncFileDescriptor* socket);
     void unwatchWrite(AsyncFileDescriptor* socket);
-    void detach(AsyncFileDescriptor* socket);
+	void detach(
+	        AsyncFileDescriptor* aFD,
+	        std::error_condition* errbub = nullptr );
+
+	/** Like detach, but for externally closed FD skip asking epoll processing
+	 * which is done automatically and would fail on already closed FD */
+	void discard(AsyncFileDescriptor& aFD);
 };

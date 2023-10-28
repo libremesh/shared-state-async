@@ -56,5 +56,6 @@ ssize_t PopenFileReadOperation::syscall()
 
 void PopenFileReadOperation::suspend()
 {
-	mCmd.coroRecv_ = mAwaitingCoroutine;
+	// mCmd.coroRecv_ = mAwaitingCoroutine;
+	mCmd.addPendingOp(mAwaitingCoroutine);
 }

@@ -94,7 +94,7 @@ public:
 		}
 		else if (mReturnValue == -1)
 		{
-			/* The syscall failed for other reasonf let's notify the caller if
+			/* The syscall failed for other reason let's notify the caller if
 			 * possible or close the program printing an error */
 			rs_error_bubble_or_exit(
 			            rs_errno_to_condition(errno), mError,

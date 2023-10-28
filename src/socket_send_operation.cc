@@ -46,5 +46,5 @@ ssize_t SocketSendOperation::syscall()
 
 void SocketSendOperation::suspend()
 {
-	mSocket.coroSend_ = mAwaitingCoroutine;
+	mSocket.addPendingOp(mAwaitingCoroutine);
 }

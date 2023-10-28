@@ -74,9 +74,9 @@ std::task<bool> echo_loop(Socket& socket)
 	        PipedAsyncCommand::execute(cmd, socket.io_context_);
 
 	co_await luaSharedState->writepipe(
-	            reinterpret_cast<const uint8_t*>(networkMessage.mData.data()),
+	            networkMessage.mData.data(),
 	            networkMessage.mData.size() );
-	luaSharedState->finishwriting();
+	co_await luaSharedState->finishwriting();
 
 	networkMessage.mData.clear();
 	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
@@ -106,7 +106,7 @@ std::task<bool> echo_loop(Socket& socket)
 	 * just returns -1 and the donereading flag is always 0
 	 * it seems that the second end of line can be a good candidate for end of
 	 * transmission */
-	luaSharedState->finishReading();
+	co_await luaSharedState->finishReading();
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *
@@ -141,10 +141,11 @@ std::task<bool> echo_loop(Socket& socket)
 	}
 #endif // def SS_OPENWRT_BUILD
 
-	auto totalSent = co_await sendNetworkMessage(socket, networkMessage);
-
 	co_await luaSharedState->waitForProcessTermination();
 	luaSharedState.reset(nullptr);
+
+	auto totalSent = co_await sendNetworkMessage(socket, networkMessage);
+	co_await socket.close();
 
 	RS_DBG2( "Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,
@@ -172,7 +173,6 @@ std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
         run = co_await echo_loop(*socket);
         RS_DBG0("END");
     }
-    socket.reset(nullptr);
     co_return true;
 }
 

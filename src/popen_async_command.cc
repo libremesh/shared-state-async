@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -70,12 +71,12 @@ PopenAsyncCommand::PopenAsyncCommand(
 
 PopenAsyncCommand::~PopenAsyncCommand()
 {
-    RS_DBG0("------ delete the PopenAsyncCommand(", mFD);
-    if (mFD == -1)
-        return;
-    io_context_.detach(this);
-    close(mFD);
-    pclose(mPipe);
+	RS_DBG0("------ delete the PopenAsyncCommand(", mFD);
+
+	// TODO: this stuff can fail!! Move it on a method not destructor!
+	io_context_.detach(this);
+	::close(mFD);
+	pclose(mPipe);
 }
 
 PopenFileReadOperation PopenAsyncCommand::recvfile(
