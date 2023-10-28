@@ -56,9 +56,9 @@ ssize_t ReadOp::syscall()
      */
     if (bytesread == -1)
     {
-        RS_WARN("**** warning ****" ,strerror(errno) );
+		RS_WARN("FD: ", mAFD->mFD, " ", rs_errno_to_condition(errno));
     }
-    RS_DBG0("Read ", bytesread , " bytes" );
+	RS_DBG0("FD: ", mAFD->mFD, " read ", bytesread , " bytes" );
     return bytesread;
 }
 

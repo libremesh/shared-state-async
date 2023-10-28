@@ -82,7 +82,6 @@ std::task<bool> echo_loop(Socket& socket)
 	 * termination is closing the write end */
 	ssize_t rec_ammount = 0;
 	ssize_t nbRecvFromPipe = 0;
-	int endlconuter = 0;
 	int totalReadBytes = 0;
 	auto dataPtr = networkMessage.mData.data();
 	do
@@ -94,19 +93,11 @@ std::task<bool> echo_loop(Socket& socket)
 		            nbRecvFromPipe );
 		totalReadBytes += nbRecvFromPipe;
 
-		// TODO: shouldn't it be == ?
-		if (*dataPtr != '\n') endlconuter++;
-
 		RS_DBG0( "nbRecvFromPipe: ", nbRecvFromPipe,
 		         ", done reading? ", luaSharedState->doneReading(),
-		         " endlconuter: ", endlconuter,
-		         " data read: ", justRecv );
+		         " data read >>>", justRecv, "<<<" );
 	}
-	while (
-	       (nbRecvFromPipe != 0) &&
-	       (!luaSharedState->doneReading()) /*&&
-		   endlconuter != 1*/
-	      );
+	while ((nbRecvFromPipe != 0) && !luaSharedState->doneReading() );
 
 	/* Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
 	 * just returns -1 and the donereading flag is always 0

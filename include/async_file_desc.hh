@@ -73,7 +73,7 @@ public:
         //epoll but it still doses'n have a suspending coroutine waiting for the event. 
         if (!coroRecv_)
 		{
-			RS_DBG2("fd: ", mFD, "missing coroutine");
+			RS_DBG2("fd: ", mFD, " missing coroutine");
 			return false;
 		}
         coroRecv_.resume();
