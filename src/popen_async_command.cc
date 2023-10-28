@@ -20,16 +20,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-#include "socket.hh"
 
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include "popen_async_command.hh"
-#include <iostream>
+
+#include <cstdio>
+#include <fcntl.h>
+#include <unistd.h>
 
 PopenAsyncCommand::PopenAsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)
     : AsyncFileDescriptor(socket->io_context_), mPipe{fdFromStream}

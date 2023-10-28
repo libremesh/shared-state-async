@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -22,7 +23,6 @@
 
 #pragma once
 
-#include <string_view>
 #include <cstdio>
 
 #include "async_file_desc.hh"
