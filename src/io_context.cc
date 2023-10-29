@@ -97,6 +97,7 @@ void IOContext::run()
 				 */
 				RS_DBG1("FD: ", aFD->mFD, " Got EPOLLHUP");
 				aFD->doneRecv_ = true;
+				aFD->resumePendingOps();
 			}
 			if (events[n].events & EPOLLIN)
 			{
