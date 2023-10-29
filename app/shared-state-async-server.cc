@@ -104,11 +104,7 @@ std::task<bool> echo_loop(Socket& socket)
 	 * just returns -1 and the donereading flag is always 0
 	 * it seems that the second end of line can be a good candidate for end of
 	 * transmission */
-	std::error_condition finishReadErrc;
-	if(!co_await luaSharedState->finishReading(&finishReadErrc))
-	{
-		RS_ERR("finish reading from lua shared-state failed: ", finishReadErrc);
-	}
+	co_await luaSharedState->finishReading();
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *
@@ -147,11 +143,7 @@ std::task<bool> echo_loop(Socket& socket)
 
 	auto totalSent = co_await sendNetworkMessage(socket, networkMessage);
 
-	std::error_condition closeErrc;
-	if(!co_await socket.close(&closeErrc))
-	{
-		RS_ERR("Socket close failed: ", closeErrc);
-	}
+	co_await socket.close();
 
 	RS_DBG2( "Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,

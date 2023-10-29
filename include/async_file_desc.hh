@@ -64,13 +64,12 @@ public:
 
 	std::task<bool> close(std::error_condition* errbub = nullptr)
 	{
-		std::error_condition closeErrc;
-		auto sysCloseErr = co_await CloseOperation(*this, &closeErrc);
+		auto sysCloseErr = co_await CloseOperation(*this, errbub);
 
 		if(sysCloseErr)
 		{
 			rs_error_bubble_or_exit(
-			            closeErrc, errbub,
+			            rs_errno_to_condition(errno), errbub,
 			            "failure closing FD: ", mFD);
 			co_return false;
 		}
