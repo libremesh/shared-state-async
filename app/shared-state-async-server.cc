@@ -94,7 +94,8 @@ std::task<bool> echo_loop(Socket& socket)
 		            nbRecvFromPipe );
 		totalReadBytes += nbRecvFromPipe;
 
-		RS_DBG0( "nbRecvFromPipe: ", nbRecvFromPipe,
+		RS_DBG0( "FD: ", socket.mFD,
+		         " nbRecvFromPipe: ", nbRecvFromPipe,
 		         ", done reading? ", luaSharedState->doneReading(),
 		         " data read >>>", justRecv, "<<<" );
 	}
@@ -145,7 +146,8 @@ std::task<bool> echo_loop(Socket& socket)
 
 	co_await socket.close();
 
-	RS_DBG2( "Received message type: ", networkMessage.mTypeName,
+	RS_DBG2( "FD: ", socket.mFD,
+	         " Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,
 	         " Sent message size: ", networkMessage.mData.size(),
 	         " Total sent bytes: ", totalSent,

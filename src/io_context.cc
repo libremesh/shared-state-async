@@ -66,8 +66,8 @@ void IOContext::run()
 
 		for(int n = 0; n < nfds; ++n)
 		{
-			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
 			uint32_t evFlags = events[n].events;
+			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
 
 			RS_DBG2( "Got epoll events: ", epoll_events_to_string(evFlags),
 			         " FD: ", aFD->mFD,
@@ -75,15 +75,19 @@ void IOContext::run()
 
 			if (!managed_fd.contains(aFD))
 			{
-				RS_INFO( "Got alien epoll events: ",
+				/* aFD is a dangling pointer at this point so aFD->mFD
+				 * it's random stuff, luky you that epoll_data come with the FD
+				 * to which the event belong, so we can at least use it for
+				 * debugging */
+				RS_WARN( "Got alien epoll events: ",
 				         epoll_events_to_string(evFlags),
-				         " for FD: ", aFD->mFD,
+				         " for FD: ", static_cast<int>(events[n].data.fd),
 				         " aFD: ", reinterpret_cast<intptr_t>(aFD),
 				         " which is not subscribed (anymore?)" );
 				continue;
 			}
 
-			if (events[n].events & EPOLLHUP)
+			if (evFlags & EPOLLHUP)
 			{
 				/* man epoll: EPOLLHUP
 				 * Hang up happened on the associated file descriptor.
@@ -104,11 +108,11 @@ void IOContext::run()
 				aFD->doneRecv_ = true;
 				aFD->resumePendingOps();
 			}
-			if (events[n].events & EPOLLIN)
+			if (evFlags & EPOLLIN)
 			{
 				aFD->resumePendingOps();
 			}
-			if(events[n].events & EPOLLOUT)
+			if(evFlags & EPOLLOUT)
 			{
 				bool socketHasOut = aFD->getNewIoState() & EPOLLOUT;
 				RS_DBG1("FD: ", aFD->mFD, " Got EPOLLOUT",
@@ -118,7 +122,7 @@ void IOContext::run()
 			}
 		}
 
-		for (auto *socket : processedSockets)
+		for (auto* socket : processedSockets)
 		{
 			/* New state does actually just have EPOLLIN or EPOLLOUT
 			 * EPOLLET is always needed to work with coroutines so set it always
