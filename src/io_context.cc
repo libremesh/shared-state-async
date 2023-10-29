@@ -67,11 +67,10 @@ void IOContext::run()
 		for(int n = 0; n < nfds; ++n)
 		{
 			uint32_t evFlags = events[n].events;
-			int eFD = events[n].data.fd;
 			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
 
 			RS_DBG2( "Got epoll events: ", epoll_events_to_string(evFlags),
-			         " eFD: ", eFD, " mFD: ", aFD->mFD,
+			         " mFD: ", aFD->mFD,
 			         " for aFD: ", reinterpret_cast<intptr_t>(aFD) );
 
 			if (!managed_fd.contains(aFD))
@@ -82,9 +81,8 @@ void IOContext::run()
 				 * debugging */
 				RS_WARN( "Got stray epoll events: ",
 				         epoll_events_to_string(evFlags),
-				         " for FD: ", eFD,
 				         " aFD: ", reinterpret_cast<intptr_t>(aFD),
-				         " which is not subscribed (anymore?)" );
+				         " which is not subscribed anymore" );
 				continue;
 			}
 
@@ -110,21 +108,6 @@ void IOContext::run()
 			}
 
 			aFD->resumePendingOps();
-
-#if 0
-			if (evFlags & EPOLLIN)
-			{
-				aFD->resumePendingOps();
-			}
-			if(evFlags & EPOLLOUT)
-			{
-				bool socketHasOut = aFD->getNewIoState() & EPOLLOUT;
-				RS_DBG1("FD: ", aFD->mFD, " Got EPOLLOUT",
-				        " which has EPOLLOUT? ", socketHasOut? "yes" : "no" );
-
-				aFD->resumePendingOps();
-			}
-#endif
 		}
 
 		for (auto* socket : processedSockets)
@@ -142,8 +125,13 @@ void IOContext::run()
 			{
 				/* ATM this has happened only with standard input FD 0, with
 				 * errno 2 No such file or directory */
-				RS_ERR( "Failed to update epoll IO state for "
-				         "FD: ", socket->mFD, " ",
+				RS_ERR( "Failed to update epoll IO state for",
+				        " FD: ", socket->mFD,
+				        " aFD: ", reinterpret_cast<intptr_t>(socket),
+				        " getIoState(): ",
+				        epoll_events_to_string(socket->getIoState()),
+				        " getNewIoState(): ",
+				        epoll_events_to_string(socket->getNewIoState()),
 				        rs_errno_to_condition(errno) );
 			}
 			socket->setIoState(io_state);
