@@ -104,7 +104,11 @@ std::task<bool> echo_loop(Socket& socket)
 	 * just returns -1 and the donereading flag is always 0
 	 * it seems that the second end of line can be a good candidate for end of
 	 * transmission */
-	co_await luaSharedState->finishReading();
+	std::error_condition finishReadErrc;
+	if(!co_await luaSharedState->finishReading(&finishReadErrc))
+	{
+		RS_ERR("finish reading from lua shared-state failed: ", finishReadErrc);
+	}
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *
@@ -140,10 +144,14 @@ std::task<bool> echo_loop(Socket& socket)
 #endif // def SS_OPENWRT_BUILD
 
 	co_await luaSharedState->waitForProcessTermination();
-	luaSharedState.reset(nullptr);
 
 	auto totalSent = co_await sendNetworkMessage(socket, networkMessage);
-	co_await socket.close();
+
+	std::error_condition closeErrc;
+	if(!co_await socket.close(&closeErrc))
+	{
+		RS_ERR("Socket close failed: ", closeErrc);
+	}
 
 	RS_DBG2( "Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,
@@ -163,15 +171,23 @@ std::task<bool> echo_loop(Socket& socket)
  */
 std::task<bool> client_socket_handler(std::unique_ptr<Socket> socket)
 {
-    // TODO:can be std::task<void> no need to use bool
-    bool run = true;
-    while (run)
-    {
-        RS_DBG0("BEGIN");
-        run = co_await echo_loop(*socket);
-        RS_DBG0("END");
-    }
-    co_return true;
+	// TODO:can be std::task<void> no need to use bool
+	bool run = true;
+
+	while (run) // TODO: Probably not needed
+	{
+		RS_DBG0( "BEGIN"
+		         " FD: ", socket->mFD,
+		         " aFD: ", reinterpret_cast<intptr_t>(socket.get()) );
+
+		run = co_await echo_loop(*socket);
+
+		RS_DBG0( "END"
+		         " FD: ", socket->mFD, // should be -1 at this point
+		         " aFD: ", reinterpret_cast<intptr_t>(socket.get()) );
+	}
+
+	co_return true;
 }
 
 std::task<> acceptConnections(ListeningSocket& listener)
