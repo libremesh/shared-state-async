@@ -100,7 +100,7 @@ public:
 			            rs_errno_to_condition(errno), mError,
 			            " syscall failed" );
 		}
-		// We can keep going, no need to do suspend, no failure
+		// We can keep going, no need to do suspend, on failure
 		return mHaveSuspend;
 	}
 

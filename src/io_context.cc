@@ -67,10 +67,11 @@ void IOContext::run()
 		for(int n = 0; n < nfds; ++n)
 		{
 			uint32_t evFlags = events[n].events;
+			int eFD = events[n].data.fd;
 			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
 
 			RS_DBG2( "Got epoll events: ", epoll_events_to_string(evFlags),
-			         " FD: ", aFD->mFD,
+			         " eFD: ", eFD, " mFD: ", aFD->mFD,
 			         " for aFD: ", reinterpret_cast<intptr_t>(aFD) );
 
 			if (!managed_fd.contains(aFD))
@@ -79,9 +80,9 @@ void IOContext::run()
 				 * it's random stuff, luky you that epoll_data come with the FD
 				 * to which the event belong, so we can at least use it for
 				 * debugging */
-				RS_WARN( "Got alien epoll events: ",
+				RS_WARN( "Got stray epoll events: ",
 				         epoll_events_to_string(evFlags),
-				         " for FD: ", static_cast<int>(events[n].data.fd),
+				         " for FD: ", eFD,
 				         " aFD: ", reinterpret_cast<intptr_t>(aFD),
 				         " which is not subscribed (anymore?)" );
 				continue;
@@ -106,8 +107,11 @@ void IOContext::run()
 				 * subsequent reads only responds with -1
 				 */
 				aFD->doneRecv_ = true;
-				aFD->resumePendingOps();
 			}
+
+			aFD->resumePendingOps();
+
+#if 0
 			if (evFlags & EPOLLIN)
 			{
 				aFD->resumePendingOps();
@@ -120,6 +124,7 @@ void IOContext::run()
 
 				aFD->resumePendingOps();
 			}
+#endif
 		}
 
 		for (auto* socket : processedSockets)
