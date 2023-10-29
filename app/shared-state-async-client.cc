@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <arpa/inet.h>
+#include <signal.h>
 
 #include <util/rsdebug.h>
 #include <util/rsdebuglevel2.h>
@@ -112,6 +113,10 @@ int main(int argc, char* argv[])
 	sockaddr_storage_setport(peerAddr, 3490);
 
 	RS_INFO("Got dataTypeName: ", dataTypeName, " peerAddrStr: ", peerAddrStr);
+
+	/* We expect write failures, expecially on sockets, to occur but we want to
+	 * handle them where the error occurs rather than in a SIGPIPE handler */
+	signal(SIGPIPE, SIG_IGN);
 
 	auto ioContext = IOContext::setup();
 	auto sendTask = sendStdInput(dataTypeName, peerAddr, *ioContext.get());

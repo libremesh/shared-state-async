@@ -22,6 +22,7 @@
  */
 
 #include <unistd.h>
+#include <signal.h>
 
 #ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
 #	include <algorithm>
@@ -38,8 +39,6 @@
 #include <util/rsdebuglevel2.h>
 
 static CrashStackTrace gCrashStackTrace;
-
-static constexpr int BUFFSIZE = 3048;
 
 using namespace SharedState;
 
@@ -199,6 +198,10 @@ std::task<> acceptConnections(ListeningSocket& listener)
 
 int main()
 {
+	/* We expect write failures, expecially on sockets, to occur but we want to
+	 * handle them where the error occurs rather than in a SIGPIPE handler */
+	signal(SIGPIPE, SIG_IGN);
+
 	auto ioContext = IOContext::setup();
 	auto listener = ListeningSocket::setupListener(3490, *ioContext.get());
 	auto t = acceptConnections(*listener.get());
