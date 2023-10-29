@@ -21,10 +21,14 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+#include <sys/epoll.h>
+
 #include "io_context.hh"
 #include "async_file_desc.hh"
+#include "epoll_events_to_string.hh"
 
 #include <util/rsdebuglevel2.h>
+
 
 /**
  * @brief Epoll handler and notification
@@ -50,13 +54,14 @@ void IOContext::run()
 	struct epoll_event ev, events[DEFAULT_MAX_EVENTS];
 	for (;;)
 	{
-		RS_DBG2("Waiting epoll events");
+		RS_DBG3("Waiting epoll events");
 		auto nfds = epoll_wait(mEpollFD, events, DEFAULT_MAX_EVENTS, -1);
 		if (nfds == -1)
 		{
 			std::error_condition* nulli = nullptr;
 			rs_error_bubble_or_exit(
-			            rs_errno_to_condition(errno), nulli, " fd: ", mEpollFD );
+			            rs_errno_to_condition(errno), nulli,
+			            "epoll_wait failed FD: ", mEpollFD );
 		}
 
 		for(int n = 0; n < nfds; ++n)
@@ -64,15 +69,16 @@ void IOContext::run()
 			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
 			uint32_t evFlags = events[n].events;
 
-			RS_DBG2( "Got epoll events: ", evFlags,
-			         " for aFD: ", reinterpret_cast<intptr_t>(aFD),
-			         " fd: ", aFD->mFD );
+			RS_DBG2( "Got epoll events: ", epoll_events_to_string(evFlags),
+			         " FD: ", aFD->mFD,
+			         " for aFD: ", reinterpret_cast<intptr_t>(aFD) );
 
 			if (!managed_fd.contains(aFD))
 			{
-				RS_INFO( "Got alien epoll events: ", evFlags,
-				         " for aFD: ", reinterpret_cast<intptr_t>(aFD),
-				         " fd: ", aFD->mFD,
+				RS_INFO( "Got alien epoll events: ",
+				         epoll_events_to_string(evFlags),
+				         " for FD: ", aFD->mFD,
+				         " aFD: ", reinterpret_cast<intptr_t>(aFD),
 				         " which is not subscribed (anymore?)" );
 				continue;
 			}
@@ -95,31 +101,17 @@ void IOContext::run()
 				 * jj: the last is not always true...
 				 * subsequent reads only responds with -1
 				 */
-				RS_DBG1("FD: ", aFD->mFD, " Got EPOLLHUP");
 				aFD->doneRecv_ = true;
 				aFD->resumePendingOps();
 			}
 			if (events[n].events & EPOLLIN)
 			{
-				RS_DBG4("FD: ", socket->mFD, " Got EPOLLIN");
 				aFD->resumePendingOps();
-			}
-			if (events[n].events & EPOLLERR)
-			{
-				RS_DBG4("llamando por EPOLLERR");
-			}
-			if (events[n].events & EPOLLRDHUP)
-			{
-				RS_DBG4("llamando por EPOLLRDHUP");
-			}
-			if (events[n].events & EPOLLPRI)
-			{
-				RS_DBG4("llamando por EPOLLPRI");
 			}
 			if(events[n].events & EPOLLOUT)
 			{
 				bool socketHasOut = aFD->getNewIoState() & EPOLLOUT;
-				RS_DBG3("FD: ", aFD->mFD, " Got EPOLLOUT",
+				RS_DBG1("FD: ", aFD->mFD, " Got EPOLLOUT",
 				        " which has EPOLLOUT? ", socketHasOut? "yes" : "no" );
 
 				aFD->resumePendingOps();
@@ -128,7 +120,7 @@ void IOContext::run()
 
 		for (auto *socket : processedSockets)
 		{
-			/* TODO: New state does actually just have EPOLLIN or EPOLLOUT
+			/* New state does actually just have EPOLLIN or EPOLLOUT
 			 * EPOLLET is always needed to work with coroutines so set it always
 			 * here, maybe there is more elegant solution but I haven't thinked
 			 * about it yet */
@@ -139,10 +131,12 @@ void IOContext::run()
 			ev.data.ptr = socket;
 			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, socket->mFD, &ev) == -1)
 			{
-				RS_ERR(rs_errno_to_condition(errno), " FD: ", socket->mFD);
+				/* ATM this has happened only with standard input FD 0, with
+				 * errno 2 No such file or directory */
+				RS_ERR( "Failed to update epoll IO state for "
+				         "FD: ", socket->mFD, " ",
+				        rs_errno_to_condition(errno) );
 			}
-			RS_DBG3( "successfull EPOLL_CTL_MOD fd: ", socket->mFD,
-			         " epoll flags: ", io_state );
 			socket->setIoState(io_state);
 		}
 	}

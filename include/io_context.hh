@@ -24,7 +24,6 @@
 #pragma once
 
 #include <set>
-#include <sys/epoll.h>
 
 #include "socket_accept_operation.hh"
 #include "socket_recv_operation.hh"
