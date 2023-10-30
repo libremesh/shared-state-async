@@ -29,13 +29,13 @@ SocketAcceptOperation::SocketAcceptOperation(
     BlockSyscall(ec), mLSocket(socket)
 {
 	RS_DBG3("");
-	mLSocket.io_context_.watchRead(&mLSocket);
+	mLSocket.getIOContext().watchRead(&mLSocket);
 }
 
 SocketAcceptOperation::~SocketAcceptOperation()
 {
 	RS_DBG3("");
-	mLSocket.io_context_.unwatchRead(&mLSocket);
+	mLSocket.getIOContext().watchRead(&mLSocket);
 }
 
 int SocketAcceptOperation::syscall()
@@ -46,7 +46,7 @@ int SocketAcceptOperation::syscall()
 	/* TODO: Saving/recording the address of the peer connecting to us might be
 	 * useful for debugging */
 
-	return accept(mLSocket.mFD, (struct sockaddr *)&their_addr, &addr_size);
+	return accept(mLSocket.getFD(), (struct sockaddr *)&their_addr, &addr_size);
 }
 
 void SocketAcceptOperation::suspend()

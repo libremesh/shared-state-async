@@ -31,17 +31,17 @@ SocketSendOperation::SocketSendOperation(
         std::error_condition* ec ):
     BlockSyscall{ec}, mSocket{socket}, mBuffer{buffer}, mLen{len}
 {
-	mSocket.io_context_.watchWrite(&mSocket);
+	mSocket.getIOContext().watchWrite(&mSocket);
 }
 
 SocketSendOperation::~SocketSendOperation()
 {
-	mSocket.io_context_.unwatchWrite(&mSocket);
+	mSocket.getIOContext().unwatchWrite(&mSocket);
 }
 
 ssize_t SocketSendOperation::syscall()
 {
-	return send(mSocket.mFD, mBuffer, mLen, 0);
+	return send(mSocket.getFD(), mBuffer, mLen, 0);
 }
 
 void SocketSendOperation::suspend()

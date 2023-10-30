@@ -23,35 +23,36 @@
 
 #include "file_write_operation.hh"
 #include "async_file_desc.hh"
+#include "io_context.hh"
 
 #include <unistd.h>
 
 
-FileWriteOperation::FileWriteOperation(
+WriteOp::WriteOp(
         AsyncFileDescriptor& AFD,
         const uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
     BlockSyscall{ec},
     mAFD{AFD}, mBuffer{buffer}, mLen{len}
 {
-	mAFD.io_context_.watchWrite(&mAFD);
+	mAFD.getIOContext().watchWrite(&mAFD);
 }
 
-FileWriteOperation::~FileWriteOperation()
+WriteOp::~WriteOp()
 {
-	mAFD.io_context_.unwatchWrite(&mAFD);
+	mAFD.getIOContext().unwatchWrite(&mAFD);
 }
 
-ssize_t FileWriteOperation::syscall()
+ssize_t WriteOp::syscall()
 {
 	ssize_t bytes_writen = write(
-	            mAFD.mFD,
+	            mAFD.getFD(),
 	            reinterpret_cast<const char*>(mBuffer), mLen );
 
 	return bytes_writen;
 }
 
-void FileWriteOperation::suspend()
+void WriteOp::suspend()
 {
 	//mAFD.coroSend_ = mAwaitingCoroutine;
 	mAFD.addPendingOp(mAwaitingCoroutine);

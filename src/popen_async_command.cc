@@ -27,7 +27,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-PopenAsyncCommand::PopenAsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *socket)
+#if 0
+PopenAsyncCommand::PopenAsyncCommand(
+        FILE *fdFromStream, AsyncFileDescriptor *socket )
     : AsyncFileDescriptor(socket->io_context_), mPipe{fdFromStream}
 {
     mFD = fileno(fdFromStream);
@@ -39,11 +41,12 @@ PopenAsyncCommand::PopenAsyncCommand(FILE *fdFromStream, AsyncFileDescriptor *so
     // io_context_.watchRead(this);
     RS_DBG0("PopenAsyncCommand created and filedescriptor # ", mFD);
 }
+#endif
 
 PopenAsyncCommand::PopenAsyncCommand(
         std::string cmd,
         AsyncFileDescriptor& AFD ):
-    AsyncFileDescriptor(AFD.io_context_)
+    AsyncFileDescriptor(AFD.getIOContext())
 {
 	// TODO: this stuff can fail!! Move it on a factory method not a costructor!
 
@@ -60,7 +63,7 @@ PopenAsyncCommand::PopenAsyncCommand(
     int flags = fcntl(mFD, F_GETFL, 0);
     // put into "nonblocking mode"
     fcntl(mFD, F_SETFL, flags | O_NONBLOCK);
-    io_context_.attachReadonly(this);
+	mIOContext.attachReadonly(this);
     // io_context_.watchRead(this);
     RS_DBG0("PopenAsyncCommand created and filedescriptor # ", mFD);
 }
@@ -70,7 +73,7 @@ PopenAsyncCommand::~PopenAsyncCommand()
 	RS_DBG0("------ delete the PopenAsyncCommand(", mFD);
 
 	// TODO: this stuff can fail!! Move it on a method not destructor!
-	io_context_.detach(this);
+	//mIOContext.detach(this);
 	::close(mFD);
 	pclose(mPipe);
 }

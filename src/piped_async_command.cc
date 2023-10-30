@@ -21,6 +21,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+#include <cstdio>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <iostream>
@@ -46,13 +47,18 @@ static int pidfd_open(pid_t pid, unsigned int flags)
     return syscall(__NR_pidfd_open, pid, flags);
 }
 
-/*static*/ std::unique_ptr<PipedAsyncCommand> PipedAsyncCommand::execute(
+/*static*/ std::shared_ptr<PipedAsyncCommand> PipedAsyncCommand::execute(
         std::string cmd, IOContext& ioContext,
         std::error_condition* errbub )
 {
-	std::unique_ptr<PipedAsyncCommand> pCmd(new PipedAsyncCommand);
+	int parentToChildPipe[2]; // mFd_w
+	int childToParentPipe[2]; // mFd_r
+	auto& PARENT_READ  = childToParentPipe[0];
+	auto& CHILD_WRITE  = childToParentPipe[1];
+	auto& CHILD_READ   = parentToChildPipe[0];
+	auto& PARENT_WRITE = parentToChildPipe[1];
 
-	if (pipe(pCmd->mFd_w) == -1)
+	if (pipe(parentToChildPipe) == -1)
 	{
 		rs_error_bubble_or_exit(
 		            rs_errno_to_condition(errno), errbub,
@@ -60,11 +66,11 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		return nullptr;
 	}
 
-	if (pipe(pCmd->mFd_r) == -1)
+	if (pipe(childToParentPipe) == -1)
 	{
 		// Close the previously open pipe
-		close(pCmd->mFd_w[1]);
-		close(pCmd->mFd_w[0]);
+		close(parentToChildPipe[1]);
+		close(parentToChildPipe[0]);
 
 		rs_error_bubble_or_exit(
 		            rs_errno_to_condition(errno), errbub,
@@ -72,47 +78,78 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		return nullptr;
 	}
 
-	/* TODO: double check correct naming and them move to class declaration */
-	auto& PARENT_READ  = pCmd->mFd_r[0];
-	auto& CHILD_WRITE  = pCmd->mFd_r[1];
-	auto& CHILD_READ   = pCmd->mFd_w[0];
-	auto& PARENT_WRITE = pCmd->mFd_w[1];
-
-	pCmd->async_read_end_fd =
-	        std::make_shared<AsyncFileDescriptor>(PARENT_READ, ioContext);
-	ioContext.attachReadonly(pCmd->async_read_end_fd.get());
-
-	pCmd->async_write_end_fd =
-	        std::make_shared<AsyncFileDescriptor>(PARENT_WRITE, ioContext);
-	ioContext.attachWriteOnly(pCmd->async_write_end_fd.get());
-
-	pid_t process_id = fork();
-	RS_DBG2("forked process id: ", process_id);
-
-	if (process_id == -1)
+	pid_t forkRetVal = fork();
+	if (forkRetVal == -1)
 	{
-		// Close the previously open pipe
+		auto forkErrno = errno;
+
+		// Close the previously opened pipes
 		close(CHILD_READ);
 		close(CHILD_WRITE);
-		pCmd->async_read_end_fd.reset();
-		pCmd->async_write_end_fd.reset();
+		close(PARENT_READ);
+		close(PARENT_WRITE);
 
 		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), errbub,
+		            rs_errno_to_condition(forkErrno), errbub,
 		            "fork() failed" );
 		return nullptr;
 	}
 
-	if (process_id == 0)
+	if( forkRetVal > 0)
 	{
-		/* Child reads from pipe and writes back as soon as it finishes */
+		int childWaitFD = pidfd_open(forkRetVal, 0);
+		if(childWaitFD == -1)
+		{
+			auto pidfdOpenErrno = errno;
 
+			// Close the previously opened pipes
+			close(CHILD_READ);
+			close(CHILD_WRITE);
+			close(PARENT_READ);
+			close(PARENT_WRITE);
+
+			// Kill child process
+			kill(forkRetVal, SIGKILL);
+
+			rs_error_bubble_or_exit(
+			            rs_errno_to_condition(pidfdOpenErrno), errbub,
+			            "pidfd_open(...) failed" );
+			return nullptr;
+		}
+
+		/* At this point graceful error handling becomes tricky, but I bet none
+		 * of this functions should fail under non-dramatically pathological
+		 * conditions so let's see what happens. If failure here still happens
+		 * I am up to reading bug reports, and curious on how to reproduce that
+		 * situation */
+
+		auto tPac = ioContext.registerFD<PipedAsyncCommand>(childWaitFD);
+		ioContext.attach(tPac.get());
+
+		tPac->mChildProcessId = forkRetVal;
+
+		tPac->mReadEnd = ioContext.registerFD(PARENT_READ);
+		ioContext.attachReadonly(tPac->mReadEnd.get());
+
+		tPac->mWriteEnd = ioContext.registerFD(PARENT_WRITE);
+		ioContext.attachWriteOnly(tPac->mWriteEnd.get());
+
+		// Close child ends of the pipes
+		close(CHILD_READ); close(CHILD_WRITE);
+
+		return tPac;
+	}
+
+/* BEGIN: CODE EXECUTED ON THE CHILD PROCESS **********************************/
+	if (forkRetVal == 0)
+	{
+		/* No need to keep those FD opened on the child */
 		close(PARENT_WRITE);
 		close(PARENT_READ);
 
-		dup2(CHILD_READ,  0);  close(CHILD_READ);
-		dup2(CHILD_WRITE, 1);  close(CHILD_WRITE);
-
+		// Map child side of the pipe to child process standard input and output
+		dup2(CHILD_READ,  STDIN_FILENO); close(CHILD_READ);
+		dup2(CHILD_WRITE, STDOUT_FILENO); close(CHILD_WRITE);
 
 		std::stringstream ss(cmd);
 		std::istream_iterator<std::string> begin(ss);
@@ -132,49 +169,38 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		 * in argc */
 		if(execvp(argcexec.data()[0], argcexec.data()) == -1)
 		{
+			/* We are on the child process so no-one must be there to deal with
+			 * the error condition bubbling up, pass nullptr so it just
+			 * terminate printing error details */
+			std::error_condition* nully = nullptr;
 			rs_error_bubble_or_exit(
 			            rs_errno_to_condition(errno), errbub,
 			            "execvp(...) failed" );
-			return nullptr;
 		}
 	}
+/* END: CODE EXECUTED ON THE CHILD PROCESS ************************************/
 
-	pCmd->forked_proces_id = process_id;
-	int pid_fd = pidfd_open(pCmd->forked_proces_id, 0);
-	if (pid_fd == -1)
-	{
-		// wont be able to wait for the dying process
-		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), errbub,
-		            "pidfd_open(...) failed" );
-		return nullptr;
-	}
-
-	pCmd->async_process_wait_fd =
-	        std::make_shared<AsyncFileDescriptor>(pid_fd, ioContext);
-	ioContext.attachReadonly(pCmd->async_process_wait_fd.get());
-
-	close(CHILD_READ);
-	close(CHILD_WRITE);
-
-	return pCmd;
+	// No one should get here, just make the code analizer happy
+	return nullptr;
 }
 
-ReadOp PipedAsyncCommand::readpipe(uint8_t *buffer, std::size_t len)
+ReadOp PipedAsyncCommand::readStdOut(
+        uint8_t* buffer, std::size_t len, std::error_condition* errbub)
 {
-	return ReadOp{async_read_end_fd, buffer, len};
+	return ReadOp{mReadEnd, buffer, len};
 }
 
-FileWriteOperation PipedAsyncCommand::writepipe(
-        const uint8_t* buffer, std::size_t len )
+WriteOp PipedAsyncCommand::writeStdIn(
+        const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
 {
-	return FileWriteOperation{*async_write_end_fd, buffer, len};
+	RS_DBG2(*mWriteEnd, " buffer: ", buffer, " len: ", len);
+	return WriteOp{*mWriteEnd, buffer, len, errbub};
 }
 
 std::task<bool>  PipedAsyncCommand::finishwriting(std::error_condition* errbub)
 {
-	auto mRet = co_await async_write_end_fd->close(errbub);
-	if(mRet) async_write_end_fd.reset();
+	auto mRet = co_await mIOContext.closeAFD(mWriteEnd, errbub);
+	if(mRet) mWriteEnd.reset();
 	co_return mRet;
 }
 
@@ -184,13 +210,13 @@ std::task<bool>  PipedAsyncCommand::finishwriting(std::error_condition* errbub)
 */
 bool PipedAsyncCommand::doneReading()
 {
-    return async_read_end_fd.get()->doneRecv_;
+	return mReadEnd.get()->doneRecv_;
 }
 
 std::task<bool> PipedAsyncCommand::finishReading(std::error_condition* errbub)
 {
-	auto mRet = co_await async_read_end_fd->close(errbub);
-	if(mRet) async_read_end_fd.reset();
+	auto mRet = co_await mIOContext.closeAFD(mReadEnd, errbub);
+	if(mRet) mReadEnd.reset();
 	co_return mRet;
 }
 
@@ -199,10 +225,12 @@ std::task<bool> PipedAsyncCommand::finishReading(std::error_condition* errbub)
  * @warning if this method is not called the forked process will be
  * a zombi.
  */
-std::task<pid_t> PipedAsyncCommand::waitForProcessTermination()
+/*static*/ std::task<pid_t> PipedAsyncCommand::waitForProcessTermination(
+        std::shared_ptr<PipedAsyncCommand> pac,
+        std::error_condition* errbub )
 {
-	auto dPid = co_await DyingProcessWaitOperation(
-	            *async_process_wait_fd.get(), forked_proces_id );
-	co_await async_process_wait_fd->close();
+	auto dPid = co_await DyingProcessWaitOperation(*pac, pac->getFD());
+	co_await pac->getIOContext().closeAFD(
+	            std::static_pointer_cast<AsyncFileDescriptor>(pac), errbub );
 	co_return dPid;
 }

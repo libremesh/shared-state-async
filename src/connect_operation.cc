@@ -19,11 +19,14 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "connect_operation.hh"
-
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include "io_context.hh"
+#include "connect_operation.hh"
+#include "async_file_desc.hh"
+
+#include <util/rsdebug.h>
 #include <util/rsdebuglevel4.h>
 
 ConnectOperation::ConnectOperation(
@@ -32,15 +35,15 @@ ConnectOperation::ConnectOperation(
     BlockSyscall<ConnectOperation, int>(ec),
     mSocket(socket), mAddr(address)
 {
-	RS_DBG2("");
-	mSocket.io_context_.watchWrite(&mSocket);
+	RS_DBG2(socket); // TODO: , " ", address
+	mSocket.getIOContext().watchWrite(&mSocket);
 };
 
 
 ConnectOperation::~ConnectOperation()
 {
 	RS_DBG2("");
-	mSocket.io_context_.unwatchWrite(&mSocket);
+	mSocket.getIOContext().unwatchWrite(&mSocket);
 }
 
 int ConnectOperation::syscall()
@@ -56,10 +59,10 @@ int ConnectOperation::syscall()
 		break;
 	}
 
-	RS_DBG2( "Connecting to fd: ",  mSocket.mFD );
+	RS_DBG2(mSocket);
 
 	return connect(
-	            mSocket.mFD,
+	            mSocket.getFD(),
 	            reinterpret_cast<const sockaddr*>(&mAddr),
 	            len );
 }

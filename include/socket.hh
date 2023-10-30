@@ -25,6 +25,7 @@
 
 #include <cstring>
 #include <memory>
+#include <sys/socket.h>
 
 #include "async_file_desc.hh"
 #include "io_context.hh"
@@ -37,7 +38,6 @@
 
 /**
  * @brief Non blocking socket
- * TODO: Is this class needed or is AsyncFileDescriptor enough?
  */
 class Socket : public AsyncFileDescriptor
 {
@@ -53,13 +53,13 @@ public:
 	        std::error_condition* ec = nullptr );
 
 protected:
-	Socket(int fd, IOContext &io_context);
+	friend IOContext;
+	Socket(int fd, IOContext& io_context): AsyncFileDescriptor(fd, io_context) {}
 
 	friend SocketAcceptOperation;
 	friend SocketRecvOperation;
 	friend SocketSendOperation;
 	friend ReadOp;
-	friend IOContext;
 	friend ListeningSocket;
 };
 
@@ -69,12 +69,13 @@ public:
 	ConnectingSocket() = delete;
 	ConnectingSocket(const ConnectingSocket&) = delete;
 
-	static std::task<std::unique_ptr<ConnectingSocket>> connect(
+	static std::task<std::shared_ptr<ConnectingSocket>> connect(
 	        const sockaddr_storage& address,
 	        IOContext& ioContext,
 	        std::error_condition* ec = nullptr );
 
 protected:
+	friend IOContext;
 	ConnectingSocket(int fd, IOContext &io_context): Socket(fd, io_context) {}
 };
 
@@ -84,16 +85,15 @@ public:
 	ListeningSocket() = delete;
 	ListeningSocket(const ListeningSocket&) = delete;
 
-	std::task<std::unique_ptr<Socket>> accept();
+	std::task<std::shared_ptr<Socket>> accept();
 
-	static std::unique_ptr<ListeningSocket> setupListener(
+	static std::shared_ptr<ListeningSocket> setupListener(
 	        uint16_t port, IOContext& ioContext,
 	        std::error_condition* ec = nullptr );
 
 protected:
-	ListeningSocket(int fd, IOContext &io_context): Socket(fd, io_context)
-	{
-		io_context_.attach(this);
-	}
+	friend IOContext;
+	ListeningSocket(int fd, IOContext& io_context): Socket(fd, io_context) {}
+
 	static constexpr int DEFAULT_LISTEN_BACKLOG = 8;
 };

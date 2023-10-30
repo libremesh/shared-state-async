@@ -23,8 +23,9 @@
 
 #include "dying_process_wait_operation.hh"
 #include "async_file_desc.hh"
+#include "io_context.hh"
 
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel2.h>
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -40,11 +41,13 @@ DyingProcessWaitOperation::DyingProcessWaitOperation(
         pid_t process_to_wait,
         std::error_condition* ec ):
     BlockSyscall{ec}, mAFD{AFD}, mPid(process_to_wait)
-{}
+{
+	mAFD.getIOContext().watchRead(&mAFD);
+}
 
 DyingProcessWaitOperation::~DyingProcessWaitOperation()
 {
-	mAFD.io_context_.unwatchRead(&mAFD);
+	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
 pid_t DyingProcessWaitOperation::syscall()
@@ -64,8 +67,7 @@ pid_t DyingProcessWaitOperation::syscall()
 	}
 	else if (cpid == mPid)
 	{
-		RS_DBG2( "Success waiting process id: ", cpid,
-		         " mFD: ", mAFD.mFD );
+		RS_DBG2( "Success waiting process id: ", cpid, " ", mAFD );
 	}
 	return cpid;
 }

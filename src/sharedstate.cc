@@ -53,14 +53,13 @@ std::task<int> receiveNetworkMessage(
 	uint8_t dataTypeNameLenght = 0;
 	receivedBytes += co_await socket.recv(&dataTypeNameLenght, 1);
 
-	RS_DBG2( "FD: ", socket.mFD,
-	         " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght) );
+	RS_DBG2(socket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
 
 	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::invalid_argument, errbub,
-		            "FD: ", socket.mFD,
+		            " ", socket,
 		            " Got data type name invalid lenght: ",
 		            static_cast<int>(dataTypeNameLenght) );
 		co_return -receivedBytes;
@@ -71,8 +70,7 @@ std::task<int> receiveNetworkMessage(
 	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
 	            dataTypeNameLenght );
 
-	RS_DBG2("FD: ", socket.mFD,
-	        " networkMessage.mTypeName: ", networkMessage.mTypeName);
+	RS_DBG2(socket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
 
 	uint32_t dataLenght = 0;
 	receivedBytes += co_await socket.recv(
@@ -84,8 +82,7 @@ std::task<int> receiveNetworkMessage(
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::invalid_argument, errbub,
-		            "FD: ", socket.mFD,
-		            " Got data invalid lenght: ", dataLenght);
+		            socket, " Got data invalid lenght: ", dataLenght);
 		co_return -receivedBytes;
 	}
 
@@ -96,15 +93,13 @@ std::task<int> receiveNetworkMessage(
 	            dataLenght );
 	receivedBytes += receivedDataBytes;
 
-	RS_DBG2( "FD: ", socket.mFD,
+	RS_DBG2( socket,
 	         " Expected data lenght: ", dataLenght,
 	         " received data bytes: ", receivedDataBytes );
 
-	RS_DBG4( "FD: ", socket.mFD,
-	         " networkMessage.mData: ", networkMessage.mData);
+	RS_DBG4( socket, " networkMessage.mData: ", networkMessage.mData);
 
-	RS_DBG2( "FD: ", socket.mFD,
-	         " Total received bytes: ", receivedBytes);
+	RS_DBG2( socket, " Total received bytes: ", receivedBytes);
 	co_return receivedBytes;
 }
 
@@ -112,39 +107,34 @@ std::task<int> sendNetworkMessage(
         Socket& socket, const NetworkMessage& netMsg,
         std::error_condition* errbub )
 {
-	RS_DBG2("");
+	RS_DBG2(socket);
 
 	int sentBytes = 0;
 
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
 	sentBytes += co_await socket.send(&dataTypeLen, 1);
 
-	RS_DBG2( "FD: ", socket.mFD,
-	         " sent dataTypeLen: ", static_cast<int>(dataTypeLen) );
+	RS_DBG2(socket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen));
 
 	sentBytes += co_await socket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mTypeName.data()),
 	            dataTypeLen );
 
-	RS_DBG2( "FD: ", socket.mFD,
-	         " sent netMsg.mTypeName: ", netMsg.mTypeName );
+	RS_DBG2( socket, " sent netMsg.mTypeName: ", netMsg.mTypeName );
 
 	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.size());
 	sentBytes += co_await socket.send(
 	            reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4);
 
-	RS_DBG2( "FD: ", socket.mFD,
-	         " sent netMsg.mData.size(): ", netMsg.mData.size() );
+	RS_DBG2( socket, " sent netMsg.mData.size(): ", netMsg.mData.size() );
 
 	sentBytes += co_await socket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mData.data()),
 	            netMsg.mData.size() );
 
-	RS_DBG4( "FD: ", socket.mFD,
-	         " sent netMsg.mData: ", netMsg.mData);
+	RS_DBG4( socket, " sent netMsg.mData: ", netMsg.mData);
 
-	RS_DBG2( "FD: ", socket.mFD,
-	         " Total bytes sent: ", sentBytes );
+	RS_DBG2( socket, " Total bytes sent: ", sentBytes );
 	co_return sentBytes;
 }
 

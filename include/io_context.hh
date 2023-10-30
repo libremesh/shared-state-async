@@ -23,20 +23,29 @@
 
 #pragma once
 
-#include <set>
+#include <map>
+#include <memory>
+#include <type_traits>
+#include <fcntl.h>
 
-#include "socket_accept_operation.hh"
-#include "socket_recv_operation.hh"
-#include "socket_send_operation.hh"
-#include "file_read_operation.hh"
-#include "file_write_operation.hh"
-#include "dying_process_wait_operation.hh"
-#include "popen_file_read_operation.hh"
+#include "task.hh"
+#include "async_file_desc.hh"
+
+#include <util/rsdebug.h>
+#include <util/stacktrace.h>
+#include <util/rsdebuglevel2.h>
+
 
 class Socket;
-class AsyncFileDescriptor;
 class PopenAsyncCommand;
+class SocketAcceptOperation;
+class SocketRecvOperation;
+class SocketSendOperation;
+class ReadOp;
+class WriteOp;
+class PopenFileReadOperation;
 class PipedAsyncCommand;
+class DyingProcessWaitOperation;
 class ListeningSocket;
 class ConnectOperation;
 class ConnectingSocket;
@@ -51,9 +60,18 @@ class ConnectingSocket;
 class IOContext
 {
 public:
-	static std::unique_ptr<IOContext> setup(std::error_condition* errc = nullptr);
+	static std::unique_ptr<IOContext> setup(
+	        std::error_condition* errc = nullptr );
 
 	void run();
+
+	template<class AFD_T, typename /* = AsyncFileDescriptor and derivatives */>
+	std::shared_ptr<AFD_T> registerFD(
+	        int fd, std::error_condition* errbub = nullptr );
+
+	std::task<bool> closeAFD(
+	        std::shared_ptr<AsyncFileDescriptor> aFD,
+	        std::error_condition* errbub = nullptr );
 
 private:
 	IOContext(int epollFD);
@@ -64,7 +82,7 @@ private:
 
     //TODO: verify if we still need processedSockets now that we have managed_fd 
     // Fill it by watchRead / watchWrite
-    std::set<AsyncFileDescriptor*> processedSockets;
+	//std::set<AsyncFileDescriptor*> processedSockets;
     /**
      * @brief Register every managed file descriptor, controlled by attach and 
      * detach. 
@@ -90,7 +108,7 @@ private:
      * quitamos de esa lista y con ello evitamos invocar un resume que ya no 
      * existe.
      */
-    std::set<AsyncFileDescriptor*> managed_fd;
+	//std::set<AsyncFileDescriptor*> managed_fd;
 
     friend AsyncFileDescriptor;
 	friend Socket;
@@ -99,7 +117,7 @@ private:
     friend SocketRecvOperation;
     friend SocketSendOperation;
 	friend ReadOp;
-    friend FileWriteOperation;
+	friend WriteOp;
     friend PopenFileReadOperation;
     friend PipedAsyncCommand;
     friend DyingProcessWaitOperation;
@@ -117,6 +135,7 @@ private:
     void unwatchRead(AsyncFileDescriptor* socket);
     void watchWrite(AsyncFileDescriptor* socket);
     void unwatchWrite(AsyncFileDescriptor* socket);
+#if 0
 	void detach(
 	        AsyncFileDescriptor* aFD,
 	        std::error_condition* errbub = nullptr );
@@ -124,4 +143,30 @@ private:
 	/** Like detach, but for externally closed FD skip asking epoll processing
 	 * which is done automatically and would fail on already closed FD */
 	void discard(AsyncFileDescriptor& aFD);
+#endif
+
+	/** Map OS file descriptor to managed AsyncFileDescriptor */
+	std::map<int, std::shared_ptr<AsyncFileDescriptor>> mManagedFD;
 };
+
+
+template<class AFD_T = AsyncFileDescriptor,
+         typename = std::enable_if_t<std::is_base_of_v<AsyncFileDescriptor, AFD_T>>>
+std::shared_ptr<AFD_T> IOContext::registerFD(
+        int fd, std::error_condition* errbub )
+{
+	if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            " setting FD: ", fd, " non-blocking failed!" );
+
+		return nullptr;
+	}
+
+	auto aFD = std::shared_ptr<AFD_T>(
+	            new AFD_T(fd, *this) );
+	mManagedFD[fd] = aFD;
+
+	return aFD;
+}

@@ -26,7 +26,7 @@
 
 int CloseOperation::syscall()
 {
-	return close(mAFD.mFD);
+	return close(mAFD.getFD());
 }
 
 void CloseOperation::suspend()

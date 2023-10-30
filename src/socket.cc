@@ -36,36 +36,31 @@
 #include <util/stacktrace.h>
 #include <util/rsdebuglevel2.h>
 
-std::task<std::unique_ptr<ConnectingSocket>> ConnectingSocket::connect(
+std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
         const sockaddr_storage& address,
         IOContext& ioContext, std::error_condition* ec )
 {
-	int fd_ = socket(PF_INET6, SOCK_STREAM, 0);
-	if(fd_ < 0)
+	int fd = socket(PF_INET6, SOCK_STREAM, 0);
+	if(fd < 0)
 	{
 		rs_error_bubble_or_exit(
 		            rs_errno_to_condition(errno), ec, "creating socket" );
 		co_return nullptr;
 	}
 
-	if( fcntl(fd_, F_SETFL, O_NONBLOCK) < 0 )
-	{
-		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), ec, "O_NONBLOCK" );
-		co_return nullptr;
-	}
-
-	auto lSocket = std::unique_ptr<ConnectingSocket>(
-	            new ConnectingSocket(fd_, ioContext) );
-
+	auto lSocket = ioContext.registerFD<ConnectingSocket>(fd);
 	ioContext.attachWriteOnly(lSocket.get());
 
-	co_await ConnectOperation(*lSocket.get(), address, ec);
+	if(co_await ConnectOperation(*lSocket.get(), address, ec))
+	{
+		co_await ioContext.closeAFD(lSocket);
+		co_return nullptr;
+	}
 
 	co_return lSocket;
 }
 
-std::unique_ptr<ListeningSocket> ListeningSocket::setupListener(
+std::shared_ptr<ListeningSocket> ListeningSocket::setupListener(
         uint16_t port, IOContext& ioContext, std::error_condition* ec )
 {
 	int fd_ = socket(PF_INET6, SOCK_STREAM, 0);
@@ -117,24 +112,28 @@ std::unique_ptr<ListeningSocket> ListeningSocket::setupListener(
 		return nullptr;
 	}
 
-	if( fcntl(fd_, F_SETFL, O_NONBLOCK) < 0 )
+	auto lSocket = ioContext.registerFD<ListeningSocket>(fd_, ec);
+	if(!lSocket)
 	{
-		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), ec, "O_NONBLOCK" );
+		if(close(fd_))
+		{
+			rs_error_bubble_or_exit(
+			            rs_errno_to_condition(errno), ec,
+			            " failure closing socket: ", fd_,
+			            " after failed registerFD. Very weird!" );
+		}
 		return nullptr;
 	}
-
-	auto lSocket = std::unique_ptr<ListeningSocket>(
-	            new ListeningSocket(fd_, ioContext) );
+	ioContext.attachReadonly(lSocket.get());
 	ioContext.watchRead(lSocket.get());
 	return lSocket;
 }
 
-std::task<std::unique_ptr<Socket>> ListeningSocket::accept()
+std::task<std::shared_ptr<Socket>> ListeningSocket::accept()
 {
 	int fd = co_await SocketAcceptOperation(*this);
-	auto rsk = std::unique_ptr<Socket>(new Socket(fd, io_context_));
-	io_context_.attach(rsk.get());
+	auto rsk = mIOContext.registerFD<Socket>(fd);
+	mIOContext.attach(rsk.get());
 	co_return rsk;
 }
 
@@ -151,6 +150,3 @@ SocketSendOperation Socket::send(
 {
 	return SocketSendOperation{*this, buffer, len, ec};
 }
-
-Socket::Socket(int fd, IOContext& io_context):
-    AsyncFileDescriptor(fd,io_context) {}

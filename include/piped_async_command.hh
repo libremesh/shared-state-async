@@ -40,7 +40,7 @@
  *
  * TODO: implement a way to return process exit code
  */
-class PipedAsyncCommand
+class PipedAsyncCommand : public AsyncFileDescriptor
 {
 public:
 	/**
@@ -61,14 +61,24 @@ public:
 	 * More interesting insights/explanations might be found at
 	 * http://unixwiz.net/techtips/remap-pipe-fds.html
 	 */
-	static std::unique_ptr<PipedAsyncCommand> execute(
+	static std::shared_ptr<PipedAsyncCommand> execute(
 	        std::string cmd, IOContext& ioContext,
 	        std::error_condition* errbub = nullptr );
+
+	static std::task<pid_t> waitForProcessTermination(
+	        std::shared_ptr<PipedAsyncCommand> pac,
+	        std::error_condition* errbub = nullptr );
+
+	PipedAsyncCommand(const PipedAsyncCommand &) = delete;
+	PipedAsyncCommand() = delete;
 	~PipedAsyncCommand() = default;
 
-	ReadOp readpipe(uint8_t* buffer, std::size_t len);
-	FileWriteOperation writepipe(const uint8_t *buffer, std::size_t len);
-	std::task<pid_t> waitForProcessTermination();
+	ReadOp readStdOut(
+	        uint8_t* buffer, std::size_t len,
+	        std::error_condition* errbub = nullptr );
+	WriteOp writeStdIn(
+	        const uint8_t *buffer, std::size_t len,
+	        std::error_condition* errbub = nullptr );
 
 	std::task<bool> finishwriting(std::error_condition* errbub = nullptr);
 	std::task<bool> finishReading(std::error_condition* errbub = nullptr);
@@ -77,27 +87,14 @@ public:
 	bool doneReading();
 
 
-private:
-	PipedAsyncCommand(const PipedAsyncCommand &) = delete;
-	PipedAsyncCommand() = default;
+protected:
+	friend IOContext;
+	PipedAsyncCommand(int fd, IOContext &ioContext):
+	    AsyncFileDescriptor(fd, ioContext) {}
 
-	// we need two file descriptors to interact with the forked process
-	//      parent        child
-	//      fd1[1]        fd1[0]
-	//        4 -- mfd_W --> 3
-	//      fd2[0]        fd2[1]
-	//        5 <-- mFd_r -- 6
-	// TODO: use proper naming and mapping @see execute code
-    int mFd_w[2];
-    int mFd_r[2];
-    pid_t forked_proces_id = -1;
+	pid_t mChildProcessId = -1;
 
-	// TODO: are shared_ptr really needed here? Check if unique_ptr is enough
-    std::shared_ptr<AsyncFileDescriptor> async_read_end_fd;
-    std::shared_ptr<AsyncFileDescriptor> async_write_end_fd;
-    std::shared_ptr<AsyncFileDescriptor> async_process_wait_fd;
-
-	friend ReadOp;
-	friend AsyncFileDescriptor;
-	friend Socket;
+	std::shared_ptr<AsyncFileDescriptor> mReadEnd = nullptr;
+	std::shared_ptr<AsyncFileDescriptor> mWriteEnd = nullptr;
+	std::shared_ptr<AsyncFileDescriptor> mWaitEnd = nullptr;
 };

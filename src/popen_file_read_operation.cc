@@ -32,12 +32,12 @@ PopenFileReadOperation::PopenFileReadOperation(
     BlockSyscall{ec},
     mCmd{cmd}, mBuffer{buffer}, mLen{len}
 {
-	mCmd.io_context_.watchRead(&mCmd);
+	mCmd.getIOContext().watchRead(&mCmd);
 }
 
 PopenFileReadOperation::~PopenFileReadOperation()
 {
-	mCmd.io_context_.unwatchRead(&mCmd);
+	mCmd.getIOContext().unwatchRead(&mCmd);
 }
 
 ssize_t PopenFileReadOperation::syscall()

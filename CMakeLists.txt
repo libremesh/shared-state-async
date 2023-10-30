@@ -20,6 +20,7 @@ option( SS_TESTS
         "Build tests" OFF )
 
 set(SOURCES
+    src/async_file_descriptor.cc
     src/close_operation.cc
     src/io_context.cc
     src/sharedstate.cc

@@ -32,17 +32,17 @@ SocketRecvOperation::SocketRecvOperation(
         std::error_condition* ec ):
     BlockSyscall{ec}, mSocket{socket}, mBuffer{buffer}, mLen{len}
 {
-	mSocket.io_context_.watchRead(&mSocket);
+	mSocket.getIOContext().watchRead(&mSocket);
 }
 
 SocketRecvOperation::~SocketRecvOperation()
 {
-	mSocket.io_context_.unwatchRead(&mSocket);
+	mSocket.getIOContext().unwatchRead(&mSocket);
 }
 
 ssize_t SocketRecvOperation::syscall()
 {
-	ssize_t bytesread = recv(mSocket.mFD, mBuffer, mLen, 0);
+	ssize_t bytesread = recv(mSocket.getFD(), mBuffer, mLen, 0);
 
 #if 0
 	/* this method is invoked at least once but the socket is not free.

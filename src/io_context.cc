@@ -22,6 +22,7 @@
  */
 
 #include <sys/epoll.h>
+#include <fcntl.h>
 
 #include "io_context.hh"
 #include "async_file_desc.hh"
@@ -49,9 +50,30 @@ std::unique_ptr<IOContext> IOContext::setup(std::error_condition* errc)
 	return std::unique_ptr<IOContext>(new IOContext(epollFD));
 }
 
+std::task<bool> IOContext::closeAFD(
+        std::shared_ptr<AsyncFileDescriptor> aFD,
+        std::error_condition* errbub )
+{
+	auto sysCloseErr = co_await CloseOperation(*aFD.get(), errbub);
+
+	if(sysCloseErr)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "failure closing ", *aFD.get() );
+		co_return false;
+	}
+
+	auto fdBack = aFD->mFD;
+	aFD->mFD = -1;
+	co_return mManagedFD.erase(fdBack);
+}
+
+
+
 void IOContext::run()
 {
-	struct epoll_event ev, events[DEFAULT_MAX_EVENTS];
+	epoll_event events[DEFAULT_MAX_EVENTS];
 	for (;;)
 	{
 		RS_DBG3("Waiting epoll events");
@@ -67,24 +89,23 @@ void IOContext::run()
 		for(int n = 0; n < nfds; ++n)
 		{
 			uint32_t evFlags = events[n].events;
-			auto aFD = static_cast<AsyncFileDescriptor*>(events[n].data.ptr);
+			int mFD = events[n].data.fd;
 
-			RS_DBG2( "Got epoll events: ", epoll_events_to_string(evFlags),
-			         " mFD: ", aFD->mFD,
-			         " for aFD: ", reinterpret_cast<intptr_t>(aFD) );
-
-			if (!managed_fd.contains(aFD))
+			auto findIt = mManagedFD.find(mFD);
+			if (findIt == mManagedFD.end())
 			{
-				/* aFD is a dangling pointer at this point so aFD->mFD
-				 * it's random stuff, luky you that epoll_data come with the FD
-				 * to which the event belong, so we can at least use it for
-				 * debugging */
 				RS_WARN( "Got stray epoll events: ",
 				         epoll_events_to_string(evFlags),
-				         " aFD: ", reinterpret_cast<intptr_t>(aFD),
-				         " which is not subscribed anymore" );
+				         " for FD: ", mFD,
+				         " which is not subscribed (anymore)" );
 				continue;
 			}
+
+			/* Don't need a full blown shared_ptr costly copy here just take a
+			 * reference to it */
+			auto& aFD = findIt->second;
+
+			RS_DBG2(*aFD, " got epoll events: ", epoll_events_to_string(evFlags));
 
 			if (evFlags & EPOLLHUP)
 			{
@@ -110,31 +131,34 @@ void IOContext::run()
 			aFD->resumePendingOps();
 		}
 
-		for (auto* socket : processedSockets)
+		epoll_event ev;
+		for (auto&& mEl : std::as_const(mManagedFD))
 		{
+			/* Don't need a full blown shared_ptr costly copy here just take a
+			 * reference to it */
+			auto& aFD = mEl.second;
+
 			/* New state does actually just have EPOLLIN or EPOLLOUT
 			 * EPOLLET is always needed to work with coroutines so set it always
 			 * here, maybe there is more elegant solution but I haven't thinked
 			 * about it yet */
-			auto io_state = socket->getNewIoState() | EPOLLET;
-			if (socket->getIoState() == io_state) continue;
+			auto io_state = aFD->getNextIoState() | EPOLLET;
+			if (aFD->getIoState() == io_state) continue;
 
 			ev.events = io_state;
-			ev.data.ptr = socket;
-			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, socket->mFD, &ev) == -1)
+			ev.data.fd = aFD->getFD();
+			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, aFD->getFD(), &ev) == -1)
 			{
 				/* ATM this has happened only with standard input FD 0, with
 				 * errno 2 No such file or directory */
-				RS_ERR( "Failed to update epoll IO state for",
-				        " FD: ", socket->mFD,
-				        " aFD: ", reinterpret_cast<intptr_t>(socket),
+				RS_ERR( "Failed to update epoll IO state for ", *aFD,
 				        " getIoState(): ",
-				        epoll_events_to_string(socket->getIoState()),
-				        " getNewIoState(): ",
-				        epoll_events_to_string(socket->getNewIoState()),
+				        epoll_events_to_string(aFD->getIoState()),
+				        " next io_state: ",
+				        epoll_events_to_string(aFD->getNextIoState()), " ",
 				        rs_errno_to_condition(errno) );
 			}
-			socket->setIoState(io_state);
+			aFD->setIoState(io_state);
 		}
 	}
 }
@@ -146,27 +170,26 @@ IOContext::IOContext(int epollFD): mEpollFD(epollFD) {}
  *
  * @param socket
  */
-void IOContext::attach(AsyncFileDescriptor *socket)
+void IOContext::attach(AsyncFileDescriptor* aFD)
 {
 	/* TODO: This seems to be the exact same og IOContext::attachReadonly
-	 * check which one makes sense to keep of the two */
+	 * check which one makes sense to keep of the two, show we add EPOLLOUT
+	 * flag here? */
 
-	RS_DBG4("fd: ", socket->mFD);
+	RS_DBG4(*socket);
 
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ev.events = io_state;
-    ev.data.ptr = socket;
-	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, socket->mFD, &ev) == -1)
+	ev.data.fd = aFD->getFD();
+	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, aFD->getFD(), &ev) == -1)
 	{
-		RS_ERR(rs_errno_to_condition(errno), " mFD: ", socket->mFD);
-        perror("epoll_ctl EPOLL_CTL_ADD");
-    }
-	socket->setIoState(io_state);
+		RS_ERR( "EPOLL_CTL_ADD failed for: ", *aFD, " ",
+		        rs_errno_to_condition(errno) );
+	}
+	aFD->setIoState(io_state);
 
-	managed_fd.insert(socket);
-	RS_DBG3( "successfully attached FD: ", socket->mFD,
-	         " pointer: ", static_cast<intptr_t>(ev.data.ptr) );
+	RS_DBG3("successfully attached ", *socket);
 }
 
 /**
@@ -174,19 +197,21 @@ void IOContext::attach(AsyncFileDescriptor *socket)
  *
  * @param socket
  */
-void IOContext::attachReadonly(AsyncFileDescriptor *socket)
+void IOContext::attachReadonly(AsyncFileDescriptor* aFD)
 {
 	RS_DBG4("fd: ", socket->mFD);
     struct epoll_event ev;
     auto io_state = EPOLLIN | EPOLLET;
     ev.events = io_state;
-    ev.data.ptr = socket;
-	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, socket->mFD, &ev) == -1)
-        throw std::runtime_error{"epoll_ctl: attach"};
-	socket->setIoState(io_state);
-	RS_DBG4( "successfully attached for reading mFD: ", socket->mFD,
-	         " pointer: ", (intptr_t)ev.data.ptr );
-    managed_fd.insert(socket);
+	ev.data.fd = aFD->getFD();
+	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, aFD->getFD(), &ev) == -1)
+	{
+		RS_ERR( "EPOLL_CTL_ADD failed for: ", *aFD, " ",
+		        rs_errno_to_condition(errno) );
+	}
+
+	aFD->setIoState(io_state);
+	RS_DBG3("successfully attached ", *socket);
 }
 
 /**
@@ -194,24 +219,23 @@ void IOContext::attachReadonly(AsyncFileDescriptor *socket)
  *
  * @param socket
  */
-void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
+void IOContext::attachWriteOnly(AsyncFileDescriptor* aFD)
 {
 	RS_DBG4("mFD: ", socket->mFD);
 
     struct epoll_event ev;
     auto io_state = EPOLLOUT | EPOLLET;
     ev.events = io_state;
-    ev.data.ptr = socket;
-	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, socket->mFD, &ev) == -1)
+	ev.data.fd = aFD->getFD();
+	if (epoll_ctl(mEpollFD, EPOLL_CTL_ADD, aFD->getFD(), &ev) == -1)
 	{
-		RS_ERR( "failure attaching mFD ", socket->mFD, " ",
+		RS_ERR( "EPOLL_CTL_ADD failed for: ", *aFD, " ",
 		        rs_errno_to_condition(errno) );
 	}
-	socket->setIoState(io_state);
-	managed_fd.insert(socket);
+	aFD->setIoState(io_state);
 
-	RS_DBG4( "fd: ", socket->mFD, " ptr: ", (uint64_t)ev.data.ptr,
-	         " getNewIoState() " , socket->getNewIoState() );
+	RS_DBG3( "successfully attached ", *aFD, " for: ",
+	         epoll_events_to_string(io_state) );
 }
 
 /**
@@ -221,8 +245,7 @@ void IOContext::attachWriteOnly(AsyncFileDescriptor *socket)
  */
 void IOContext::watchRead(AsyncFileDescriptor *socket)
 {
-	socket->setNewIoState(socket->getNewIoState() | EPOLLIN);
-	processedSockets.insert(socket);
+	socket->setNextIoState(socket->getNextIoState() | EPOLLIN);
 
 	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
@@ -235,10 +258,9 @@ void IOContext::watchRead(AsyncFileDescriptor *socket)
  */
 void IOContext::unwatchRead(AsyncFileDescriptor *socket)
 {
-	socket->setNewIoState(socket->getNewIoState() & ~EPOLLIN);
-	processedSockets.insert(socket);
+	socket->setNextIoState(socket->getNextIoState() & ~EPOLLIN);
 
-	RS_DBG4("mFD: ", socket->mFD,
+	RS_DBG4("mFD: ", *socket,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -249,10 +271,9 @@ void IOContext::unwatchRead(AsyncFileDescriptor *socket)
  */
 void IOContext::watchWrite(AsyncFileDescriptor *socket)
 {
-	socket->setNewIoState(socket->getNewIoState() | EPOLLOUT);
-	processedSockets.insert(socket);
+	socket->setNextIoState(socket->getNextIoState() | EPOLLOUT);
 
-	RS_DBG4("mFD: ", socket->mFD,
+	RS_DBG4("mFD: ", *socket,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
@@ -263,13 +284,13 @@ void IOContext::watchWrite(AsyncFileDescriptor *socket)
  */
 void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 {
-	socket->setNewIoState(socket->getNewIoState() & ~EPOLLOUT);
-	processedSockets.insert(socket);
+	socket->setNextIoState(socket->getNextIoState() & ~EPOLLOUT);
 
 	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
 
+#if 0
 /**
  * @brief Remove an async file descriptor from the notification list
  *
@@ -292,8 +313,7 @@ void IOContext::detach(AsyncFileDescriptor* aFD, std::error_condition* errbub)
 
 void IOContext::discard(AsyncFileDescriptor& aFD)
 {
-	RS_DBG2("FD: ", aFD.mFD, " aFD: ", &aFD);
-
-	processedSockets.erase(&aFD);
-	managed_fd.erase(&aFD);
+	RS_DBG2(aFD);
+	mManagedFD.erase(&aFD);
 }
+#endif

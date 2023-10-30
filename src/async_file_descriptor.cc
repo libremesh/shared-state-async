@@ -1,8 +1,7 @@
 /*
  * Shared State
  *
- * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
- * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -19,29 +18,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-#pragma once
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include "block_syscall.hh"
-#include <memory>
+#include <ostream>
 
-class AsyncFileDescriptor;
+#include "async_file_desc.hh"
 
-class WriteOp : public BlockSyscall<WriteOp, ssize_t>
+std::ostream &operator<<(std::ostream& out, const AsyncFileDescriptor& aFD)
 {
-public:
-	WriteOp(
-	        AsyncFileDescriptor& AFD,
-	        const uint8_t* buffer, std::size_t len,
-	        std::error_condition* ec = nullptr );
-	~WriteOp();
-
-	ssize_t syscall();
-	void suspend();
-
-private:
-	AsyncFileDescriptor& mAFD;
-	const uint8_t* mBuffer = nullptr;
-	std::size_t mLen = 0;
-};
+	return out << " aFD: " << &aFD << " FD: " << aFD.getFD();
+}
