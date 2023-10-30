@@ -25,6 +25,7 @@
 #include <memory>
 #include <deque>
 #include <fcntl.h>
+#include <system_error>
 
 #include "io_context.hh"
 #include "close_operation.hh"
@@ -56,9 +57,10 @@ public:
 	{
 		if(mFD != -1)
 		{
-			RS_ERR( "FD: ", mFD,
+			RS_FATAL( "FD: ", mFD, " aFD: ", this,
 			        " Destructor called before close() report to developers!" );
 			print_stacktrace();
+			exit(static_cast<int>(std::errc::state_not_recoverable));
 		}
 	}
 

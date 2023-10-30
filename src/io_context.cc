@@ -292,7 +292,7 @@ void IOContext::detach(AsyncFileDescriptor* aFD, std::error_condition* errbub)
 
 void IOContext::discard(AsyncFileDescriptor& aFD)
 {
-	RS_DBG4("FD: ", aFD->mFD);
+	RS_DBG2("FD: ", aFD.mFD, " aFD: ", &aFD);
 
 	processedSockets.erase(&aFD);
 	managed_fd.erase(&aFD);
