@@ -29,8 +29,6 @@
 #include "io_context.hh"
 #include "file_read_operation.hh"
 #include "file_write_operation.hh"
-#include "dying_process_wait_operation.hh"
-#include "socket.hh"
 
 /**
  * @brief AsyncCommand implementation using fork excec and dual pipes
@@ -71,7 +69,21 @@ public:
 
 	PipedAsyncCommand(const PipedAsyncCommand &) = delete;
 	PipedAsyncCommand() = delete;
-	~PipedAsyncCommand() = default;
+	~PipedAsyncCommand()
+	{
+		/* In this design we can use destructor to detect logic errors at
+		 * runtime */
+
+		RS_DBG1(*this);
+		if(mProcessId != -1)
+		{
+			RS_FATAL( *this,
+			          " Destructor called before IOContext::closeAFD "
+			          "report to developers!" );
+			print_stacktrace();
+			exit(static_cast<int>(std::errc::state_not_recoverable));
+		}
+	};
 
 	ReadOp readStdOut(
 	        uint8_t* buffer, std::size_t len,
@@ -79,9 +91,10 @@ public:
 	WriteOp writeStdIn(
 	        const uint8_t *buffer, std::size_t len,
 	        std::error_condition* errbub = nullptr );
+	inline pid_t getPid() const { return mProcessId; }
 
-	std::task<bool> finishwriting(std::error_condition* errbub = nullptr);
-	std::task<bool> finishReading(std::error_condition* errbub = nullptr);
+	std::task<bool> closeStdIn(std::error_condition* errbub = nullptr);
+	std::task<bool> closeStdOut(std::error_condition* errbub = nullptr);
 
 	// TODO: really working?
 	bool doneReading();
@@ -92,9 +105,14 @@ protected:
 	PipedAsyncCommand(int fd, IOContext &ioContext):
 	    AsyncFileDescriptor(fd, ioContext) {}
 
-	pid_t mChildProcessId = -1;
-
-	std::shared_ptr<AsyncFileDescriptor> mReadEnd = nullptr;
-	std::shared_ptr<AsyncFileDescriptor> mWriteEnd = nullptr;
-	std::shared_ptr<AsyncFileDescriptor> mWaitEnd = nullptr;
+	pid_t mProcessId = -1;
+	std::shared_ptr<AsyncFileDescriptor> mStdOut = nullptr;
+	std::shared_ptr<AsyncFileDescriptor> mStdIn = nullptr;
+	std::shared_ptr<AsyncFileDescriptor> mWaitFD = nullptr;
 };
+
+template<>
+std::task<bool> IOContext::closeAFD(
+        std::shared_ptr<PipedAsyncCommand> aFD, std::error_condition* errbub );
+
+std::ostream &operator<<(std::ostream& out, const PipedAsyncCommand& aFD);

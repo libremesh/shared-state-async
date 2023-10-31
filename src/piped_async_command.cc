@@ -34,6 +34,7 @@
 
 #include "piped_async_command.hh"
 #include "io_context.hh"
+#include "dying_process_wait_operation.hh"
 
 #include <util/rsdebug.h>
 #include <util/rsdebuglevel2.h>
@@ -126,13 +127,13 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		auto tPac = ioContext.registerFD<PipedAsyncCommand>(childWaitFD);
 		ioContext.attach(tPac.get());
 
-		tPac->mChildProcessId = forkRetVal;
+		tPac->mProcessId = forkRetVal;
 
-		tPac->mReadEnd = ioContext.registerFD(PARENT_READ);
-		ioContext.attachReadonly(tPac->mReadEnd.get());
+		tPac->mStdOut = ioContext.registerFD(PARENT_READ);
+		ioContext.attachReadonly(tPac->mStdOut.get());
 
-		tPac->mWriteEnd = ioContext.registerFD(PARENT_WRITE);
-		ioContext.attachWriteOnly(tPac->mWriteEnd.get());
+		tPac->mStdIn = ioContext.registerFD(PARENT_WRITE);
+		ioContext.attachWriteOnly(tPac->mStdIn.get());
 
 		// Close child ends of the pipes
 		close(CHILD_READ); close(CHILD_WRITE);
@@ -187,20 +188,20 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 ReadOp PipedAsyncCommand::readStdOut(
         uint8_t* buffer, std::size_t len, std::error_condition* errbub)
 {
-	return ReadOp{mReadEnd, buffer, len};
+	return ReadOp{mStdOut, buffer, len};
 }
 
 WriteOp PipedAsyncCommand::writeStdIn(
         const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
 {
-	RS_DBG2(*mWriteEnd, " buffer: ", buffer, " len: ", len);
-	return WriteOp{*mWriteEnd, buffer, len, errbub};
+	RS_DBG2(*mStdIn, " buffer: ", buffer, " len: ", len);
+	return WriteOp{*mStdIn, buffer, len, errbub};
 }
 
-std::task<bool>  PipedAsyncCommand::finishwriting(std::error_condition* errbub)
+std::task<bool>  PipedAsyncCommand::closeStdIn(std::error_condition* errbub)
 {
-	auto mRet = co_await mIOContext.closeAFD(mWriteEnd, errbub);
-	if(mRet) mWriteEnd.reset();
+	auto mRet = co_await mIOContext.closeAFD(mStdIn, errbub);
+	if(mRet) mStdIn.reset();
 	co_return mRet;
 }
 
@@ -210,13 +211,13 @@ std::task<bool>  PipedAsyncCommand::finishwriting(std::error_condition* errbub)
 */
 bool PipedAsyncCommand::doneReading()
 {
-	return mReadEnd.get()->doneRecv_;
+	return mStdOut.get()->doneRecv_;
 }
 
-std::task<bool> PipedAsyncCommand::finishReading(std::error_condition* errbub)
+std::task<bool> PipedAsyncCommand::closeStdOut(std::error_condition* errbub)
 {
-	auto mRet = co_await mIOContext.closeAFD(mReadEnd, errbub);
-	if(mRet) mReadEnd.reset();
+	auto mRet = co_await mIOContext.closeAFD(mStdOut, errbub);
+	if(mRet) mStdOut.reset();
 	co_return mRet;
 }
 
@@ -230,7 +231,28 @@ std::task<bool> PipedAsyncCommand::finishReading(std::error_condition* errbub)
         std::error_condition* errbub )
 {
 	auto dPid = co_await DyingProcessWaitOperation(*pac, pac->getFD());
-	co_await pac->getIOContext().closeAFD(
-	            std::static_pointer_cast<AsyncFileDescriptor>(pac), errbub );
+	co_await pac->getIOContext().closeAFD(pac, errbub);
 	co_return dPid;
+}
+
+template<>
+std::task<bool> IOContext::closeAFD(
+        std::shared_ptr<PipedAsyncCommand> aFD, std::error_condition* errbub )
+{
+	if(aFD->mStdIn)
+		if(!co_await aFD->closeStdIn(errbub)) co_return false;
+
+	if(aFD->mStdOut)
+		if(!co_await aFD->closeStdOut(errbub)) co_return false;
+
+	aFD->mProcessId = -1;
+
+	co_return co_await closeAFD(
+	            std::static_pointer_cast<AsyncFileDescriptor>(aFD), errbub );
+}
+
+std::ostream &operator<<(std::ostream& out, const PipedAsyncCommand& aFD)
+{
+	return out << " aFD: " << &aFD << " FD: " << aFD.getFD()
+	           << " mChildProcessId: " << aFD.getPid();
 }

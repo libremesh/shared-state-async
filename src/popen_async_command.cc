@@ -46,7 +46,7 @@ PopenAsyncCommand::PopenAsyncCommand(
 PopenAsyncCommand::PopenAsyncCommand(
         std::string cmd,
         AsyncFileDescriptor& AFD ):
-    AsyncFileDescriptor(AFD.getIOContext())
+    AsyncFileDescriptor(0 /* TODO BROKEN */, AFD.getIOContext())
 {
 	// TODO: this stuff can fail!! Move it on a factory method not a costructor!
 

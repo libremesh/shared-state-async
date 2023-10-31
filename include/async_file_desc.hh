@@ -28,9 +28,10 @@
 #include <system_error>
 #include <ostream>
 
-#include "close_operation.hh"
 #include "task.hh"
 
+#include <util/rsdebug.h>
+#include <util/stacktrace.h>
 #include <util/rsdebuglevel2.h>
 
 class IOContext;
@@ -42,33 +43,16 @@ public:
 
 	~AsyncFileDescriptor()
 	{
+		RS_DBG1(*this);
 		if(mFD != -1)
 		{
-			RS_FATAL( "FD: ", mFD, " aFD: ", this,
-			        " Destructor called before close() report to developers!" );
+			RS_FATAL( *this,
+			          " Destructor called before IOContext::closeAFD "
+			          "report to developers!" );
 			print_stacktrace();
 			exit(static_cast<int>(std::errc::state_not_recoverable));
 		}
 	}
-
-#if 0
-	std::task<bool> close(std::error_condition* errbub = nullptr)
-	{
-		auto sysCloseErr = co_await CloseOperation(*this, errbub);
-
-		if(sysCloseErr)
-		{
-			rs_error_bubble_or_exit(
-			            rs_errno_to_condition(errno), errbub,
-			            "failure closing FD: ", mFD);
-			co_return false;
-		}
-
-		mIOContext.discard(*this);
-		mFD = -1;
-		co_return true;
-	}
-#endif
 
 	bool resumePendingOps()
 	{
@@ -115,25 +99,11 @@ public:
 	inline int getFD() const { return mFD; }
 	inline IOContext& getIOContext() const { return mIOContext; }
 
-#if 0
-protected:
-    friend SocketAcceptOperation;
-    friend SocketRecvOperation;
-    friend SocketSendOperation;
-	friend ReadOp;
-    friend IOContext;
-	friend ConnectOperation;
-#endif
-
 	/// TODO: Double check if really need this or we can implement a more
 	/// elegant solution
 	bool doneRecv_ = false;
 
 protected:
-	// TODO: delete, used only by PopenAsyncCommand
-	explicit AsyncFileDescriptor(IOContext &io_context):
-	    mIOContext{io_context} {}
-
 	friend IOContext;
 	AsyncFileDescriptor(int fd, IOContext &io_context):
 	    mIOContext{io_context}, mFD{fd}

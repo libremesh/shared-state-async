@@ -30,6 +30,7 @@
 
 #include "task.hh"
 #include "async_file_desc.hh"
+#include "close_operation.hh"
 
 #include <util/rsdebug.h>
 #include <util/stacktrace.h>
@@ -69,9 +70,12 @@ public:
 	std::shared_ptr<AFD_T> registerFD(
 	        int fd, std::error_condition* errbub = nullptr );
 
+	/**
+	 * @tparam AFD_T AsyncFileDescriptor or derivatives
+	 */
+	template<class AFD_T>
 	std::task<bool> closeAFD(
-	        std::shared_ptr<AsyncFileDescriptor> aFD,
-	        std::error_condition* errbub = nullptr );
+	        std::shared_ptr<AFD_T> aFD, std::error_condition* errbub = nullptr );
 
 private:
 	IOContext(int epollFD);
@@ -169,4 +173,29 @@ std::shared_ptr<AFD_T> IOContext::registerFD(
 	mManagedFD[fd] = aFD;
 
 	return aFD;
+}
+
+template<class AFD_T>
+std::task<bool> IOContext::closeAFD(
+        std::shared_ptr<AFD_T> aFD,
+        std::error_condition* errbub )
+{
+	static_assert( std::is_base_of<AsyncFileDescriptor, AFD_T>::value,
+	        "AsyncFileDescriptor or derivative required");
+	static_assert(!std:: is_same<PipedAsyncCommand, AFD_T>::value,
+	        "PipedAsyncCommand have its own specialization");
+
+	auto sysCloseErr = co_await CloseOperation(*aFD.get(), errbub);
+
+	if(sysCloseErr)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "failure closing ", *aFD.get() );
+		co_return false;
+	}
+
+	auto fdBack = aFD->mFD;
+	aFD->mFD = -1;
+	co_return mManagedFD.erase(fdBack);
 }

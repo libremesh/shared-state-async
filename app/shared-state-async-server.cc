@@ -78,18 +78,20 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 	{
 		RS_ERR("Failure writing ", networkMessage.mData.size(), " bytes ",
 		       " to LSH stdin ", tLSHErr );
+
 		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
 		co_await socket->getIOContext().closeAFD(socket);
 		co_return false;
 	}
 
-	co_await luaSharedState->finishwriting();
+	/* shared-state keeps reading until it get EOF, so we need to close the
+	 * its stdin once we finish writing so it can process the data and then
+	 * return */
+	co_await luaSharedState->closeStdIn();
 
 	networkMessage.mData.clear();
 	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-	/* Some applications keep reading until EOF is sent, the only way to ensure
-	 * termination is closing the write end */
 	ssize_t rec_ammount = 0;
 	ssize_t nbRecvFromPipe = 0;
 	int totalReadBytes = 0;
@@ -110,11 +112,15 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 	}
 	while ((nbRecvFromPipe != 0) && !luaSharedState->doneReading() );
 
-	/* Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
+	/* TODO: Chek if we can get rid of doneReading() or re-implement it in a
+	 * reasonable manner, we need to catch that last useful read return 0
+	 *
+	 * TODO: Following comment need to be verified seriously
+	 * Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
 	 * just returns -1 and the donereading flag is always 0
 	 * it seems that the second end of line can be a good candidate for end of
 	 * transmission */
-	co_await luaSharedState->finishReading();
+	co_await luaSharedState->closeStdOut();
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *

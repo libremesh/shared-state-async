@@ -50,27 +50,6 @@ std::unique_ptr<IOContext> IOContext::setup(std::error_condition* errc)
 	return std::unique_ptr<IOContext>(new IOContext(epollFD));
 }
 
-std::task<bool> IOContext::closeAFD(
-        std::shared_ptr<AsyncFileDescriptor> aFD,
-        std::error_condition* errbub )
-{
-	auto sysCloseErr = co_await CloseOperation(*aFD.get(), errbub);
-
-	if(sysCloseErr)
-	{
-		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), errbub,
-		            "failure closing ", *aFD.get() );
-		co_return false;
-	}
-
-	auto fdBack = aFD->mFD;
-	aFD->mFD = -1;
-	co_return mManagedFD.erase(fdBack);
-}
-
-
-
 void IOContext::run()
 {
 	epoll_event events[DEFAULT_MAX_EVENTS];

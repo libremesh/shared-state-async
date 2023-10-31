@@ -23,6 +23,7 @@
 
 #include "socket.hh"
 #include "connect_operation.hh"
+#include "close_operation.hh"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
