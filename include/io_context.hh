@@ -90,7 +90,7 @@ template<class AFD_T = AsyncFileDescriptor,
 std::shared_ptr<AFD_T> IOContext::registerFD(
         int fd, std::error_condition* errbub )
 {
-	auto flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+	auto flags = fcntl(fd, F_GETFL, 0);
 	if(flags == -1)
 	{
 		rs_error_bubble_or_exit(
