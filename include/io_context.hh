@@ -159,12 +159,20 @@ template<class AFD_T = AsyncFileDescriptor,
 std::shared_ptr<AFD_T> IOContext::registerFD(
         int fd, std::error_condition* errbub )
 {
-	if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
+	auto flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+	if(flags == -1)
 	{
 		rs_error_bubble_or_exit(
 		            rs_errno_to_condition(errno), errbub,
-		            " setting FD: ", fd, " non-blocking failed!" );
+		            " failure getting FD: ", fd, " flags" );
+		return nullptr;
+	}
 
+	if(fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            " failure setting FD: ", fd, " non-blocking" );
 		return nullptr;
 	}
 
