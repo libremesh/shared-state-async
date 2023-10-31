@@ -52,16 +52,17 @@ std::task<> sendStdInput(
 	netMessage.mData.clear();
 	netMessage.mData.resize(SharedState::DATA_MAX_LENGHT);
 
-	bool finish = false;
 	std::size_t totalRead = 0;
-	while(!finish)
+	ssize_t readBytes = 0;
+	do
 	{
-		totalRead += co_await ReadOp(
-		            aStdIn,
-		            reinterpret_cast<uint8_t*>(netMessage.mData.data()),
+		 auto readBytes = co_await ReadOp(
+		             aStdIn, netMessage.mData.data(),
 		            netMessage.mData.size() - totalRead );
-		finish = true;
+		totalRead += readBytes;
 	}
+	while(readBytes && totalRead < SharedState::DATA_MAX_LENGHT);
+
 	netMessage.mData.resize(totalRead);
 
 	co_await ioContext.closeAFD(aStdIn);
