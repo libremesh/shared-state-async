@@ -47,11 +47,7 @@ std::task<> sendStdInput(
 	std::string caccaData = "cacapisciapuzza";
 	netMessage.mData.assign(caccaData.begin(), caccaData.end());
 #else
-	auto flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-	fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-
-	auto aStdIn = std::make_shared<AsyncFileDescriptor>(
-	            STDIN_FILENO, ioContext );
+	auto aStdIn = ioContext.registerFD(STDIN_FILENO);
 
 	netMessage.mData.clear();
 	netMessage.mData.resize(SharedState::DATA_MAX_LENGHT);
@@ -66,8 +62,9 @@ std::task<> sendStdInput(
 		            netMessage.mData.size() - totalRead );
 		finish = true;
 	}
-	fcntl(STDIN_FILENO, F_SETFL, flags);
 	netMessage.mData.resize(totalRead);
+
+	co_await ioContext.closeAFD(aStdIn);
 
 	RS_DBG4( "netMessage.mTypeName: ", netMessage.mTypeName,
 	         " netMessage.mData:\n", netMessage.mData );
