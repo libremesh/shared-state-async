@@ -28,6 +28,8 @@
 #include "async_file_desc.hh"
 #include "epoll_events_to_string.hh"
 
+#include <util/rsdebug.h>
+#include <util/stacktrace.h>
 #include <util/rsdebuglevel2.h>
 
 
@@ -141,8 +143,6 @@ void IOContext::run()
 		}
 	}
 }
-
-IOContext::IOContext(int epollFD): mEpollFD(epollFD) {}
 
 /**
  * @brief Attaches a file descriptor to an available for "read" operations.
@@ -268,31 +268,3 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
 }
-
-#if 0
-/**
- * @brief Remove an async file descriptor from the notification list
- *
- * @param socket
- */
-void IOContext::detach(AsyncFileDescriptor* aFD, std::error_condition* errbub)
-{
-	RS_DBG4("FD: ", aFD->mFD);
-
-	if (epoll_ctl(mEpollFD, EPOLL_CTL_DEL, aFD->mFD, nullptr) == -1)
-	{
-		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), errbub,
-		            " failed EPOLL_CTL_DEL for FD: ", aFD->mFD );
-		RS_ERR("epoll_ctl failure detaching: ", rs_errno_to_condition(errno));
-	}
-
-	discard(*aFD);
-}
-
-void IOContext::discard(AsyncFileDescriptor& aFD)
-{
-	RS_DBG2(aFD);
-	mManagedFD.erase(&aFD);
-}
-#endif
