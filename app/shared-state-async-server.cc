@@ -158,7 +158,8 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 
 	co_await socket->getIOContext().closeAFD(socket);
 
-	RS_DBG2( socket,
+	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peer address
+	RS_INFO( *socket,
 	         " Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,
 	         " Sent message size: ", networkMessage.mData.size(),

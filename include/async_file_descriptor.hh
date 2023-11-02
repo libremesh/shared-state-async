@@ -60,9 +60,9 @@ public:
 
 		if(!numPending)
 		{
-			RS_ERR( "FD: ", mFD,
-			        " attempt to resume pending operations on descriptor which"
-			        " have none" );
+			RS_DBG2( *this,
+			         " attempt to resume pending operations on descriptor which"
+			         " have none" );
 			return false;
 		}
 
@@ -108,7 +108,7 @@ protected:
 	AsyncFileDescriptor(int fd, IOContext &io_context):
 	    mIOContext{io_context}, mFD{fd}
 	{
-		RS_DBG4("mFD: ", mFD);
+		RS_DBG4(*this);
 
 		/* Why not attaching here?
 		 * Because child classes may have special attacching needs,

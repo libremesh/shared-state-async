@@ -195,9 +195,11 @@ WriteOp PipedAsyncCommand::writeStdIn(
         const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
 {
 	RS_DBG2( *mStdIn,
-	         " len: ", len,
-	         " buffer content: ",
+	         " buffer: ", reinterpret_cast<const void*>(buffer),
+	         " len: ", len);
+	RS_DBG4( " buffer content: ",
 	         std::string(reinterpret_cast<const char*>(buffer), len) );
+
 	return WriteOp{*mStdIn, buffer, len, errbub};
 }
 

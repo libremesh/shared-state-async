@@ -42,6 +42,7 @@ public:
 	void suspend();
 
 private:
+	// TODO: const std::shared_ptr<AsyncFileDescriptor>& may be enough
 	std::shared_ptr<AsyncFileDescriptor> mAFD;
 	uint8_t* mBuffer;
 	std::size_t mLen;

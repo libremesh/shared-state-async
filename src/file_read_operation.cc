@@ -21,15 +21,13 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include <iostream>
 #include <unistd.h>
 
 #include "io_context.hh"
 #include "file_read_operation.hh"
-#include "async_file_desc.hh"
+#include "async_file_descriptor.hh"
 
-#include <util/rsdebuglevel2.h>
-
+#include <util/rsdebuglevel0.h>
 
 ReadOp::ReadOp(
         std::shared_ptr<AsyncFileDescriptor> afd,
@@ -49,22 +47,10 @@ ReadOp::~ReadOp()
 
 ssize_t ReadOp::syscall()
 {
-	ssize_t bytesread = read(mAFD->getFD(), mBuffer, mLen);
-
-    /* this method is invoked at least once but the pipe is not free.
-     * this is not problem since the BlockSyscall::await_suspend will test for -1 return value and test errno (EWOULDBLOCK or EAGAIN)
-     * and then suspend the execution until a new notification arrives
-     */
-    if (bytesread == -1)
-    {
-		RS_WARN(*mAFD, " ", rs_errno_to_condition(errno));
-    }
-	RS_DBG0(*mAFD, " read ", bytesread , " bytes" );
-    return bytesread;
+	return read(mAFD->getFD(), mBuffer, mLen);
 }
 
 void ReadOp::suspend()
 {
-	// mAFD->coroRecv_ = mAwaitingCoroutine;
 	mAFD->addPendingOp(mAwaitingCoroutine);
 }

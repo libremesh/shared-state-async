@@ -29,7 +29,7 @@
 #include <fcntl.h>
 
 #include "task.hh"
-#include "async_file_desc.hh"
+#include "async_file_descriptor.hh"
 #include "close_operation.hh"
 
 #include <util/rsdebug.h>

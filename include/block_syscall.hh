@@ -88,7 +88,7 @@ public:
 			/* The syscall indicated we must wait, and retry later so let's
 			 * suspend to return the control to the caller and be resumed later
 			 */
-			RS_DBG2( "let suspend for now mReturnValue: ", mReturnValue,
+			RS_DBG3( "let suspend for now mReturnValue: ", mReturnValue,
 			         " && errno: ", rs_errno_to_condition(errno) );
 			static_cast<SyscallOpt *>(this)->suspend();
 		}

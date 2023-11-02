@@ -39,9 +39,9 @@ static CrashStackTrace gCrashStackTrace;
 
 using namespace SharedState;
 
-std::task<> sendStdInput(
+std::task<bool> syncWithPeer(
         std::string dataTypeName, const sockaddr_storage& peerAddr,
-        IOContext& ioContext )
+        IOContext& ioContext, std::error_condition* errbub = nullptr )
 {
 	SharedState::NetworkMessage netMessage;
 	netMessage.mTypeName = dataTypeName;
@@ -49,11 +49,9 @@ std::task<> sendStdInput(
 	std::string cmdGet = "/usr/bin/shared-state get ";
 	cmdGet += netMessage.mTypeName;
 
-	std::error_condition tLSHErr;
-
-	// TODO: gracefully deal with errors
 	std::shared_ptr<PipedAsyncCommand> luaSharedState =
-	        PipedAsyncCommand::execute(cmdGet, ioContext);
+	        PipedAsyncCommand::execute(cmdGet, ioContext, errbub);
+	if(!luaSharedState) co_return false;
 
 	netMessage.mData.clear();
 	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
@@ -64,6 +62,7 @@ std::task<> sendStdInput(
 	auto dataPtr = netMessage.mData.data();
 	do
 	{
+		// TODO: deal with errors
 		nbRecvFromPipe = co_await luaSharedState->readStdOut(
 		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
 		std::string justRecv(
@@ -71,48 +70,45 @@ std::task<> sendStdInput(
 		            nbRecvFromPipe );
 		totalReadBytes += nbRecvFromPipe;
 
-		RS_DBG0( luaSharedState,
+		RS_DBG4( luaSharedState,
 		         " nbRecvFromPipe: ", nbRecvFromPipe,
 		         " data read >>>", justRecv, "<<<" );
 	}
 	while (nbRecvFromPipe);
 	netMessage.mData.resize(totalReadBytes);
-	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
 
+	// TODO: deal with errors
+	co_await PipedAsyncCommand::waitForProcessTermination(
+	            luaSharedState, errbub );
 
-	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
+	// TODO: deal with errors
+	auto tSocket = co_await ConnectingSocket::connect(
+	            peerAddr, ioContext, errbub);
 	auto sentMessageSize = netMessage.mData.size();
+
+	// TODO: deal with errors
 	auto totalSent = co_await
-	        SharedState::sendNetworkMessage(*socket, netMessage);
+	        SharedState::sendNetworkMessage(*tSocket, netMessage, errbub);
 
+	// TODO: deal with errors
 	auto totalReceived = co_await
-	        SharedState::receiveNetworkMessage(*socket, netMessage);
-
-	RS_DBG2( "Sent message type: ", dataTypeName,
-	         " Sent message size: ", sentMessageSize,
-	         " Received message type: ", netMessage.mTypeName,
-	         " Received message size: ", netMessage.mData.size(),
-	         " Total sent bytes: ", totalSent,
-	         " Total received bytes: ", totalReceived );
+	        SharedState::receiveNetworkMessage(*tSocket, netMessage, errbub);
 
 	std::string cmdMerge = "/usr/bin/shared-state reqsync ";
 	cmdMerge += netMessage.mTypeName;
 
 
-	// TODO: gracefully deal with errors
+	// TODO: deal with errors
 	luaSharedState = PipedAsyncCommand::execute(
-	            cmdMerge, socket->getIOContext() );
+	            cmdMerge, tSocket->getIOContext(), errbub );
 
 	if(co_await luaSharedState->writeStdIn(
 	            netMessage.mData.data(), netMessage.mData.size(),
-	            &tLSHErr ) == -1)
+	            errbub ) == -1)
 	{
-		RS_ERR("Failure writing ", netMessage.mData.size(), " bytes ",
-		       " to LSH stdin ", tLSHErr );
-
 		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
-		co_await socket->getIOContext().closeAFD(socket);
-		co_return;
+		co_await tSocket->getIOContext().closeAFD(tSocket);
+		co_return false;
 	}
 
 	/* shared-state keeps reading until it get EOF, so we need to close the
@@ -122,7 +118,16 @@ std::task<> sendStdInput(
 
 	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
 
-	exit(0);
+	// TODO: Add elapsed time, data trasfer bandwhidt estimation
+	RS_INFO( "Synchronized with peer: ", peerAddr,
+	         " Sent message type: ", dataTypeName,
+	         " Sent message size: ", sentMessageSize,
+	         " Received message type: ", netMessage.mTypeName,
+	         " Received message size: ", netMessage.mData.size(),
+	         " Total sent bytes: ", totalSent,
+	         " Total received bytes: ", totalReceived );
+
+	co_return true;
 }
 
 int main(int argc, char* argv[])
@@ -151,7 +156,7 @@ int main(int argc, char* argv[])
 	signal(SIGPIPE, SIG_IGN);
 
 	auto ioContext = IOContext::setup();
-	auto sendTask = sendStdInput(dataTypeName, peerAddr, *ioContext.get());
+	auto sendTask = syncWithPeer(dataTypeName, peerAddr, *ioContext.get());
 	sendTask.resume();
 	ioContext->run();
 
