@@ -108,6 +108,7 @@ std::task<> sendStdInput(
 		         " data read >>>", justRecv, "<<<" );
 	}
 	while ((nbRecvFromPipe != 0) && !luaSharedState->doneReading() );
+	netMessage.mData.resize(totalReadBytes);
 
 	/* TODO: Chek if we can get rid of doneReading() or re-implement it in a
 	 * reasonable manner, we need to catch that last useful read return 0
@@ -124,6 +125,7 @@ std::task<> sendStdInput(
 	auto sentMessageSize = netMessage.mData.size();
 	auto totalSent = co_await
 	        SharedState::sendNetworkMessage(*socket, netMessage);
+
 	auto totalReceived = co_await
 	        SharedState::receiveNetworkMessage(*socket, netMessage);
 
