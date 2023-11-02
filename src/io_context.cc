@@ -106,7 +106,7 @@ void IOContext::run()
 				 * jj: the last is not always true...
 				 * subsequent reads only responds with -1
 				 */
-				aFD->doneRecv_ = true;
+				//aFD->doneRecv_ = true;
 			}
 
 			aFD->resumePendingOps();
