@@ -70,8 +70,8 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 	std::string cmd = "cat /tmp/shared-state/data/" +
 	        networkMessage.mTypeName + ".json";
 #else
-	std::string cmd = "/usr/bin/lua /usr/bin/shared-state reqsync";
-	cmd = cmd + " " + networkMessage.mTypeName;
+	std::string cmd = "/usr/bin/shared-state reqsync ";
+	cmd += networkMessage.mTypeName;
 #endif
 
 	std::error_condition tLSHErr;

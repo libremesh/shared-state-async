@@ -77,14 +77,14 @@ std::task<> sendStdInput(
 	         " netMessage.mData:\n", netMessage.mData );
 #endif
 */
-	std::string cmd = "/usr/bin/shared-state get ";
-	cmd += netMessage.mTypeName;
+	std::string cmdGet = "/usr/bin/shared-state get ";
+	cmdGet += netMessage.mTypeName;
 
 	std::error_condition tLSHErr;
 
 	// TODO: gracefully deal with errors
 	std::shared_ptr<PipedAsyncCommand> luaSharedState =
-	        PipedAsyncCommand::execute(cmd, ioContext);
+	        PipedAsyncCommand::execute(cmdGet, ioContext);
 
 	netMessage.mData.clear();
 	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
@@ -117,7 +117,7 @@ std::task<> sendStdInput(
 	 * just returns -1 and the donereading flag is always 0
 	 * it seems that the second end of line can be a good candidate for end of
 	 * transmission */
-	co_await luaSharedState->closeStdOut();
+	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
 ///////////////////////////////////////////////////////////////////////////////
 
 	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
@@ -134,8 +134,36 @@ std::task<> sendStdInput(
 	         " Total sent bytes: ", totalSent,
 	         " Total received bytes: ", totalReceived );
 
+/*
 	std::cout << std::string(netMessage.mData.begin(), netMessage.mData.end())
-	          << std::endl;
+			  << std::endl;*/
+
+	std::string cmdMerge = "/usr/bin/shared-state reqsync ";
+	cmdMerge += netMessage.mTypeName;
+
+
+	// TODO: gracefully deal with errors
+	luaSharedState = PipedAsyncCommand::execute(
+	            cmdMerge, socket->getIOContext() );
+
+	if(co_await luaSharedState->writeStdIn(
+	            netMessage.mData.data(), netMessage.mData.size(),
+	            &tLSHErr ) == -1)
+	{
+		RS_ERR("Failure writing ", netMessage.mData.size(), " bytes ",
+		       " to LSH stdin ", tLSHErr );
+
+		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
+		co_await socket->getIOContext().closeAFD(socket);
+		co_return;
+	}
+
+	/* shared-state keeps reading until it get EOF, so we need to close the
+	 * its stdin once we finish writing so it can process the data and then
+	 * return */
+	co_await luaSharedState->closeStdIn();
+
+	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
 
 	exit(0);
 }
