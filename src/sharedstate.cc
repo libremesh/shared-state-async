@@ -40,7 +40,7 @@ std::task<int> receiveNetworkMessage(
         Socket& socket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
-	RS_DBG4("");
+	RS_DBG4(socket);
 	// TODO: define and use proper error_conditions to return
 	// TODO: deal with socket errors
 

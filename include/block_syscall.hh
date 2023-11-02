@@ -96,6 +96,8 @@ public:
 		{
 			/* The syscall failed for other reason let's notify the caller if
 			 * possible or close the program printing an error */
+			RS_DBG2( "syscall failed with ret: ", mReturnValue,
+			         " errno: ", rs_errno_to_condition(errno) );
 			rs_error_bubble_or_exit(
 			            rs_errno_to_condition(errno), mError,
 			            " syscall failed" );

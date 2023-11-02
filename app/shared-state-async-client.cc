@@ -60,6 +60,9 @@ std::task<> sendStdInput(
 		             aStdIn, netMessage.mData.data(),
 		            netMessage.mData.size() - totalRead );
 		totalRead += readBytes;
+		RS_DBG0( "Got from STDIN readBytes: ", readBytes,
+		         " totalRead: ", totalRead,
+		         " data:", hexDump(netMessage.mData.data(), totalRead) );
 	}
 	while(readBytes && totalRead < SharedState::DATA_MAX_LENGHT);
 
@@ -74,9 +77,9 @@ std::task<> sendStdInput(
 	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
 	auto sentMessageSize = netMessage.mData.size();
 	auto totalSent = co_await
-	        SharedState::sendNetworkMessage(*socket.get(), netMessage);
+	        SharedState::sendNetworkMessage(*socket, netMessage);
 	auto totalReceived = co_await
-	        SharedState::receiveNetworkMessage(*socket.get(), netMessage);
+	        SharedState::receiveNetworkMessage(*socket, netMessage);
 
 	RS_DBG2( "Sent message type: ", dataTypeName,
 	         " Sent message size: ", sentMessageSize,

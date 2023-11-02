@@ -54,8 +54,16 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 {
 	NetworkMessage networkMessage;
 
+	std::error_condition recvErrc;
 	auto totalReceived = co_await
-	        receiveNetworkMessage(*socket, networkMessage);
+	        receiveNetworkMessage(*socket, networkMessage, &recvErrc);
+	if(totalReceived < 0)
+	{
+		RS_INFO("Got invalid data from client ", *socket);
+		co_await socket->getIOContext().closeAFD(socket);
+		co_return false;
+	}
+
 	auto receivedMessageSize = networkMessage.mData.size();
 
 #ifdef GIO_DUMMY_TEST
