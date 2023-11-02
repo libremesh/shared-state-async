@@ -23,6 +23,7 @@
 #include "socket.hh"
 #include "file_read_operation.hh"
 #include "sharedstate.hh"
+#include "piped_async_command.hh"
 
 #include <cstdio>
 #include <cstdlib>
@@ -36,13 +37,15 @@
 
 static CrashStackTrace gCrashStackTrace;
 
+using namespace SharedState;
+
 std::task<> sendStdInput(
         std::string dataTypeName, const sockaddr_storage& peerAddr,
         IOContext& ioContext )
 {
 	SharedState::NetworkMessage netMessage;
 	netMessage.mTypeName = dataTypeName;
-
+/*
 #ifdef GIO_DUMMY_TEST
 	std::string caccaData = "cacapisciapuzza";
 	netMessage.mData.assign(caccaData.begin(), caccaData.end());
@@ -73,6 +76,49 @@ std::task<> sendStdInput(
 	RS_DBG4( "netMessage.mTypeName: ", netMessage.mTypeName,
 	         " netMessage.mData:\n", netMessage.mData );
 #endif
+*/
+	std::string cmd = "/usr/bin/shared-state get ";
+	cmd += netMessage.mTypeName;
+
+	std::error_condition tLSHErr;
+
+	// TODO: gracefully deal with errors
+	std::shared_ptr<PipedAsyncCommand> luaSharedState =
+	        PipedAsyncCommand::execute(cmd, ioContext);
+
+	netMessage.mData.clear();
+	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
+
+	ssize_t rec_ammount = 0;
+	ssize_t nbRecvFromPipe = 0;
+	int totalReadBytes = 0;
+	auto dataPtr = netMessage.mData.data();
+	do
+	{
+		nbRecvFromPipe = co_await luaSharedState->readStdOut(
+		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
+		std::string justRecv(
+		            reinterpret_cast<char*>(dataPtr + totalReadBytes),
+		            nbRecvFromPipe );
+		totalReadBytes += nbRecvFromPipe;
+
+		RS_DBG0( luaSharedState,
+		         " nbRecvFromPipe: ", nbRecvFromPipe,
+		         ", done reading? ", luaSharedState->doneReading(),
+		         " data read >>>", justRecv, "<<<" );
+	}
+	while ((nbRecvFromPipe != 0) && !luaSharedState->doneReading() );
+
+	/* TODO: Chek if we can get rid of doneReading() or re-implement it in a
+	 * reasonable manner, we need to catch that last useful read return 0
+	 *
+	 * TODO: Following comment need to be verified seriously
+	 * Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
+	 * just returns -1 and the donereading flag is always 0
+	 * it seems that the second end of line can be a good candidate for end of
+	 * transmission */
+	co_await luaSharedState->closeStdOut();
+///////////////////////////////////////////////////////////////////////////////
 
 	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
 	auto sentMessageSize = netMessage.mData.size();

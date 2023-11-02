@@ -100,7 +100,6 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 	networkMessage.mData.clear();
 	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-	ssize_t rec_ammount = 0;
 	ssize_t nbRecvFromPipe = 0;
 	int totalReadBytes = 0;
 	auto dataPtr = networkMessage.mData.data();
@@ -113,7 +112,7 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 		            nbRecvFromPipe );
 		totalReadBytes += nbRecvFromPipe;
 
-		RS_DBG0( *socket,
+		RS_DBG0( luaSharedState,
 		         " nbRecvFromPipe: ", nbRecvFromPipe,
 		         ", done reading? ", luaSharedState->doneReading(),
 		         " data read >>>", justRecv, "<<<" );
