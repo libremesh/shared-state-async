@@ -194,7 +194,10 @@ ReadOp PipedAsyncCommand::readStdOut(
 WriteOp PipedAsyncCommand::writeStdIn(
         const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
 {
-	RS_DBG2(*mStdIn, " buffer: ", buffer, " len: ", len);
+	RS_DBG2( *mStdIn,
+	         " len: ", len,
+	         " buffer content: ",
+	         std::string(reinterpret_cast<const char*>(buffer), len) );
 	return WriteOp{*mStdIn, buffer, len, errbub};
 }
 
@@ -203,15 +206,6 @@ std::task<bool>  PipedAsyncCommand::closeStdIn(std::error_condition* errbub)
 	auto mRet = co_await mIOContext.closeAFD(mStdIn, errbub);
 	if(mRet) mStdIn.reset();
 	co_return mRet;
-}
-
-/**
- * When the filedescriptor is closed but it notifies with a read event the 
- * file descriptor is marked as done, to be able to stop reading
-*/
-bool PipedAsyncCommand::doneReading()
-{
-	return mStdOut.get()->doneRecv_;
 }
 
 std::task<bool> PipedAsyncCommand::closeStdOut(std::error_condition* errbub)

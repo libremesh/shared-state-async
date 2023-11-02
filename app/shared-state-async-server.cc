@@ -114,19 +114,9 @@ std::task<bool> echo_loop(std::shared_ptr<Socket> socket)
 
 		RS_DBG0( luaSharedState,
 		         " nbRecvFromPipe: ", nbRecvFromPipe,
-		         ", done reading? ", luaSharedState->doneReading(),
 		         " data read >>>", justRecv, "<<<" );
 	}
-	while ((nbRecvFromPipe != 0) && !luaSharedState->doneReading() );
-
-	/* TODO: Chek if we can get rid of doneReading() or re-implement it in a
-	 * reasonable manner, we need to catch that last useful read return 0
-	 *
-	 * TODO: Following comment need to be verified seriously
-	 * Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
-	 * just returns -1 and the donereading flag is always 0
-	 * it seems that the second end of line can be a good candidate for end of
-	 * transmission */
+	while(nbRecvFromPipe);
 	co_await luaSharedState->closeStdOut();
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.

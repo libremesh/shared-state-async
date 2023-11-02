@@ -45,38 +45,7 @@ std::task<> sendStdInput(
 {
 	SharedState::NetworkMessage netMessage;
 	netMessage.mTypeName = dataTypeName;
-/*
-#ifdef GIO_DUMMY_TEST
-	std::string caccaData = "cacapisciapuzza";
-	netMessage.mData.assign(caccaData.begin(), caccaData.end());
-#else
-	auto aStdIn = ioContext.registerFD(STDIN_FILENO);
 
-	netMessage.mData.clear();
-	netMessage.mData.resize(SharedState::DATA_MAX_LENGHT);
-
-	std::size_t totalRead = 0;
-	ssize_t readBytes = 0;
-	do
-	{
-		 auto readBytes = co_await ReadOp(
-		             aStdIn, netMessage.mData.data(),
-		            netMessage.mData.size() - totalRead );
-		totalRead += readBytes;
-		RS_DBG0( "Got from STDIN readBytes: ", readBytes,
-		         " totalRead: ", totalRead,
-		         " data:", hexDump(netMessage.mData.data(), totalRead) );
-	}
-	while(readBytes && totalRead < SharedState::DATA_MAX_LENGHT);
-
-	netMessage.mData.resize(totalRead);
-
-	co_await ioContext.closeAFD(aStdIn);
-
-	RS_DBG4( "netMessage.mTypeName: ", netMessage.mTypeName,
-	         " netMessage.mData:\n", netMessage.mData );
-#endif
-*/
 	std::string cmdGet = "/usr/bin/shared-state get ";
 	cmdGet += netMessage.mTypeName;
 
@@ -104,22 +73,12 @@ std::task<> sendStdInput(
 
 		RS_DBG0( luaSharedState,
 		         " nbRecvFromPipe: ", nbRecvFromPipe,
-		         ", done reading? ", luaSharedState->doneReading(),
 		         " data read >>>", justRecv, "<<<" );
 	}
-	while ((nbRecvFromPipe != 0) && !luaSharedState->doneReading() );
+	while (nbRecvFromPipe);
 	netMessage.mData.resize(totalReadBytes);
-
-	/* TODO: Chek if we can get rid of doneReading() or re-implement it in a
-	 * reasonable manner, we need to catch that last useful read return 0
-	 *
-	 * TODO: Following comment need to be verified seriously
-	 * Reading from this pipe in OpenWrt and lua shared-state never returns 0 it
-	 * just returns -1 and the donereading flag is always 0
-	 * it seems that the second end of line can be a good candidate for end of
-	 * transmission */
 	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
-///////////////////////////////////////////////////////////////////////////////
+
 
 	auto socket = co_await ConnectingSocket::connect(peerAddr, ioContext);
 	auto sentMessageSize = netMessage.mData.size();
@@ -132,13 +91,9 @@ std::task<> sendStdInput(
 	RS_DBG2( "Sent message type: ", dataTypeName,
 	         " Sent message size: ", sentMessageSize,
 	         " Received message type: ", netMessage.mTypeName,
-	         " Received message size: ", netMessage.mTypeName.size(),
+	         " Received message size: ", netMessage.mData.size(),
 	         " Total sent bytes: ", totalSent,
 	         " Total received bytes: ", totalReceived );
-
-/*
-	std::cout << std::string(netMessage.mData.begin(), netMessage.mData.end())
-			  << std::endl;*/
 
 	std::string cmdMerge = "/usr/bin/shared-state reqsync ";
 	cmdMerge += netMessage.mTypeName;

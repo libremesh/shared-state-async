@@ -96,10 +96,6 @@ public:
 	std::task<bool> closeStdIn(std::error_condition* errbub = nullptr);
 	std::task<bool> closeStdOut(std::error_condition* errbub = nullptr);
 
-	// TODO: really working?
-	bool doneReading();
-
-
 protected:
 	friend IOContext;
 	PipedAsyncCommand(int fd, IOContext &ioContext):

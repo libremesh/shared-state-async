@@ -88,27 +88,6 @@ void IOContext::run()
 
 			RS_DBG2(*aFD, " got epoll events: ", epoll_events_to_string(evFlags));
 
-			if (evFlags & EPOLLHUP)
-			{
-				/* man epoll: EPOLLHUP
-				 * Hang up happened on the associated file descriptor.
-				 * epoll_wait(2) will always wait for this event; it is
-				 * not necessary to set it in events when calling
-				 * epoll_ctl().
-				 *
-				 * Note that when reading from a channel such as a pipe
-				 * or a stream socket, this event merely indicates that
-				 * the peer closed its end of the channel.
-				 *
-				 * Subsequent reads from the channel will return 0 (end
-				 * of file) only after all outstanding data in the
-				 * channel has been consumed.
-				 * jj: the last is not always true...
-				 * subsequent reads only responds with -1
-				 */
-				//aFD->doneRecv_ = true;
-			}
-
 			aFD->resumePendingOps();
 		}
 
@@ -130,8 +109,8 @@ void IOContext::run()
 			ev.data.fd = aFD->getFD();
 			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, aFD->getFD(), &ev) == -1)
 			{
-				/* ATM this has happened only with standard input FD 0, with
-				 * errno 2 No such file or directory */
+				/* I have seen this happening only with standard input FD 0,
+				 * with errno 2 No such file or directory */
 				RS_ERR( "Failed to update epoll IO state for ", *aFD,
 				        " getIoState(): ",
 				        epoll_events_to_string(aFD->getIoState()),
