@@ -406,7 +406,11 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 		peerAddresses.push_back(peerAddr);
 	}
 
-	RS_INFO( "Found ", peerAddresses.size(), " potential neighbours" );
+	RS_DBG2( "Found ", peerAddresses.size(), " potential neighbours" );
+#if RS_DEBUG_LEVEL > 1
+	for( auto&& peerAddr : std::as_const(peerAddresses))
+		RS_DBG(sockaddr_storage_iptostring(peerAddr));
+#endif // RS_DEBUG_LEVEL
 
 	co_return true;
 }
