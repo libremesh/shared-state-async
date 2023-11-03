@@ -79,9 +79,10 @@ std::task<bool> SharedState::syncWithPeer(
 	co_await PipedAsyncCommand::waitForProcessTermination(
 	            luaSharedState, errbub );
 
-	// TODO: deal with errors
 	auto tSocket = co_await ConnectingSocket::connect(
 	            peerAddr, ioContext, errbub);
+	if(!tSocket) co_return false;
+
 	auto sentMessageSize = netMessage.mData.size();
 
 	// TODO: deal with errors

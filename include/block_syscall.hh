@@ -94,6 +94,14 @@ public:
 		}
 		else if (mReturnValue == -1)
 		{
+			/* If downstream callers apparently get an error before crashing,
+			 * but print errno 0, most likely reason is not the failed syscall
+			 * thet forgot to set it (never to me happened actually) but some
+			 * null/dangling pointer that bubble up, due to a missing check,
+			 * undetected in the call stack, so when an error is finally printed
+			 * the errno value it is getting got most likely borked at some
+			 * point, and is not the original from the syscall */
+
 			/* The syscall failed for other reason let's notify the caller if
 			 * possible or close the program printing an error */
 			RS_DBG2( "syscall failed with ret: ", mReturnValue,
