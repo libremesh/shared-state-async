@@ -52,16 +52,11 @@ std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
 	auto lSocket = ioContext.registerFD<ConnectingSocket>(fd);
 	ioContext.attachWriteOnly(lSocket.get());
 
-	std::error_condition connectEC;
-	auto conRet = co_await
-	        ConnectOperation(*lSocket, address, &connectEC);
-	if(conRet)
+	auto connectFailed = co_await
+	        ConnectOperation(*lSocket, address, ec);
+	if(connectFailed)
 	{
-		RS_DBG1( "connect operation failed ret: ", conRet, " ", *lSocket,
-		         connectEC );
 		co_await ioContext.closeAFD(lSocket);
-		rs_error_bubble_or_exit( connectEC, ec,
-		                        "connect operation failed ", lSocket );
 		co_return nullptr;
 	}
 
