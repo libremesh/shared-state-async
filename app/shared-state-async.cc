@@ -27,14 +27,17 @@
 #include <signal.h>
 #include <iostream>
 
+#include <util/rsnet.h>
+
 #include "socket.hh"
 #include "task.hh"
 #include "sharedstate.hh"
 
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel2.h>
-#include <util/rsnet.h>
 #include <util/stacktrace.h>
+#include <util/rsdebuglevel2.h>
+
+
 
 static CrashStackTrace gCrashStackTrace;
 
@@ -42,9 +45,20 @@ static CrashStackTrace gCrashStackTrace;
  *  directly by the main */
 std::task<> syncWithPeers(
         std::string dataTypeName,
-        const std::vector<sockaddr_storage>& peerAddresses,
+        const std::vector<sockaddr_storage>& peerAddressesPassed,
         IOContext& ioContext )
 {
+	std::vector<sockaddr_storage> discoveredPeersAddresses;
+
+	/* Peers wheren't specified let's discover potential peers */
+	if(peerAddressesPassed.empty())
+		co_await SharedState::getCandidatesNeighbours(
+		            discoveredPeersAddresses, ioContext );
+
+	const std::vector<sockaddr_storage>& peerAddresses =
+	        peerAddressesPassed.empty() ?
+	            discoveredPeersAddresses : peerAddressesPassed;
+
 	// This is done sequentially, but could be done in parallel for each peer
 	int retval = 0;
 	for(auto&& peerAddress : peerAddresses)
@@ -99,10 +113,10 @@ int main(int argc, char* argv[])
 
 	if(operationName == "sync")
 	{
-		if(argc < 4)
+		if(argc < 3)
 		{
 			std::cerr << "Usage: " << argv[0] << " " << argv[1]
-			          << " DATA-TYPE PEER-ADDRESS [PEER-ADDRESSES]..."
+			          << " DATA-TYPE [PEER-ADDRESS]..."
 			          << std::endl;
 			return -EINVAL;
 		}
@@ -120,7 +134,7 @@ int main(int argc, char* argv[])
 				return -static_cast<int>(std::errc::bad_address);
 			}
 
-			sockaddr_storage_setport(peerAddr, 3490);
+			sockaddr_storage_setport(peerAddr, SharedState::TCP_PORT);
 			peerAddresses.push_back(peerAddr);
 		}
 
@@ -142,7 +156,8 @@ int main(int argc, char* argv[])
 		signal(SIGPIPE, SIG_IGN);
 
 		auto ioContext = IOContext::setup();
-		auto listener = ListeningSocket::setupListener(3490, *ioContext.get());
+		auto listener = ListeningSocket::setupListener(
+		            SharedState::TCP_PORT, *ioContext );
 
 		RS_INFO("Created listening socket ", *listener);
 

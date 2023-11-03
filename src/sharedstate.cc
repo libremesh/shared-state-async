@@ -24,6 +24,9 @@
 #include <chrono>
 #include <algorithm>
 #include <arpa/inet.h>
+#include <sstream>
+
+#include <util/rsnet.h>
 
 #include "sharedstate.hh"
 #include "socket.hh"
@@ -41,8 +44,8 @@ std::task<bool> SharedState::syncWithPeer(
 	SharedState::NetworkMessage netMessage;
 	netMessage.mTypeName = dataTypeName;
 
-	std::string cmdGet = "/usr/bin/shared-state get ";
-	cmdGet += netMessage.mTypeName;
+	std::string cmdGet(SHARED_STATE_LUA_CMD);
+	cmdGet += " get " + netMessage.mTypeName;
 
 	std::shared_ptr<PipedAsyncCommand> luaSharedState =
 	        PipedAsyncCommand::execute(cmdGet, ioContext, errbub);
@@ -89,8 +92,8 @@ std::task<bool> SharedState::syncWithPeer(
 	auto totalReceived = co_await
 	        SharedState::receiveNetworkMessage(*tSocket, netMessage, errbub);
 
-	std::string cmdMerge = "/usr/bin/shared-state reqsync ";
-	cmdMerge += netMessage.mTypeName;
+	std::string cmdMerge(SHARED_STATE_LUA_CMD);
+	cmdMerge += " reqsync " + netMessage.mTypeName;
 
 
 	// TODO: deal with errors
@@ -249,8 +252,8 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	std::string cmd = "cat /tmp/shared-state/data/" +
 	        networkMessage.mTypeName + ".json";
 #else
-	std::string cmd = "/usr/bin/shared-state reqsync ";
-	cmd += networkMessage.mTypeName;
+	std::string cmd(SHARED_STATE_LUA_CMD);
+	cmd += " reqsync " + networkMessage.mTypeName;
 #endif
 
 	std::error_condition tLSHErr;
@@ -346,4 +349,63 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	         " Total received bytes: ", totalReceived );
 
 	co_return false;
+}
+
+std::task<bool> SharedState::getCandidatesNeighbours(
+        std::vector<sockaddr_storage>& peerAddresses,
+        IOContext& ioContext, std::error_condition* errbub )
+{
+	peerAddresses.clear();
+
+	std::shared_ptr<PipedAsyncCommand> getCandidatesCmd =
+	        PipedAsyncCommand::execute(
+	            std::string(SHARED_STATE_GET_CANDIDATES_CMD), ioContext );
+
+	std::stringstream neigStrStream;
+
+	ssize_t numReadBytes = 0;
+	ssize_t totalReadBytes = 0;
+	do
+	{
+		constexpr size_t maxRecv = 1000;
+		std::string justRecv(maxRecv, char(0));
+		numReadBytes = co_await getCandidatesCmd->readStdOut(
+		            reinterpret_cast<uint8_t*>(justRecv.data()), maxRecv);
+		justRecv.resize(numReadBytes);
+		totalReadBytes += numReadBytes;
+		neigStrStream << justRecv;
+	}
+	while(numReadBytes);
+	co_await getCandidatesCmd->closeStdOut();
+	co_await PipedAsyncCommand::waitForProcessTermination(getCandidatesCmd);
+
+#ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
+	/* When running on OpenWrt the execvp command line argv[0] is read as first
+	 * line of the stdout content, we need to discard it.
+	 * TODO: investigate why this is happening, and if a better way to deal with
+	 * it exists */
+	{
+		std::string discardFirstLine;
+		std::getline(neigStrStream, discardFirstLine);
+	}
+#endif // def SS_OPENWRT_BUILD
+
+	for (std::string candLine; std::getline(neigStrStream, candLine); )
+	{
+		sockaddr_storage peerAddr;
+		if(!sockaddr_storage_inet_pton(peerAddr, candLine))
+		{
+			rs_error_bubble_or_exit(
+			            std::errc::bad_address, errbub,
+			            "Invalid peer address: ", candLine );
+			co_return false;
+		}
+
+		sockaddr_storage_setport(peerAddr, TCP_PORT);
+		peerAddresses.push_back(peerAddr);
+	}
+
+	RS_INFO( "Found ", peerAddresses.size(), " potential neighbours" );
+
+	co_return true;
 }

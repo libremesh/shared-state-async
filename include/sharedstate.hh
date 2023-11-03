@@ -34,6 +34,7 @@
 
 struct SharedState
 {
+	static constexpr uint16_t TCP_PORT = 3490;
 	static constexpr uint16_t DATA_TYPE_NAME_MAX_LENGHT = 128;
 	static constexpr uint32_t DATA_MAX_LENGHT = 1024*1024; // 1MB
 
@@ -51,7 +52,20 @@ struct SharedState
 	        std::shared_ptr<Socket> clientSocket,
 	        std::error_condition* errbub = nullptr );
 
+	/**
+	 * @return returns false if error occurred, true otherwise
+	 */
+	static std::task<bool> getCandidatesNeighbours(
+	        std::vector<sockaddr_storage>& peerAddresses,
+	        IOContext& ioContext, std::error_condition* errbub = nullptr );
+
 private:
+	static constexpr std::string_view SHARED_STATE_LUA_CMD =
+	        "/usr/bin/shared-state";
+
+	static constexpr std::string_view SHARED_STATE_GET_CANDIDATES_CMD =
+	        "/usr/bin/shared-state-get_candidates_neigh";
+
 	/** The message format on the wire is:
 	* |     1 byte       |           |   4 bytes   |      |
 	* | type name lenght | type name | data lenght | data |
