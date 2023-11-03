@@ -24,47 +24,49 @@
 #pragma once
 
 #include <iostream>
-#include <array>
-#include <unistd.h>
-#include <optional>
+#include <system_error>
 #include <cstdint>
 #include <vector>
 
+#include "task.hh"
 #include "socket.hh"
 
 
-namespace SharedState
+struct SharedState
 {
-constexpr uint16_t DATA_TYPE_NAME_MAX_LENGHT = 128;
-constexpr uint32_t DATA_MAX_LENGHT = 1024*1024; // 1MB
+	static constexpr uint16_t DATA_TYPE_NAME_MAX_LENGHT = 128;
+	static constexpr uint32_t DATA_MAX_LENGHT = 1024*1024; // 1MB
 
+	/**
+	 * @return returns false if error occurred, true otherwise
+	 */
+	static std::task<bool> syncWithPeer(
+	        std::string dataTypeName, const sockaddr_storage& peerAddr,
+	        IOContext& ioContext, std::error_condition* errbub = nullptr );
 
-/** The message format on the wire is:
- * |     1 byte       |           |   4 bytes   |      |
- * | type name lenght | type name | data lenght | data |
- */
-struct NetworkMessage
-{
-	std::string mTypeName;
-	std::vector<uint8_t> mData;
+	/**
+	 * @return returns false if error occurred, true otherwise
+	 */
+	static std::task<bool> handleReqSyncConnection(
+	        std::shared_ptr<Socket> clientSocket,
+	        std::error_condition* errbub = nullptr );
+
+private:
+	/** The message format on the wire is:
+	* |     1 byte       |           |   4 bytes   |      |
+	* | type name lenght | type name | data lenght | data |
+	*/
+	struct NetworkMessage
+	{
+		std::string mTypeName;
+		std::vector<uint8_t> mData;
+	};
+
+	static std::task<int> receiveNetworkMessage(
+	        Socket& socket, NetworkMessage& netMsg,
+	        std::error_condition* errbub = nullptr );
+
+	static std::task<int> sendNetworkMessage(
+	        Socket& socket, const NetworkMessage& netMsg,
+	        std::error_condition* errbub = nullptr );
 };
-
-std::task<int> receiveNetworkMessage(
-        Socket& socket, NetworkMessage& netMsg,
-        std::error_condition* errbub = nullptr );
-
-std::task<int> sendNetworkMessage(
-        Socket& socket, const NetworkMessage& netMsg,
-        std::error_condition* errbub = nullptr );
-
-    std::error_condition extractCommand(std::string &inputString, std::string &command);
-    std::string extractCommand(std::string &inputString);
-
-    int mergestate(std::string arguments, std::string &output);
-    // std::string mergestate(std::string arguments);
-    // std::string mergestate(std::string arguments);//, Socket* s);
-    std::string mergestate(std::string arguments);
-    std::optional<std::string> optMergeState(std::string arguments);
-    //tl::expected<std::string, std::error_condition> expMergestate(std::string arguments, bool willFail = false);
-
-}

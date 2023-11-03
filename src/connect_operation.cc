@@ -27,7 +27,7 @@
 #include "async_file_descriptor.hh"
 
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel4.h>
+#include <util/rsdebuglevel2.h>
 
 ConnectOperation::ConnectOperation(
          AsyncFileDescriptor& socket, const sockaddr_storage& address,
@@ -35,14 +35,14 @@ ConnectOperation::ConnectOperation(
     BlockSyscall<ConnectOperation, int>(ec),
     mSocket(socket), mAddr(address)
 {
-	RS_DBG2(socket); // TODO: , " ", address
+	RS_DBG4(socket); // TODO: , " ", address
 	mSocket.getIOContext().watchWrite(&mSocket);
 };
 
 
 ConnectOperation::~ConnectOperation()
 {
-	RS_DBG2("");
+	RS_DBG4("");
 	mSocket.getIOContext().unwatchWrite(&mSocket);
 }
 
@@ -59,7 +59,7 @@ int ConnectOperation::syscall()
 		break;
 	}
 
-	RS_DBG2(mSocket);
+	RS_DBG4(mSocket);
 
 	return connect(
 	            mSocket.getFD(),

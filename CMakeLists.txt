@@ -29,18 +29,14 @@ set(SOURCES
     src/socket.cc
     src/socket_recv_operation.cc
     src/socket_send_operation.cc
-    src/shared_state_error_code.cc
     src/file_read_operation.cc
-    src/popen_async_command.cc
     src/piped_async_command.cc
-    src/popen_file_read_operation.cc
     src/file_write_operation.cc
     src/dying_process_wait_operation.cc
 )
 
 set(LIBRARY_NAME shared-state)
-set(SERVER_NAME shared-state-async-server)
-set(CLIENT_NAME shared-state-async-client)
+set(EXECUTABLE_NAME shared-state-async)
 
 
 ################################################################################
@@ -114,27 +110,20 @@ target_include_directories(${LIBRARY_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${LIBRARY_NAME} PUBLIC "-fcoroutines")
 
-add_executable(${SERVER_NAME} app/${SERVER_NAME}.cc)
-target_link_libraries(${SERVER_NAME} PRIVATE ${LIBRARY_NAME})
+add_executable(${EXECUTABLE_NAME} app/${EXECUTABLE_NAME}.cc)
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE ${LIBRARY_NAME})
 # TODO: check if coroutines support has been added to target_compile_features()
-target_compile_options(${SERVER_NAME} PRIVATE "-fcoroutines")
+target_compile_options(${EXECUTABLE_NAME} PRIVATE "-fcoroutines")
 
-add_executable(${CLIENT_NAME} app/${CLIENT_NAME}.cc)
-target_link_libraries(${CLIENT_NAME} PRIVATE ${LIBRARY_NAME})
-# TODO: check if coroutines support has been added to target_compile_features()
-target_compile_options(${CLIENT_NAME} PRIVATE "-fcoroutines")
-
-# Set the properties you require, e.g. what C++ standard to use.
-# Here applied to library and main (change as needed).
 set_target_properties(
-    ${LIBRARY_NAME} ${SERVER_NAME} ${CLIENT_NAME}
+    ${LIBRARY_NAME} ${EXECUTABLE_NAME}
       PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
         #CXX_EXTENSIONS YES
 )
 
-install(TARGETS ${LIBRARY_NAME} ${SERVER_NAME} ${CLIENT_NAME} )
+install(TARGETS ${LIBRARY_NAME} ${EXECUTABLE_NAME} )
 
 # Optional IPO/LTO. Do not enable them if it's not supported by compiler.
 # @see https://cmake.org/cmake/help/latest/module/CheckIPOSupported.html#module:CheckIPOSupported
@@ -142,7 +131,7 @@ include(CheckIPOSupported)
 check_ipo_supported(RESULT IPO_LTO_AVAILABLE)
 if(IPO_LTO_AVAILABLE)
     set_target_properties(
-        ${LIBRARY_NAME} ${SERVER_NAME} ${CLIENT_NAME}
+        ${LIBRARY_NAME} ${EXECUTABLE_NAME}
           PROPERTIES
             INTERPROCEDURAL_OPTIMIZATION YES
     )

@@ -21,22 +21,111 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "sharedstate.hh"
-#include "shared_state_error_code.hh"
-
 #include <chrono>
-#include <iostream>
-#include <regex>
 #include <algorithm>
-#include <optional>
 #include <arpa/inet.h>
 
+#include "sharedstate.hh"
+#include "socket.hh"
+#include "file_read_operation.hh"
+#include "piped_async_command.hh"
+
+#include <util/rsdebug.h>
 #include <util/stacktrace.h>
 #include <util/rsdebuglevel2.h>
 
-namespace SharedState
+std::task<bool> SharedState::syncWithPeer(
+        std::string dataTypeName, const sockaddr_storage& peerAddr,
+        IOContext& ioContext, std::error_condition* errbub )
 {
-std::task<int> receiveNetworkMessage(
+	SharedState::NetworkMessage netMessage;
+	netMessage.mTypeName = dataTypeName;
+
+	std::string cmdGet = "/usr/bin/shared-state get ";
+	cmdGet += netMessage.mTypeName;
+
+	std::shared_ptr<PipedAsyncCommand> luaSharedState =
+	        PipedAsyncCommand::execute(cmdGet, ioContext, errbub);
+	if(!luaSharedState) co_return false;
+
+	netMessage.mData.clear();
+	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
+
+	ssize_t rec_ammount = 0;
+	ssize_t nbRecvFromPipe = 0;
+	int totalReadBytes = 0;
+	auto dataPtr = netMessage.mData.data();
+	do
+	{
+		// TODO: deal with errors
+		nbRecvFromPipe = co_await luaSharedState->readStdOut(
+		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
+		std::string justRecv(
+		            reinterpret_cast<char*>(dataPtr + totalReadBytes),
+		            nbRecvFromPipe );
+		totalReadBytes += nbRecvFromPipe;
+
+		RS_DBG4( luaSharedState,
+		         " nbRecvFromPipe: ", nbRecvFromPipe,
+		         " data read >>>", justRecv, "<<<" );
+	}
+	while (nbRecvFromPipe);
+	netMessage.mData.resize(totalReadBytes);
+
+	// TODO: deal with errors
+	co_await PipedAsyncCommand::waitForProcessTermination(
+	            luaSharedState, errbub );
+
+	// TODO: deal with errors
+	auto tSocket = co_await ConnectingSocket::connect(
+	            peerAddr, ioContext, errbub);
+	auto sentMessageSize = netMessage.mData.size();
+
+	// TODO: deal with errors
+	auto totalSent = co_await
+	        SharedState::sendNetworkMessage(*tSocket, netMessage, errbub);
+
+	// TODO: deal with errors
+	auto totalReceived = co_await
+	        SharedState::receiveNetworkMessage(*tSocket, netMessage, errbub);
+
+	std::string cmdMerge = "/usr/bin/shared-state reqsync ";
+	cmdMerge += netMessage.mTypeName;
+
+
+	// TODO: deal with errors
+	luaSharedState = PipedAsyncCommand::execute(
+	            cmdMerge, tSocket->getIOContext(), errbub );
+
+	if(co_await luaSharedState->writeStdIn(
+	            netMessage.mData.data(), netMessage.mData.size(),
+	            errbub ) == -1)
+	{
+		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
+		co_await tSocket->getIOContext().closeAFD(tSocket);
+		co_return false;
+	}
+
+	/* shared-state keeps reading until it get EOF, so we need to close the
+	 * its stdin once we finish writing so it can process the data and then
+	 * return */
+	co_await luaSharedState->closeStdIn();
+
+	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
+
+	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peerAddr
+	RS_INFO( /*"Synchronized with peer: ", peerAddr,*/
+	         " Sent message type: ", dataTypeName,
+	         " Sent message size: ", sentMessageSize,
+	         " Received message type: ", netMessage.mTypeName,
+	         " Received message size: ", netMessage.mData.size(),
+	         " Total sent bytes: ", totalSent,
+	         " Total received bytes: ", totalReceived );
+
+	co_return true;
+}
+
+std::task<int> SharedState::receiveNetworkMessage(
         Socket& socket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
@@ -103,7 +192,7 @@ std::task<int> receiveNetworkMessage(
 	co_return receivedBytes;
 }
 
-std::task<int> sendNetworkMessage(
+std::task<int> SharedState::sendNetworkMessage(
         Socket& socket, const NetworkMessage& netMsg,
         std::error_condition* errbub )
 {
@@ -138,196 +227,123 @@ std::task<int> sendNetworkMessage(
 	co_return sentBytes;
 }
 
-    std::string extractCommand(std::string &inputString)
-    {
-        std::string delimiter = "\n";
-        size_t pos = 0;
-        if ((pos = inputString.find(delimiter)) != std::string::npos)
-        {
-            std::string command = inputString.substr(0, pos);
-            inputString.erase(0, pos + delimiter.length());
-            return command;
-        }
-        return "";
-    }
+std::task<bool> SharedState::handleReqSyncConnection(
+        std::shared_ptr<Socket> socket,
+        std::error_condition* errbub )
+{
+	NetworkMessage networkMessage;
 
-    std::error_condition extractCommand(std::string &inputString, std::string &command)
-    {
-        std::string delimiter = "\n";
-        size_t pos = 0;
-        if ((pos = inputString.find(delimiter)) != std::string::npos)
-        {
-            command = inputString.substr(0, pos);
-            inputString.erase(0, pos + delimiter.length());
-            return std::error_condition();
-        }
-        return make_error_condition(SharedStateErrorCode::NoCommand);
-    }
+	std::error_condition recvErrc;
+	auto totalReceived = co_await
+	        receiveNetworkMessage(*socket, networkMessage, &recvErrc);
+	if(totalReceived < 0)
+	{
+		RS_INFO("Got invalid data from client ", *socket);
+		co_await socket->getIOContext().closeAFD(socket);
+		co_return false;
+	}
 
-    std::error_condition reqSync(const std::string &stateSlice, std::string &newState)
-    {
-        newState = stateSlice;
-        // llamar a lua shared state reqSync
-        return std::error_condition();
-    }
+	auto receivedMessageSize = networkMessage.mData.size();
 
-    // std::error_condition merge(const std::string& stateSlice)
-    int mergestate(std::string stateSlice, std::string &output)
-    //    int merge(const std::string& stateSlice, std::string& output)
-    {
-        const int bufsize = 128;
-        std::array<char, bufsize> buffer;
-        std::string cmd = "sleep 10 && echo '" + stateSlice + "'";
+#ifdef GIO_DUMMY_TEST
+	std::string cmd = "cat /tmp/shared-state/data/" +
+	        networkMessage.mTypeName + ".json";
+#else
+	std::string cmd = "/usr/bin/shared-state reqsync ";
+	cmd += networkMessage.mTypeName;
+#endif
 
-        auto pipe = popen(cmd.c_str(), "r");
-        if (!pipe)
-            throw std::runtime_error("popen() failed!");
+	std::error_condition tLSHErr;
 
-        size_t count;
-        do
-        {
-            if ((count = fread(buffer.data(), 1, bufsize, pipe)) > 0)
-            {
-                output.insert(output.end(), std::begin(buffer), std::next(std::begin(buffer), count));
-            }
-        } while (count > 0);
-        output = std::regex_replace(output, std::regex("\\r\\n|\\r|\\n"), "");
-        return pclose(pipe);
-    }
-    /*
-        std::string mergestate(std::string arguments)//, Socket* s)
-        {
-            std::array<char, 128> buffer;
-            std::string result;
-            std::string cmd = "sleep 1 && echo '" + arguments + "'";
-            auto begin = std::chrono::high_resolution_clock::now();
-            auto pipe = popen(cmd.c_str(), "r");
-            auto end = std::chrono::high_resolution_clock::now();
-            RS_DBG0("")<< "popen..:" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
-            if (!pipe)
-                throw std::runtime_error("popen() failed!");
+	// TODO: gracefully deal with errors
+	std::shared_ptr<PipedAsyncCommand> luaSharedState =
+	        PipedAsyncCommand::execute(cmd, socket->getIOContext());
 
-            begin = std::chrono::high_resolution_clock::now();
+	if(co_await luaSharedState->writeStdIn(
+	            networkMessage.mData.data(), networkMessage.mData.size(),
+	            &tLSHErr ) == -1)
+	{
+		RS_ERR("Failure writing ", networkMessage.mData.size(), " bytes ",
+		       " to LSH stdin ", tLSHErr );
 
-            //Socket filesocket{pipe,s};
-            //ssize_t nbRecv = co_await filesocket.recvfile(buffer.data(),128);
-            while (!feof(pipe))
-            {
-                if (fgets(buffer.data(), 128, pipe) != nullptr)
-                    result += buffer.data();
-            }
-            end = std::chrono::high_resolution_clock::now();
-            std::cout<< "fgets..:"  << std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count() << std::endl;
-            //filesocket.~Socket();
-            auto rc = pclose(pipe);
+		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
+		co_await socket->getIOContext().closeAFD(socket);
+		co_return false;
+	}
 
-            if (rc == EXIT_SUCCESS)
-            { // == 0
-            }
-            else if (rc == EXIT_FAILURE)
-            { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
-            }
-            //result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
-            return result;
-        }
-    */
-    std::string mergestate(std::string arguments)
-    {
-        std::array<char, 128> buffer;
-        std::string result;
-        std::string cmd = "sleep 1 && echo '" + arguments + "'";
-        auto begin = std::chrono::high_resolution_clock::now();
-        auto pipe = popen(cmd.c_str(), "r");
-        auto end = std::chrono::high_resolution_clock::now();
-        RS_DBG0("popen..:", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
-        if (!pipe)
-            throw std::runtime_error("popen() failed!");
+	/* shared-state keeps reading until it get EOF, so we need to close the
+	 * its stdin once we finish writing so it can process the data and then
+	 * return */
+	co_await luaSharedState->closeStdIn();
 
-        begin = std::chrono::high_resolution_clock::now();
+	networkMessage.mData.clear();
+	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-        while (!feof(pipe))
-        {
-            if (fgets(buffer.data(), 128, pipe) != nullptr)
-                result += buffer.data();
-        }
-        end = std::chrono::high_resolution_clock::now();
-        RS_DBG0("fgets..:", std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
-        auto rc = pclose(pipe);
+	ssize_t nbRecvFromPipe = 0;
+	int totalReadBytes = 0;
+	auto dataPtr = networkMessage.mData.data();
+	do
+	{
+		nbRecvFromPipe = co_await luaSharedState->readStdOut(
+		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
+		std::string justRecv(
+		            reinterpret_cast<char*>(dataPtr + totalReadBytes),
+		            nbRecvFromPipe );
+		totalReadBytes += nbRecvFromPipe;
 
-        if (rc == EXIT_SUCCESS)
-        { // == 0
-        }
-        else if (rc == EXIT_FAILURE)
-        { // EXIT_FAILURE is not used by all programs, maybe needs some adaptation.
-        }
+		RS_DBG0( luaSharedState,
+		         " nbRecvFromPipe: ", nbRecvFromPipe,
+		         " data read >>>", justRecv, "<<<" );
+	}
+	while(nbRecvFromPipe);
+	co_await luaSharedState->closeStdOut();
 
-        result = std::regex_replace(result, std::regex("\\r\\n|\\r|\\n"), "");
-        return result;
-    }
-    std::optional<std::string> optMergeState(std::string arguments)
-    {
-        std::array<char, 128> buffer;
-        std::string result;
-        std::string cmd = "sleep 1 && echo '" + arguments + "'";
-        auto pipe = popen(cmd.c_str(), "r");
+	/* Truncate data size to necessary. Avoid sending millions of zeros around.
+	 *
+	 * While testing on my Gentoo machine, I noticed that printing to the
+	 * terminal networkMessage.mData seemed to be extremely costly to the point
+	 * to keep my CPU usage at 100% for at least 20 seconds doing something
+	 * unclear, even more curious the process being reported to eat the CPU was
+	 * not shared-state-server but the parent console on which the process is
+	 * running, in my case either Qt Creator or Konsole, even when running under
+	 * gdb. When redirecting the output to either a file or /dev/null the
+	 * problem didn't happen, but the created file was 1GB, aka
+	 * DATA_MAX_LENGHT of that time.
+	 *
+	 * Similar behavior appeared if printing networkMessage.mData on the
+	 * shared-state-client.
+	 *
+	 * The culprit wasn't that obvious at first all those nullbytes where
+	 * invisible.
+	 */
+	networkMessage.mData.resize(totalReadBytes);
 
-        if (!pipe)
-        {
-            RS_ERR("error opening pipe");
+#ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
+	/* When running on OpenWrt the execvp command line is read as first line
+	 * of the pipe content.
+	 * It happens with both shared-state lua command and with cat command.
+	 * TODO: investigate why this is happening, and if a better way to deal with
+	 * it exists */
+	{
+		auto& mData = networkMessage.mData;
+		auto&& cmdEnd = std::find(mData.begin(), mData.end(), '\n');
+		mData.erase(mData.begin(), ++cmdEnd);
+	}
+#endif // def SS_OPENWRT_BUILD
 
-            return {};
-        }
+	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
 
-        while (!feof(pipe))
-        {
-            if (fgets(buffer.data(), 128, pipe) != nullptr)
-                result += buffer.data();
-        }
+	auto totalSent = co_await sendNetworkMessage(*socket, networkMessage);
 
-        auto rc = pclose(pipe);
+	co_await socket->getIOContext().closeAFD(socket);
 
-        if (rc == EXIT_SUCCESS)
-        {
-        }
-        else if (rc == EXIT_FAILURE)
-        {
-            RS_ERR("eror on merge");
-            return {};
-        }
-        result = std::regex_replace(result, std::regex("\\r\\n|\\r|\\n"), "");
-        return result;
-    }
+	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peer address
+	RS_INFO( *socket,
+	         " Received message type: ", networkMessage.mTypeName,
+	         " Received message size: ", receivedMessageSize,
+	         " Sent message size: ", networkMessage.mData.size(),
+	         " Total sent bytes: ", totalSent,
+	         " Total received bytes: ", totalReceived );
 
-    /*
-    /// @brief error_condition ... > es como error code pero crossplatform
-    /// error_code ... es dependiente de plataforma
-    /// @param arguments
-    /// @return
-    tl::expected<std::string, std::error_condition> expMergestate(std::string arguments, bool willFail)
-    {
-        std::array<char, 128> buffer;
-        std::string result;
-        std::string cmd = "echo '" + arguments + "'";
-        auto pipe = popen(cmd.c_str(), "r");
-
-        if (!pipe || willFail)
-        {
-            return tl::unexpected<std::error_condition>{make_error_condition(SharedStateErrorCode::OpenPipeError)};
-        }
-        while (!feof(pipe))
-        {
-            if (fgets(buffer.data(), 128, pipe) != nullptr)
-                result += buffer.data();
-        }
-
-        auto rc = pclose(pipe);
-
-        if (rc == EXIT_FAILURE)
-        {
-            return tl::unexpected<std::error_condition>(make_error_condition(SharedStateErrorCode::OpenPipeError));
-        }
-        result = std::regex_replace(result, std::regex("\\r\\n|\\r|\\n"), "");
-        return result;
-    }*/
-
+	co_return false;
 }
