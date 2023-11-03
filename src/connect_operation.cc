@@ -21,6 +21,10 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <cerrno>
+#include <system_error>
+
+#include <util/rsnet.h>
 
 #include "io_context.hh"
 #include "connect_operation.hh"
@@ -35,7 +39,7 @@ ConnectOperation::ConnectOperation(
     BlockSyscall<ConnectOperation, int>(ec),
     mSocket(socket), mAddr(address)
 {
-	RS_DBG4(socket); // TODO: , " ", address
+	RS_DBG2(socket, " ", sockaddr_storage_tostring(address));
 	mSocket.getIOContext().watchWrite(&mSocket);
 };
 
@@ -61,10 +65,29 @@ int ConnectOperation::syscall()
 
 	RS_DBG4(mSocket);
 
-	return connect(
+	auto ret = connect(
 	            mSocket.getFD(),
 	            reinterpret_cast<const sockaddr*>(&mAddr),
 	            len );
+
+	if(ret && !errno)
+	{
+		/* On OpenWrt connect may fail returning -1 but forgetting to set
+		 * errno to the error (so it remains 0), thus fooling the
+		 * whole upstream error dealing logic, ultimately causing unexpected
+		 * behaviours and crashes.
+		 * Deal here with that situation overriding errno to avoid having to
+		 * deal with it all over upstream code.
+		 * Override errno with ERANGE as it shouldn't be normally raised by
+		 * connect and so make it easy to detect this specific situation when
+		 * propagated upstream. */
+		RS_DBG1( mSocket, " connect to ", sockaddr_storage_tostring(mAddr),
+		         " with ret: ", ret, " but forgetting to set errno: ", errno,
+		         " overriding it with", std::errc::result_out_of_range );
+		errno = ERANGE;
+	}
+
+	return ret;
 }
 
 void ConnectOperation::suspend()
