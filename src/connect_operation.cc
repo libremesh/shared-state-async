@@ -63,12 +63,13 @@ int ConnectOperation::syscall()
 		break;
 	}
 
-	RS_DBG4(mSocket);
-
 	auto ret = connect(
 	            mSocket.getFD(),
 	            reinterpret_cast<const sockaddr*>(&mAddr),
 	            len );
+
+	RS_DBG2( mSocket, " connect to ", sockaddr_storage_tostring(mAddr),
+	         " with ret: ", ret, " errno: ", errno );
 
 	if(ret && !errno)
 	{
@@ -82,7 +83,7 @@ int ConnectOperation::syscall()
 		 * connect and so make it easy to detect this specific situation when
 		 * propagated upstream. */
 		RS_DBG1( mSocket, " connect to ", sockaddr_storage_tostring(mAddr),
-		         " with ret: ", ret, " but forgetting to set errno: ", errno,
+		         " with ret: ", ret, " but forgetting to set errno ",
 		         " overriding it with", std::errc::result_out_of_range );
 		errno = ERANGE;
 	}

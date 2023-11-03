@@ -54,10 +54,11 @@ std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
 
 	std::error_condition connectEC;
 	auto conRet = co_await
-	        ConnectOperation(*lSocket.get(), address, &connectEC);
+	        ConnectOperation(*lSocket, address, &connectEC);
 	if(conRet)
 	{
-		RS_DBG1("connect operation failed ret: ", conRet, " ", lSocket, connectEC);
+		RS_DBG1( "connect operation failed ret: ", conRet, " ", *lSocket,
+		         connectEC );
 		co_await ioContext.closeAFD(lSocket);
 		rs_error_bubble_or_exit( connectEC, ec,
 		                        "connect operation failed ", lSocket );
