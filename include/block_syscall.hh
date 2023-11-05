@@ -29,8 +29,9 @@
 #include <type_traits>
 #include <iostream>
 
+#include <util/rserrorbubbleorexit.h>
+#include <util/rsdebug.h>
 #include <util/rsdebuglevel2.h>
-#include <util/stacktrace.h>
 
 
 /**

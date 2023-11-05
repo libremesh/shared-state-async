@@ -34,7 +34,7 @@
 #include "piped_async_command.hh"
 
 #include <util/rsdebug.h>
-#include <util/stacktrace.h>
+#include <util/rserrorbubbleorexit.h>
 #include <util/rsdebuglevel2.h>
 
 std::task<bool> SharedState::syncWithPeer(
