@@ -61,6 +61,18 @@ void IOContext::run()
 		auto nfds = epoll_wait(mEpollFD, events, DEFAULT_MAX_EVENTS, -1);
 		if (nfds == -1)
 		{
+#if RS_DEBUG_LEVEL > 0
+			/* While running under GDB epoll_wait easily to incurr into
+			 * erro 4 EINTR Interrupted system call, due to debugging,
+			 * in that case should it should be re-attempted
+			 * @see https://stackoverflow.com/a/2253013 */
+			if(errno == EINTR)
+			{
+				RS_DBG( "epoll_wait got EINTR, probably interrupted due to "
+				        "attached debugger, retrying" );
+				continue;
+			}
+#endif //  RS_DEBUG_LEVEL > 0
 			std::error_condition* nulli = nullptr;
 			rs_error_bubble_or_exit(
 			            rs_errno_to_condition(errno), nulli,
