@@ -63,7 +63,16 @@ public:
 	        std::string cmd, IOContext& ioContext,
 	        std::error_condition* errbub = nullptr );
 
-	static std::task<pid_t> waitForProcessTermination(
+
+	/**
+	 * Asynchronously waits for a process to die.
+	 * @warning if this method is not called the forked process will be
+	 * a zombi.
+	 * TODO: add runtime consistenct check in the destructor to detect orfaned
+	 * process
+	 * @return false on error, true otherwise
+	 */
+	static std::task<bool> waitForProcessTermination(
 	        std::shared_ptr<PipedAsyncCommand> pac,
 	        std::error_condition* errbub = nullptr );
 
@@ -85,6 +94,8 @@ public:
 		}
 	};
 
+	/* TODO: Maybe we should not expose XxxOp to the users, as implementation
+	 * details may likely change */
 	ReadOp readStdOut(
 	        uint8_t* buffer, std::size_t len,
 	        std::error_condition* errbub = nullptr );

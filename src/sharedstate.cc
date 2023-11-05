@@ -75,9 +75,8 @@ std::task<bool> SharedState::syncWithPeer(
 	while (nbRecvFromPipe);
 	netMessage.mData.resize(totalReadBytes);
 
-	// TODO: deal with errors
-	co_await PipedAsyncCommand::waitForProcessTermination(
-	            luaSharedState, errbub );
+	if(! co_await PipedAsyncCommand::waitForProcessTermination(
+	            luaSharedState, errbub )) co_return false;
 
 	auto tSocket = co_await ConnectingSocket::connect(
 	            peerAddr, ioContext, errbub);

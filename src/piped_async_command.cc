@@ -217,18 +217,14 @@ std::task<bool> PipedAsyncCommand::closeStdOut(std::error_condition* errbub)
 	co_return mRet;
 }
 
-/**
- * Asynchronously waits for a process to die.
- * @warning if this method is not called the forked process will be
- * a zombi.
- */
-/*static*/ std::task<pid_t> PipedAsyncCommand::waitForProcessTermination(
+/*static*/ std::task<bool> PipedAsyncCommand::waitForProcessTermination(
         std::shared_ptr<PipedAsyncCommand> pac,
         std::error_condition* errbub )
 {
-	auto dPid = co_await DyingProcessWaitOperation(*pac, pac->getFD());
-	co_await pac->getIOContext().closeAFD(pac, errbub);
-	co_return dPid;
+	co_return
+	        ( pac->getPid() ==
+	        co_await DyingProcessWaitOperation(*pac, pac->getFD(), errbub ) )
+	        && co_await pac->getIOContext().closeAFD(pac, errbub);
 }
 
 template<>
