@@ -64,6 +64,7 @@ std::task<> syncWithPeers(
 	for(auto&& peerAddress : peerAddresses)
 	{
 		std::error_condition errInfo;
+		RS_DBG1("errInfo: ", &errInfo);
 		bool peerSynced = co_await
 		        SharedState::syncWithPeer(
 		            dataTypeName, peerAddress, ioContext, &errInfo );

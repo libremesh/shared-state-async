@@ -131,6 +131,6 @@ protected:
 	bool mHaveSuspend;
 	std::coroutine_handle<> mAwaitingCoroutine;
 
-	std::error_condition* mError;
+	std::error_condition* const mError;
 	ReturnValue mReturnValue;
 };
