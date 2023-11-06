@@ -72,7 +72,7 @@ public:
 	static std::task<std::shared_ptr<ConnectingSocket>> connect(
 	        const sockaddr_storage& address,
 	        IOContext& ioContext,
-	        std::error_condition* ec = nullptr );
+	        std::error_condition* errbub = nullptr );
 
 protected:
 	friend IOContext;

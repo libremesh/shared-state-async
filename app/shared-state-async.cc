@@ -50,7 +50,7 @@ std::task<> syncWithPeers(
 {
 	std::vector<sockaddr_storage> discoveredPeersAddresses;
 
-	/* Peers wheren't specified let's discover potential peers */
+	/* Peers weren't specified let's discover potential peers */
 	if(peerAddressesPassed.empty())
 		co_await SharedState::getCandidatesNeighbours(
 		            discoveredPeersAddresses, ioContext );

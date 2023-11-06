@@ -51,21 +51,57 @@ ConnectOperation::~ConnectOperation()
 
 int ConnectOperation::syscall()
 {
-	socklen_t len = 0;
-	switch (mAddr.ss_family)
+	/* Detecting errors on non-blocking connect is not trivial
+	 * @see https://stackoverflow.com/questions/17769964/linux-sockets-non-blocking-connect
+	 */
+
+	if(mFirstRun)
 	{
-	case AF_INET:
-		len = sizeof(struct sockaddr_in);
-		break;
-	case AF_INET6:
-		len = sizeof(struct sockaddr_in6);
-		break;
+		mFirstRun = false;
+
+		if( !sockaddr_storage_isValidNet(mAddr) ||
+		        !sockaddr_storage_ipv4_to_ipv6(mAddr) )
+		{
+			RS_ERR("Invalid address: ", sockaddr_storage_tostring(mAddr));
+			print_stacktrace();
+			errno = EINVAL;
+			return -1;
+		}
+
+		return connect(
+		            mSocket.getFD(),
+		            reinterpret_cast<const sockaddr*>(&mAddr),
+		            sizeof(struct sockaddr_in6) );
 	}
 
-	return connect(
+	socklen_t peerLen = 0;
+	sockaddr_storage mPeerAddr;
+	int getPeerNameRet =
+	        getpeername(
 	            mSocket.getFD(),
-	            reinterpret_cast<const sockaddr*>(&mAddr),
-	            len );
+	            reinterpret_cast<sockaddr*>(&mPeerAddr), &peerLen );
+
+	if(getPeerNameRet)
+	{
+		RS_DBG1( "Failure connecting to: ", sockaddr_storage_tostring(mAddr),
+		         " on: ", mSocket );
+
+		if(errno == ENOTCONN)
+		{
+			char mDiscard;
+			int readRet = read(mSocket.getFD(), &mDiscard, 1);
+			int readErr = errno;
+			RS_DBG1( "Failure connecting to: ", sockaddr_storage_tostring(mAddr),
+			         " on: ", mSocket, " with: ", rs_errno_to_condition(readErr) );
+			return readRet;
+		}
+
+		return -1;
+	}
+
+	RS_DBG1( "Successful connection to: ", sockaddr_storage_tostring(mPeerAddr),
+	         " on: ", mSocket );
+	return 0;
 }
 
 void ConnectOperation::suspend()

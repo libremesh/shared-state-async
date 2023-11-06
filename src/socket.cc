@@ -23,7 +23,6 @@
 
 #include "socket.hh"
 #include "connect_operation.hh"
-#include "close_operation.hh"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -34,27 +33,45 @@
 #include <iostream>
 #include <cerrno>
 
+#include <util/rsnet.h>
+#include <util/rserrorbubbleorexit.h>
 #include <util/stacktrace.h>
+#include <util/rsdebug.h>
 #include <util/rsdebuglevel2.h>
 
 std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
         const sockaddr_storage& address,
-        IOContext& ioContext, std::error_condition* ec )
+        IOContext& ioContext, std::error_condition* errbub )
 {
 	int fd = socket(PF_INET6, SOCK_STREAM, 0);
 	if(fd < 0)
 	{
 		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), ec, "creating socket" );
+		            rs_errno_to_condition(errno), errbub, "creating socket" );
 		co_return nullptr;
 	}
 
 	auto lSocket = ioContext.registerFD<ConnectingSocket>(fd);
 	ioContext.attachWriteOnly(lSocket.get());
 
-	auto connectFailed = co_await
-	        ConnectOperation(*lSocket, address, ec);
-	if(connectFailed)
+/*
+	int connectRet;
+	std::error_condition connectError;
+	do connectRet = co_await ConnectOperation(*lSocket, address, &connectError);
+	while (connectRet && !connectError);
+
+	if(connectRet)
+	{
+		rs_error_bubble_or_exit(
+		            connectError, errbub,
+		            "failure connecting to: ", sockaddr_storage_tostring(address),
+		            " on: ", *lSocket );
+		co_await ioContext.closeAFD(lSocket);
+		co_return nullptr;
+	}
+*/
+
+	if(co_await ConnectOperation(*lSocket, address, errbub))
 	{
 		co_await ioContext.closeAFD(lSocket);
 		co_return nullptr;

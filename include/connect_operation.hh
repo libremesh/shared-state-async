@@ -43,4 +43,5 @@ public:
 private:
 	AsyncFileDescriptor& mSocket;
 	sockaddr_storage mAddr;
+	bool mFirstRun = true;
 };
