@@ -123,6 +123,15 @@ public:
 		{
 			// We had to suspend last time, so we need to call the syscall again
 			mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
+			if(mReturnValue == -1)
+			{
+				RS_DBG1( "syscall failed on resume ",
+				         "mReturnValue: ", mReturnValue,
+				         " && errno: ", rs_errno_to_condition(errno) );
+				rs_error_bubble_or_exit(
+				            rs_errno_to_condition(errno), mError,
+				            "syscall failed on resume" );
+			}
 		}
 
 		return mReturnValue;
