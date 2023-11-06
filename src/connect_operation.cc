@@ -35,18 +35,17 @@
 ConnectOperation::ConnectOperation(
          AsyncFileDescriptor& socket, const sockaddr_storage& address,
         std::error_condition* ec ) :
-    BlockSyscall<ConnectOperation, int>(ec),
-    mSocket(socket), mAddr(address)
+    AwaitableSyscall<ConnectOperation, int>(socket, ec), mAddr(address)
 {
 	RS_DBG2(socket, " ", sockaddr_storage_tostring(address));
-	mSocket.getIOContext().watchWrite(&mSocket);
+	socket.getIOContext().watchWrite(&socket);
 };
 
 
 ConnectOperation::~ConnectOperation()
 {
 	RS_DBG4("");
-	mSocket.getIOContext().unwatchWrite(&mSocket);
+	mAFD.getIOContext().unwatchWrite(&mAFD);
 }
 
 int ConnectOperation::syscall()
@@ -69,7 +68,7 @@ int ConnectOperation::syscall()
 		}
 
 		return connect(
-		            mSocket.getFD(),
+		            mAFD.getFD(),
 		            reinterpret_cast<const sockaddr*>(&mAddr),
 		            sizeof(struct sockaddr_in6) );
 	}
@@ -78,21 +77,21 @@ int ConnectOperation::syscall()
 	sockaddr_storage mPeerAddr;
 	int getPeerNameRet =
 	        getpeername(
-	            mSocket.getFD(),
+	            mAFD.getFD(),
 	            reinterpret_cast<sockaddr*>(&mPeerAddr), &peerLen );
 
 	if(getPeerNameRet)
 	{
 		RS_DBG1( "Failure connecting to: ", sockaddr_storage_tostring(mAddr),
-		         " on: ", mSocket );
+		         " on: ", mAFD );
 
 		if(errno == ENOTCONN)
 		{
 			char mDiscard;
-			int readRet = read(mSocket.getFD(), &mDiscard, 1);
+			int readRet = read(mAFD.getFD(), &mDiscard, 1);
 			int readErr = errno;
 			RS_DBG1( "Failure connecting to: ", sockaddr_storage_tostring(mAddr),
-			         " on: ", mSocket, " with: ", rs_errno_to_condition(readErr) );
+			         " on: ", mAFD, " with: ", rs_errno_to_condition(readErr) );
 			return readRet;
 		}
 
@@ -100,11 +99,6 @@ int ConnectOperation::syscall()
 	}
 
 	RS_DBG1( "Successful connection to: ", sockaddr_storage_tostring(mPeerAddr),
-	         " on: ", mSocket );
+	         " on: ", mAFD );
 	return 0;
-}
-
-void ConnectOperation::suspend()
-{
-	mSocket.addPendingOp(mAwaitingCoroutine);
 }

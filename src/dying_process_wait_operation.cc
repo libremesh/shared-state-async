@@ -37,10 +37,10 @@
  *  the process is not dead the method will kill it. 
  */
 DyingProcessWaitOperation::DyingProcessWaitOperation(
-        AsyncFileDescriptor& AFD,
+        AsyncFileDescriptor& afd,
         pid_t process_to_wait,
         std::error_condition* ec ):
-    BlockSyscall{ec}, mAFD{AFD}, mPid(process_to_wait)
+    AwaitableSyscall{afd, ec}, mPid(process_to_wait)
 {
 	mAFD.getIOContext().watchRead(&mAFD);
 }
@@ -56,8 +56,10 @@ pid_t DyingProcessWaitOperation::syscall()
 
 	if (cpid == 0 || cpid == -1)
 	{
-		// just in case kill the process.
-		// TODO: kill is maybe too harsh evaluate SIGTERM instead
+		/* TODO: kill is very harsh and may break stuff, and not what should be
+		 * done here.
+		 * We should instead implement some kind of timeout mechanism and in any
+		 * case after SIGTERM usage as a PipedAsyncCommand method */
 		kill(mPid, SIGKILL);
 
 		/* if the state has not changed wait returns 0...
@@ -70,10 +72,4 @@ pid_t DyingProcessWaitOperation::syscall()
 		RS_DBG2( "Success waiting process id: ", cpid, " ", mAFD );
 	}
 	return cpid;
-}
-
-void DyingProcessWaitOperation::suspend()
-{
-	// mAFD.coroRecv_ = mAwaitingCoroutine;
-	mAFD.addPendingOp(mAwaitingCoroutine);
 }

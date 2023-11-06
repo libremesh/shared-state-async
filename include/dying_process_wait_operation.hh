@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -21,16 +22,15 @@
  */
 #pragma once
 
-#include "block_syscall.hh"
-
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <memory>
+
+#include "awaitable_syscall.hh"
 
 class AsyncFileDescriptor;
 
 class DyingProcessWaitOperation:
-        public BlockSyscall<DyingProcessWaitOperation, pid_t>
+        public AwaitableSyscall<DyingProcessWaitOperation, pid_t, true>
 {
 public:
 	DyingProcessWaitOperation(
@@ -40,9 +40,7 @@ public:
 	~DyingProcessWaitOperation();
 
 	pid_t syscall();
-	void suspend();
 
 private:
-	AsyncFileDescriptor& mAFD;
 	pid_t mPid;
 };

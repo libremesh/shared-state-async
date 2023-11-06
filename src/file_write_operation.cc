@@ -32,8 +32,7 @@ WriteOp::WriteOp(
         AsyncFileDescriptor& AFD,
         const uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
-    BlockSyscall{ec},
-    mAFD{AFD}, mBuffer{buffer}, mLen{len}
+    AwaitableSyscall{AFD, ec}, mBuffer{buffer}, mLen{len}
 {
 	mAFD.getIOContext().watchWrite(&mAFD);
 }
@@ -50,10 +49,4 @@ ssize_t WriteOp::syscall()
 	            reinterpret_cast<const char*>(mBuffer), mLen );
 
 	return bytes_writen;
-}
-
-void WriteOp::suspend()
-{
-	//mAFD.coroSend_ = mAwaitingCoroutine;
-	mAFD.addPendingOp(mAwaitingCoroutine);
 }

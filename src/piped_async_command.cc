@@ -171,12 +171,11 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		if(execvp(argcexec.data()[0], argcexec.data()) == -1)
 		{
 			/* We are on the child process so no-one must be there to deal with
-			 * the error condition bubbling up, pass nullptr so it just
-			 * terminate printing error details */
-			std::error_condition* nully = nullptr;
-			rs_error_bubble_or_exit(
-			            rs_errno_to_condition(errno), errbub,
-			            "execvp(...) failed" );
+			 * the error condition bubbling up, terminate printing error
+			 * details */
+			RS_FATAL( rs_errno_to_condition(errno), " execvp failed");
+			print_stacktrace();
+			exit(errno);
 		}
 	}
 /* END: CODE EXECUTED ON THE CHILD PROCESS ************************************/
@@ -188,7 +187,7 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 ReadOp PipedAsyncCommand::readStdOut(
         uint8_t* buffer, std::size_t len, std::error_condition* errbub)
 {
-	return ReadOp{mStdOut, buffer, len};
+	return ReadOp{*mStdOut, buffer, len};
 }
 
 WriteOp PipedAsyncCommand::writeStdIn(

@@ -26,16 +26,16 @@
 
 SocketAcceptOperation::SocketAcceptOperation(
         ListeningSocket& socket, std::error_condition* ec ):
-    BlockSyscall(ec), mLSocket(socket)
+    AwaitableSyscall{socket, ec}
 {
 	RS_DBG3("");
-	mLSocket.getIOContext().watchRead(&mLSocket);
+	mAFD.getIOContext().watchRead(&mAFD);
 }
 
 SocketAcceptOperation::~SocketAcceptOperation()
 {
 	RS_DBG3("");
-	mLSocket.getIOContext().watchRead(&mLSocket);
+	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
 int SocketAcceptOperation::syscall()
@@ -46,11 +46,5 @@ int SocketAcceptOperation::syscall()
 	/* TODO: Saving/recording the address of the peer connecting to us might be
 	 * useful for debugging */
 
-	return accept(mLSocket.getFD(), (struct sockaddr *)&their_addr, &addr_size);
-}
-
-void SocketAcceptOperation::suspend()
-{
-	// mLSocket.coroRecv_ = mAwaitingCoroutine;
-	mLSocket.addPendingOp(mAwaitingCoroutine);
+	return accept(mAFD.getFD(), (struct sockaddr *)&their_addr, &addr_size);
 }

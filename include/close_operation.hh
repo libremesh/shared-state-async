@@ -20,20 +20,16 @@
  */
 #pragma once
 
-#include "block_syscall.hh"
+#include "awaitable_syscall.hh"
 
 class AsyncFileDescriptor;
 
-class CloseOperation : public BlockSyscall<CloseOperation, int>
+class CloseOperation : public AwaitableSyscall<CloseOperation, int>
 {
 public:
 	CloseOperation(
-	        AsyncFileDescriptor& AFD, std::error_condition* ec = nullptr ):
-	    BlockSyscall{ec}, mAFD{AFD} {}
+	        AsyncFileDescriptor& afd, std::error_condition* ec = nullptr ):
+	    AwaitableSyscall{afd, ec} {}
 
 	int syscall();
-	void suspend();
-
-private:
-	AsyncFileDescriptor& mAFD;
 };

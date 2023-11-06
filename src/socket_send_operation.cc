@@ -29,22 +29,17 @@
 SocketSendOperation::SocketSendOperation(
         Socket& socket, const uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
-    BlockSyscall{ec}, mSocket{socket}, mBuffer{buffer}, mLen{len}
+    AwaitableSyscall{socket, ec}, mBuffer{buffer}, mLen{len}
 {
-	mSocket.getIOContext().watchWrite(&mSocket);
+	socket.getIOContext().watchWrite(&socket);
 }
 
 SocketSendOperation::~SocketSendOperation()
 {
-	mSocket.getIOContext().unwatchWrite(&mSocket);
+	mAFD.getIOContext().unwatchWrite(&mAFD);
 }
 
 ssize_t SocketSendOperation::syscall()
 {
-	return send(mSocket.getFD(), mBuffer, mLen, 0);
-}
-
-void SocketSendOperation::suspend()
-{
-	mSocket.addPendingOp(mAwaitingCoroutine);
+	return send(mAFD.getFD(), mBuffer, mLen, 0);
 }

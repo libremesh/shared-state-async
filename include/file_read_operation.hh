@@ -22,28 +22,23 @@
  */
 #pragma once
 
-#include <memory>
 #include <cstdint>
 
-#include "block_syscall.hh"
+#include "awaitable_syscall.hh"
 
 class AsyncFileDescriptor;
 
-class ReadOp : public BlockSyscall<ReadOp, ssize_t>
+class ReadOp : public AwaitableSyscall<ReadOp, ssize_t>
 {
 public:
-	ReadOp(
-	        std::shared_ptr<AsyncFileDescriptor> afd,
+	ReadOp( AsyncFileDescriptor& afd,
 	        uint8_t* buffer, std::size_t len,
 	        std::error_condition* ec = nullptr );
 	~ReadOp();
 
 	ssize_t syscall();
-	void suspend();
 
 private:
-	// TODO: const std::shared_ptr<AsyncFileDescriptor>& may be enough
-	std::shared_ptr<AsyncFileDescriptor> mAFD;
 	uint8_t* mBuffer;
 	std::size_t mLen;
 };

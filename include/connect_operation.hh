@@ -21,15 +21,15 @@
 
 #include <sys/socket.h>
 
-#include "block_syscall.hh"
-#include "async_file_descriptor.hh"
+#include "awaitable_syscall.hh"
 
-class Socket;
+
+class AsyncFileDescriptor;
 
 /**
  * @brief Wrap connect system call for asynchronous operation
  */
-class ConnectOperation : public BlockSyscall<ConnectOperation, int>
+class ConnectOperation : public AwaitableSyscall<ConnectOperation, int>
 {
 public:
 	ConnectOperation(
@@ -38,10 +38,8 @@ public:
 	~ConnectOperation();
 
 	int syscall();
-	void suspend();
 
 private:
-	AsyncFileDescriptor& mSocket;
 	sockaddr_storage mAddr;
 	bool mFirstRun = true;
 };

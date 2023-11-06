@@ -28,8 +28,3 @@ int CloseOperation::syscall()
 {
 	return close(mAFD.getFD());
 }
-
-void CloseOperation::suspend()
-{
-	mAFD.addPendingOp(mAwaitingCoroutine);
-}

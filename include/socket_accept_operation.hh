@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "block_syscall.hh"
+#include "awaitable_syscall.hh"
 
 class ListeningSocket;
 
@@ -31,7 +31,7 @@ class ListeningSocket;
  * @brief Implements an asynchronous Socket Accept Operation
  * 
  */
-class SocketAcceptOperation : public BlockSyscall<SocketAcceptOperation, int>
+class SocketAcceptOperation : public AwaitableSyscall<SocketAcceptOperation, int>
 {
 public:
 	explicit SocketAcceptOperation(
@@ -40,8 +40,4 @@ public:
 	~SocketAcceptOperation();
 
 	int syscall();
-	void suspend();
-
-private:
-	ListeningSocket& mLSocket;
 };

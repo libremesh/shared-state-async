@@ -27,48 +27,20 @@
 #include <util/rsdebug.h>
 
 SocketRecvOperation::SocketRecvOperation(
-        Socket& socket,
+        Socket& afd,
         uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
-    BlockSyscall{ec}, mSocket{socket}, mBuffer{buffer}, mLen{len}
+    AwaitableSyscall(afd, ec), mBuffer{buffer}, mLen{len}
 {
-	mSocket.getIOContext().watchRead(&mSocket);
+	mAFD.getIOContext().watchRead(&mAFD);
 }
 
 SocketRecvOperation::~SocketRecvOperation()
 {
-	mSocket.getIOContext().unwatchRead(&mSocket);
+	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
 ssize_t SocketRecvOperation::syscall()
 {
-	ssize_t bytesread = recv(mSocket.getFD(), mBuffer, mLen, 0);
-
-#if 0
-	/* this method is invoked at least once but the socket is not free.
-	 * this is not problem since the BlockSyscall::await_suspend will test for
-	 * -1 return value and test errno (EWOULDBLOCK or EAGAIN)
-	 * and then suspend the execution until a new notification arrives
-	 */
-	if (bytesread == -1)
-	{
-		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno),
-		            mError, "recv failed" );
-	}
-	else
-	{
-		mBuffer[bytesread]='\0';
-		mBuffer[bytesread+1]='\0';
-		bytesread = bytesread +2;
-	}
-#endif
-
-	return bytesread;
-}
-
-void SocketRecvOperation::suspend()
-{
-	// mSocket.coroRecv_ = mAwaitingCoroutine;
-	mSocket.addPendingOp(mAwaitingCoroutine);
+	return recv(mAFD.getFD(), mBuffer, mLen, 0);
 }

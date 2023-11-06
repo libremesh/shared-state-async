@@ -29,10 +29,11 @@
 #include <type_traits>
 #include <iostream>
 
+#include "async_file_descriptor.hh"
+
 #include <util/rserrorbubbleorexit.h>
 #include <util/rsdebug.h>
 #include <util/rsdebuglevel2.h>
-
 
 /**
  * @brief BlockSyscall is a base class for all kind of asynchronous syscalls
@@ -45,6 +46,8 @@
  * On the contrary if a valid pointer is passed, when an error occurr the
  * information about the error will be stored there for the upstream caller to
  * deal with it.
+ * @tparam multiShot true if wrapped syscall may cause epoll_wait to return more
+ * then once before being ready/complete, waitpid is an example of that.
  *
  * Derived classes MUST implement the following methods
  * @code{.cpp}
@@ -52,19 +55,25 @@
  * void suspend();
  * @endcode
  *
- * The syscall method is where the actuall syscall must happen.
- *
- * TODO: What is the suspend method supposed to do?
+ * The syscall method is where the actuall syscall must happen, on failure -1
+ * must be returned, if more attempts are needed errno must be set to EAGAIN
+ * @see shouldWait() for other errno values interpreted like EAGAIN
  *
  * Pure virtual definition not included at moment to virtual method tables
  * generation (haven't verified if this is necessary or not).
  */
-template <typename SyscallOpt, typename ReturnValue>
-class BlockSyscall // Awaiter
+template < typename SyscallOpt,
+           typename ReturnValue,
+           bool multiShot = false,
+           ReturnValue errorValue = -1 >
+class AwaitableSyscall
 {
+	//static_assert(std::is_base_of<AwaitableSyscall, SyscallOpt>::value);
+
 public:
-	BlockSyscall(std::error_condition* ec):
-	    mHaveSuspend{false}, mError{ec} {}
+	AwaitableSyscall( AsyncFileDescriptor& afd,
+	                  std::error_condition* ec = nullptr ):
+	    mHaveSuspend{false}, mError{ec}, mAFD(afd) {}
 
 	bool await_ready() const noexcept
 	{
@@ -76,14 +85,10 @@ public:
 	{
 		RS_DBG3("");
 
-		static_assert(std::is_base_of_v<BlockSyscall, SyscallOpt>);
 		mAwaitingCoroutine = awaitingCoroutine;
 		mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
-		mHaveSuspend =
-		    mReturnValue == -1 && (
-		            errno == EAGAIN ||
-		            errno == EWOULDBLOCK ||
-		            errno == EINPROGRESS );
+		mHaveSuspend = (mReturnValue == errorValue) && shouldWait(errno);
+
 		if (mHaveSuspend)
 		{
 			/* The syscall indicated we must wait, and retry later so let's
@@ -91,9 +96,10 @@ public:
 			 */
 			RS_DBG3( "let suspend for now mReturnValue: ", mReturnValue,
 			         " && errno: ", rs_errno_to_condition(errno) );
-			static_cast<SyscallOpt *>(this)->suspend();
+			// static_cast<SyscallOpt *>(this)->suspend();
+			suspend();
 		}
-		else if (mReturnValue == -1)
+		else if (mReturnValue == errorValue)
 		{
 			/* If downstream callers apparently get an error before crashing,
 			 * but print errno 0, most likely reason is not the failed syscall
@@ -123,11 +129,20 @@ public:
 		{
 			// We had to suspend last time, so we need to call the syscall again
 			mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
-			if(mReturnValue == -1)
+
+			if(multiShot && mReturnValue == errorValue && shouldWait(errno))
+			{
+				RS_DBG1( "syscall want more waiting on resume ",
+				         "mReturnValue: ", mReturnValue,
+				         rs_errno_to_condition(errno) );
+				//static_cast<SyscallOpt *>(this)->suspend();
+				suspend();
+			}
+			else if(mReturnValue == errorValue)
 			{
 				RS_DBG1( "syscall failed on resume ",
 				         "mReturnValue: ", mReturnValue,
-				         " && errno: ", rs_errno_to_condition(errno) );
+				         rs_errno_to_condition(errno) );
 				rs_error_bubble_or_exit(
 				            rs_errno_to_condition(errno), mError,
 				            "syscall failed on resume" );
@@ -137,10 +152,30 @@ public:
 		return mReturnValue;
 	}
 
-protected:
-	bool mHaveSuspend;
+	void suspend()
+	{
+		mAFD.addPendingOp(mAwaitingCoroutine);
+	}
+
+	/**
+	 * @brief errno tell we should wait or not?
+	 * @param sErrno errno as set by the previous syscall
+	 * @return true if syscall told we should wait false otherwise
+	 */
+	static bool shouldWait(int sErrno)
+	{
+		return ( errno == EAGAIN ||
+		         errno == EWOULDBLOCK ||
+		         errno == EINPROGRESS );
+	}
+
+private:
+	bool mHaveSuspend = false;
 	std::coroutine_handle<> mAwaitingCoroutine;
 
 	std::error_condition* const mError;
-	ReturnValue mReturnValue;
+	ReturnValue mReturnValue = errorValue;
+
+protected:
+	AsyncFileDescriptor& mAFD;
 };

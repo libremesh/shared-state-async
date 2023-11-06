@@ -25,7 +25,7 @@
 
 #include <cstdint>
 
-#include "block_syscall.hh"
+#include "awaitable_syscall.hh"
 
 class Socket;
 
@@ -33,7 +33,7 @@ class Socket;
  * @brief Implements an asynchronous Socket Receive Operation
  * 
  */
-class SocketRecvOperation : public BlockSyscall<SocketRecvOperation, ssize_t>
+class SocketRecvOperation : public AwaitableSyscall<SocketRecvOperation, ssize_t>
 {
 public:
 	SocketRecvOperation(
@@ -43,10 +43,8 @@ public:
 	~SocketRecvOperation();
 
 	ssize_t syscall();
-	void suspend();
 
 private:
-	Socket& mSocket;
 	uint8_t* mBuffer;
 	std::size_t mLen;
 };

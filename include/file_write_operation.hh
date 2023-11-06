@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -23,12 +24,10 @@
 
 #include <sys/socket.h>
 #include <sys/types.h>
-#include "block_syscall.hh"
-#include <memory>
 
-class AsyncFileDescriptor;
+#include "awaitable_syscall.hh"
 
-class WriteOp : public BlockSyscall<WriteOp, ssize_t>
+class WriteOp : public AwaitableSyscall<WriteOp, ssize_t>
 {
 public:
 	WriteOp(
@@ -38,10 +37,8 @@ public:
 	~WriteOp();
 
 	ssize_t syscall();
-	void suspend();
 
 private:
-	AsyncFileDescriptor& mAFD;
 	const uint8_t* mBuffer = nullptr;
 	std::size_t mLen = 0;
 };

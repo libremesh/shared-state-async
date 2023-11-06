@@ -30,27 +30,21 @@
 #include <util/rsdebuglevel0.h>
 
 ReadOp::ReadOp(
-        std::shared_ptr<AsyncFileDescriptor> afd,
+        AsyncFileDescriptor& afd,
         uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
-    BlockSyscall<ReadOp, ssize_t>(ec),
-    mAFD{afd}, mBuffer{buffer}, mLen{len}
+    AwaitableSyscall(afd, ec), mBuffer{buffer}, mLen{len}
 {
-	mAFD->getIOContext().watchRead(mAFD.get());
+	afd.getIOContext().watchRead(&afd);
 }
 
 ReadOp::~ReadOp()
 {
 	RS_DBG2(*mAFD);
-	mAFD->getIOContext().unwatchRead(mAFD.get());
+	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
 ssize_t ReadOp::syscall()
 {
-	return read(mAFD->getFD(), mBuffer, mLen);
-}
-
-void ReadOp::suspend()
-{
-	mAFD->addPendingOp(mAwaitingCoroutine);
+	return read(mAFD.getFD(), mBuffer, mLen);
 }

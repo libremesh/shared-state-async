@@ -23,16 +23,16 @@
 
 #pragma once
 
-#include "block_syscall.hh"
+#include "awaitable_syscall.hh"
 
 #include <cstdint>
 
 class Socket;
+
 /**
  * @brief Implements an asynchronous Socket Send Operation
- * 
  */
-class SocketSendOperation : public BlockSyscall<SocketSendOperation, ssize_t>
+class SocketSendOperation : public AwaitableSyscall<SocketSendOperation, ssize_t>
 {
 public:
 	SocketSendOperation(
@@ -42,10 +42,8 @@ public:
 	~SocketSendOperation();
 
 	ssize_t syscall();
-	void suspend();
 
 private:
-	Socket& mSocket;
 	const uint8_t* mBuffer;
 	std::size_t mLen;
 };
