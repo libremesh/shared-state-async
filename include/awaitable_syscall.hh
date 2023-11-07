@@ -36,9 +36,9 @@
 #include <util/rsdebuglevel2.h>
 
 /**
- * @brief BlockSyscall is a base class for all kind of asynchronous syscalls
+ * @brief AwaitableSyscall is a base class for all kind of asynchronous syscalls
  * @tparam SyscallOpt child class, passed as template paramether to avoid
- *	dynamic dispatch performance hit
+ * dynamic dispatch performance hit
  * @tparam ReturnValue type of the return value of the real syscall
  * The costructor take a pointer to a std::error_condition to deal with errors,
  * if nullptr is passed it is assumed that the upstream caller won't deal with
@@ -50,20 +50,20 @@
  * then once before being ready/complete, waitpid is an example of that.
  * @tparam errorValue customize value that represent failure returned bt syscall
  *
- * Derived classes MUST implement the following methods
+ * Derived classes MUST pass themselves as SyscallOpt and implement the
+ * following method:
  * @code{.cpp}
  * ReturnValue syscall();
- * void suspend();
  * @endcode
  *
  * The syscall method is where the actuall syscall must happen, on failure
  * errorValue must be returned, if more attempts are needed errno must be set to
  * EAGAIN @see shouldWait() for other errno values interpreted like EAGAIN
  */
-template < typename SyscallOpt,
-           typename ReturnValue,
+template < typename SyscallOp,
+           typename ReturnType,
            bool multiShot = false,
-           ReturnValue errorValue = -1 >
+           ReturnType errorValue = -1 >
 class AwaitableSyscall
 {
 public:
@@ -73,10 +73,8 @@ public:
 	{
 		/* Put static checks here and not in template class scope to avoid
 		 * invalid use of imcomplete type xxxOperation compiler errors */
-		static_assert(std::is_base_of<AwaitableSyscall, SyscallOpt>::value);
-		/* TODO: add explicit check ReturnValue SyscallOpt::syscall() existence
-		 * for better compilation error reporting. Pure virtual declaration not
-		 * included to avoid virtual method tables generation. */
+		static_assert(std::is_base_of<AwaitableSyscall, SyscallOp>::value);
+		static_assert(requires(SyscallOp& op) { op.syscall(); });
 	}
 
 	bool await_ready() const noexcept
@@ -90,7 +88,7 @@ public:
 		RS_DBG3("");
 
 		mAwaitingCoroutine = awaitingCoroutine;
-		mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
+		mReturnValue = static_cast<SyscallOp *>(this)->syscall();
 		mHaveSuspend = (mReturnValue == errorValue) && shouldWait(errno);
 
 		if (mHaveSuspend)
@@ -125,14 +123,14 @@ public:
 		return mHaveSuspend;
 	}
 
-	ReturnValue await_resume()
+	ReturnType await_resume()
 	{
 		RS_DBG3("");
 
 		if(mHaveSuspend)
 		{
 			// We had to suspend last time, so we need to call the syscall again
-			mReturnValue = static_cast<SyscallOpt *>(this)->syscall();
+			mReturnValue = static_cast<SyscallOp *>(this)->syscall();
 
 			if(multiShot && mReturnValue == errorValue && shouldWait(errno))
 			{
@@ -178,7 +176,7 @@ private:
 	std::coroutine_handle<> mAwaitingCoroutine;
 
 	std::error_condition* const mError;
-	ReturnValue mReturnValue = errorValue;
+	ReturnType mReturnValue = errorValue;
 
 protected:
 	AsyncFileDescriptor& mAFD;
