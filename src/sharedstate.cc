@@ -50,6 +50,7 @@ std::task<bool> SharedState::syncWithPeer(
 	std::shared_ptr<AsyncCommand> luaSharedState =
 	        AsyncCommand::execute(cmdGet, ioContext, errbub);
 	if(!luaSharedState) co_return false;
+	RS_DBG2(cmdGet, " running at: ", *luaSharedState);
 
 	netMessage.mData.clear();
 	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
