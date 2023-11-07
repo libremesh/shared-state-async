@@ -48,6 +48,7 @@
  * deal with it.
  * @tparam multiShot true if wrapped syscall may cause epoll_wait to return more
  * then once before being ready/complete, waitpid is an example of that.
+ * @tparam errorValue customize value that represent failure returned bt syscall
  *
  * Derived classes MUST implement the following methods
  * @code{.cpp}
@@ -55,12 +56,9 @@
  * void suspend();
  * @endcode
  *
- * The syscall method is where the actuall syscall must happen, on failure -1
- * must be returned, if more attempts are needed errno must be set to EAGAIN
- * @see shouldWait() for other errno values interpreted like EAGAIN
- *
- * Pure virtual definition not included at moment to virtual method tables
- * generation (haven't verified if this is necessary or not).
+ * The syscall method is where the actuall syscall must happen, on failure
+ * errorValue must be returned, if more attempts are needed errno must be set to
+ * EAGAIN @see shouldWait() for other errno values interpreted like EAGAIN
  */
 template < typename SyscallOpt,
            typename ReturnValue,
@@ -68,12 +66,18 @@ template < typename SyscallOpt,
            ReturnValue errorValue = -1 >
 class AwaitableSyscall
 {
-	//static_assert(std::is_base_of<AwaitableSyscall, SyscallOpt>::value);
-
 public:
 	AwaitableSyscall( AsyncFileDescriptor& afd,
 	                  std::error_condition* ec = nullptr ):
-	    mHaveSuspend{false}, mError{ec}, mAFD(afd) {}
+	    mHaveSuspend{false}, mError{ec}, mAFD(afd)
+	{
+		/* Put static checks here and not in template class scope to avoid
+		 * invalid use of imcomplete type xxxOperation compiler errors */
+		static_assert(std::is_base_of<AwaitableSyscall, SyscallOpt>::value);
+		/* TODO: add explicit check ReturnValue SyscallOpt::syscall() existence
+		 * for better compilation error reporting. Pure virtual declaration not
+		 * included to avoid virtual method tables generation. */
+	}
 
 	bool await_ready() const noexcept
 	{

@@ -72,7 +72,7 @@ std::task<bool> SharedState::syncWithPeer(
 		         " nbRecvFromPipe: ", nbRecvFromPipe,
 		         " data read >>>", justRecv, "<<<" );
 	}
-	while (nbRecvFromPipe);
+	while(nbRecvFromPipe);
 	netMessage.mData.resize(totalReadBytes);
 
 	if(! co_await AsyncCommand::waitTermination(

@@ -254,9 +254,12 @@ bool PipedAsyncCommand::requestTermination(
         std::shared_ptr<AsyncCommand> pac,
         std::error_condition* errbub )
 {
-	co_return
-	        pac->getPid() == co_await WaitpidOperation(*pac, nullptr, errbub)
-	        && co_await pac->getIOContext().closeAFD(pac, errbub);
+	auto tPid = pac->getPid();
+	bool terminated =
+	        tPid == co_await WaitpidOperation(*pac, nullptr, errbub);
+	bool closed = terminated &&
+	        co_await pac->getIOContext().closeAFD(pac, errbub);
+	co_return closed;
 }
 
 template<>

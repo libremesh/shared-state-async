@@ -58,9 +58,10 @@ pid_t WaitpidOperation::childPid() const
 
 pid_t WaitpidOperation::syscall()
 {
-	pid_t cpid = waitpid(childPid(), mWstatus, WNOHANG);
+	pid_t mChildPid = childPid();
+	pid_t waitPidRet = waitpid(mChildPid, mWstatus, WNOHANG);
 
-	if(cpid == 0)
+	if(waitPidRet == 0)
 	{
 		/* Process hasn't terminated yet AwaitableSyscall expect -1 + EAGAIN */
 		errno = EAGAIN;
@@ -68,9 +69,9 @@ pid_t WaitpidOperation::syscall()
 	}
 
 #if RS_DEBUG_LEVEL > 1
-	if (cpid == childPid())
-		RS_DBG( "Success waiting process id: ", cpid, " ", mAFD );
+	if (waitPidRet == mChildPid)
+		RS_DBG( "Success waiting process id: ", waitPidRet, " ", mAFD );
 #endif //  RS_DEBUG_LEVEL > 1
 
-	return cpid;
+	return waitPidRet;
 }
