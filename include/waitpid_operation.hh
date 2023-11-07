@@ -1,6 +1,7 @@
 /*
  * Shared State
  *
+ * Copyright (c) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
@@ -19,34 +20,28 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 #pragma once
 
-#include <sys/socket.h>
 #include <sys/types.h>
-#include"popen_file_read_operation.hh"
-#include "block_syscall.hh"
 
-class PopenAsyncCommand;
+#include "awaitable_syscall.hh"
 
-/**
- * @brief Pipe Read Operation
- * 
- */
-class PopenFileReadOperation : public BlockSyscall<PopenFileReadOperation, ssize_t>
+class AsyncFileDescriptor;
+
+class WaitpidOperation:
+        public AwaitableSyscall<WaitpidOperation, pid_t, true>
 {
 public:
-	PopenFileReadOperation(
-	        PopenAsyncCommand& cmd,
-	        uint8_t* buffer, std::size_t len,
+	WaitpidOperation(
+	        AsyncFileDescriptor& AFD, // TODO: take a more specific type
+	        pid_t process_to_wait,
+	        int* wstatus = nullptr,
 	        std::error_condition* ec = nullptr );
-	~PopenFileReadOperation();
+	~WaitpidOperation();
 
-	ssize_t syscall();
-	void suspend();
+	pid_t syscall();
 
 private:
-	PopenAsyncCommand& mCmd;
-	uint8_t* mBuffer;
-	std::size_t mLen;
+	pid_t mPid;
+	int *const mWstatus;
 };

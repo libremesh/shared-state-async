@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <string>
+#include <ctime>
 
 #include "async_file_descriptor.hh"
 #include "io_context.hh"
@@ -31,14 +32,14 @@
 #include "file_write_operation.hh"
 
 /**
- * @brief AsyncCommand implementation using fork excec and dual pipes
+ * @brief Async command execution and control
  * 
- * This implementation is fully async supporting async reading, writing and
- * waiting for the child process to die.
+ * This implementation is fully async supporting async reading, writing,
+ * waiting for the child process to terminate and reading exit status.
  *
  * TODO: implement a way to return process exit code
  */
-class PipedAsyncCommand : public AsyncFileDescriptor
+class AsyncCommand : public AsyncFileDescriptor
 {
 public:
 	/**
@@ -59,10 +60,9 @@ public:
 	 * More interesting insights/explanations might be found at
 	 * http://unixwiz.net/techtips/remap-pipe-fds.html
 	 */
-	static std::shared_ptr<PipedAsyncCommand> execute(
+	static std::shared_ptr<AsyncCommand> execute(
 	        std::string cmd, IOContext& ioContext,
 	        std::error_condition* errbub = nullptr );
-
 
 	/**
 	 * Asynchronously waits for a process to die.
@@ -72,13 +72,13 @@ public:
 	 * process
 	 * @return false on error, true otherwise
 	 */
-	static std::task<bool> waitForProcessTermination(
-	        std::shared_ptr<PipedAsyncCommand> pac,
+	static std::task<bool> waitTermination(
+	        std::shared_ptr<AsyncCommand> pac,
 	        std::error_condition* errbub = nullptr );
 
-	PipedAsyncCommand(const PipedAsyncCommand &) = delete;
-	PipedAsyncCommand() = delete;
-	~PipedAsyncCommand()
+	AsyncCommand(const AsyncCommand &) = delete;
+	AsyncCommand() = delete;
+	~AsyncCommand()
 	{
 		/* In this design we can use destructor to detect logic errors at
 		 * runtime */
@@ -109,17 +109,25 @@ public:
 
 protected:
 	friend IOContext;
-	PipedAsyncCommand(int fd, IOContext &ioContext):
+	AsyncCommand(int fd, IOContext &ioContext):
 	    AsyncFileDescriptor(fd, ioContext) {}
 
 	pid_t mProcessId = -1;
 	std::shared_ptr<AsyncFileDescriptor> mStdOut = nullptr;
 	std::shared_ptr<AsyncFileDescriptor> mStdIn = nullptr;
 	std::shared_ptr<AsyncFileDescriptor> mWaitFD = nullptr;
+
+#if 0
+	static constexpr uint32_t DEFAULT_TERMINATION_TIMEOUT_SECONDS = 60;
+	bool requestTermination(
+	        uint32_t timeoutSeconds = DEFAULT_TERMINATION_TIMEOUT_SECONDS,
+	        std::error_condition* errbub = nullptr );
+	time_t teminationTimeout = 0;
+#endif
 };
 
 template<>
 std::task<bool> IOContext::closeAFD(
-        std::shared_ptr<PipedAsyncCommand> aFD, std::error_condition* errbub );
+        std::shared_ptr<AsyncCommand> aFD, std::error_condition* errbub );
 
-std::ostream &operator<<(std::ostream& out, const PipedAsyncCommand& aFD);
+std::ostream &operator<<(std::ostream& out, const AsyncCommand& aFD);

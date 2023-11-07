@@ -27,14 +27,14 @@
 #include <iostream>
 #include <unistd.h>
 #include <vector>
-#include <signal.h>
+#include <csignal>
 #include <sys/types.h>
 #include <iterator>
 #include <sstream>
 
-#include "piped_async_command.hh"
+#include "async_command.hh"
 #include "io_context.hh"
-#include "dying_process_wait_operation.hh"
+#include "waitpid_operation.hh"
 
 #include <util/rsdebug.h>
 #include <util/rsdebuglevel2.h>
@@ -48,7 +48,7 @@ static int pidfd_open(pid_t pid, unsigned int flags)
     return syscall(__NR_pidfd_open, pid, flags);
 }
 
-/*static*/ std::shared_ptr<PipedAsyncCommand> PipedAsyncCommand::execute(
+/*static*/ std::shared_ptr<AsyncCommand> AsyncCommand::execute(
         std::string cmd, IOContext& ioContext,
         std::error_condition* errbub )
 {
@@ -124,7 +124,7 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		 * I am up to reading bug reports, and curious on how to reproduce that
 		 * situation */
 
-		auto tPac = ioContext.registerFD<PipedAsyncCommand>(childWaitFD);
+		auto tPac = ioContext.registerFD<AsyncCommand>(childWaitFD);
 		ioContext.attach(tPac.get());
 
 		tPac->mProcessId = forkRetVal;
@@ -184,13 +184,13 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 	return nullptr;
 }
 
-ReadOp PipedAsyncCommand::readStdOut(
+ReadOp AsyncCommand::readStdOut(
         uint8_t* buffer, std::size_t len, std::error_condition* errbub)
 {
 	return ReadOp{*mStdOut, buffer, len};
 }
 
-WriteOp PipedAsyncCommand::writeStdIn(
+WriteOp AsyncCommand::writeStdIn(
         const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
 {
 	RS_DBG2( *mStdIn,
@@ -202,33 +202,67 @@ WriteOp PipedAsyncCommand::writeStdIn(
 	return WriteOp{*mStdIn, buffer, len, errbub};
 }
 
-std::task<bool>  PipedAsyncCommand::closeStdIn(std::error_condition* errbub)
+std::task<bool>  AsyncCommand::closeStdIn(std::error_condition* errbub)
 {
 	auto mRet = co_await mIOContext.closeAFD(mStdIn, errbub);
 	if(mRet) mStdIn.reset();
 	co_return mRet;
 }
 
-std::task<bool> PipedAsyncCommand::closeStdOut(std::error_condition* errbub)
+std::task<bool> AsyncCommand::closeStdOut(std::error_condition* errbub)
 {
 	auto mRet = co_await mIOContext.closeAFD(mStdOut, errbub);
 	if(mRet) mStdOut.reset();
 	co_return mRet;
 }
 
-/*static*/ std::task<bool> PipedAsyncCommand::waitForProcessTermination(
-        std::shared_ptr<PipedAsyncCommand> pac,
+#if 0
+bool PipedAsyncCommand::requestTermination(
+        uint32_t timeoutSeconds, std::error_condition* errbub )
+{
+	/* TODO: Define proper error_conditions instead of lazily using std::errc */
+	if(mProcessId == -1)
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::state_not_recoverable, errbub,
+		            "attempt to terminate uninitialized process" );
+		return false;
+	}
+
+	if(teminationTimeout)
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::timed_out, errbub,
+		            "termination of: ", mProcessId, " already requested" );
+		return false;
+	}
+
+	if(kill(mProcessId, SIGTERM) == -1)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "kill failed sending SIGTERM to: ", mProcessId );
+		return false;
+	}
+
+	teminationTimeout = time(NULL) + timeoutSeconds;
+	return true;
+}
+#endif
+
+/*static*/ std::task<bool> AsyncCommand::waitTermination(
+        std::shared_ptr<AsyncCommand> pac,
         std::error_condition* errbub )
 {
 	co_return
 	        ( pac->getPid() ==
-	        co_await DyingProcessWaitOperation(*pac, pac->getFD(), errbub ) )
+	        co_await WaitpidOperation(*pac, pac->getFD(), nullptr, errbub ) )
 	        && co_await pac->getIOContext().closeAFD(pac, errbub);
 }
 
 template<>
 std::task<bool> IOContext::closeAFD(
-        std::shared_ptr<PipedAsyncCommand> aFD, std::error_condition* errbub )
+        std::shared_ptr<AsyncCommand> aFD, std::error_condition* errbub )
 {
 	if(aFD->mStdIn)
 		if(!co_await aFD->closeStdIn(errbub)) co_return false;
@@ -242,7 +276,7 @@ std::task<bool> IOContext::closeAFD(
 	            std::static_pointer_cast<AsyncFileDescriptor>(aFD), errbub );
 }
 
-std::ostream &operator<<(std::ostream& out, const PipedAsyncCommand& aFD)
+std::ostream &operator<<(std::ostream& out, const AsyncCommand& aFD)
 {
 	return out << " aFD: " << &aFD << " FD: " << aFD.getFD()
 	           << " mChildProcessId: " << aFD.getPid();

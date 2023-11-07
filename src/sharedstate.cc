@@ -31,7 +31,7 @@
 #include "sharedstate.hh"
 #include "socket.hh"
 #include "file_read_operation.hh"
-#include "piped_async_command.hh"
+#include "async_command.hh"
 
 #include <util/rsdebug.h>
 #include <util/rserrorbubbleorexit.h>
@@ -47,8 +47,8 @@ std::task<bool> SharedState::syncWithPeer(
 	std::string cmdGet(SHARED_STATE_LUA_CMD);
 	cmdGet += " get " + netMessage.mTypeName;
 
-	std::shared_ptr<PipedAsyncCommand> luaSharedState =
-	        PipedAsyncCommand::execute(cmdGet, ioContext, errbub);
+	std::shared_ptr<AsyncCommand> luaSharedState =
+	        AsyncCommand::execute(cmdGet, ioContext, errbub);
 	if(!luaSharedState) co_return false;
 
 	netMessage.mData.clear();
@@ -75,7 +75,7 @@ std::task<bool> SharedState::syncWithPeer(
 	while (nbRecvFromPipe);
 	netMessage.mData.resize(totalReadBytes);
 
-	if(! co_await PipedAsyncCommand::waitForProcessTermination(
+	if(! co_await AsyncCommand::waitTermination(
 	            luaSharedState, errbub )) co_return false;
 
 	auto tSocket = co_await ConnectingSocket::connect(
@@ -97,7 +97,7 @@ std::task<bool> SharedState::syncWithPeer(
 
 
 	// TODO: deal with errors
-	luaSharedState = PipedAsyncCommand::execute(
+	luaSharedState = AsyncCommand::execute(
 	            cmdMerge, tSocket->getIOContext(), errbub );
 
 	if(co_await luaSharedState->writeStdIn(
@@ -114,7 +114,7 @@ std::task<bool> SharedState::syncWithPeer(
 	 * return */
 	co_await luaSharedState->closeStdIn();
 
-	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
+	co_await AsyncCommand::waitTermination(luaSharedState);
 
 	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peerAddr
 	RS_INFO( /*"Synchronized with peer: ", peerAddr,*/
@@ -259,8 +259,8 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	std::error_condition tLSHErr;
 
 	// TODO: gracefully deal with errors
-	std::shared_ptr<PipedAsyncCommand> luaSharedState =
-	        PipedAsyncCommand::execute(cmd, socket->getIOContext());
+	std::shared_ptr<AsyncCommand> luaSharedState =
+	        AsyncCommand::execute(cmd, socket->getIOContext());
 
 	if(co_await luaSharedState->writeStdIn(
 	            networkMessage.mData.data(), networkMessage.mData.size(),
@@ -334,7 +334,7 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	}
 #endif // def SS_OPENWRT_BUILD
 
-	co_await PipedAsyncCommand::waitForProcessTermination(luaSharedState);
+	co_await AsyncCommand::waitTermination(luaSharedState);
 
 	auto totalSent = co_await sendNetworkMessage(*socket, networkMessage);
 
@@ -357,8 +357,8 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 {
 	peerAddresses.clear();
 
-	std::shared_ptr<PipedAsyncCommand> getCandidatesCmd =
-	        PipedAsyncCommand::execute(
+	std::shared_ptr<AsyncCommand> getCandidatesCmd =
+	        AsyncCommand::execute(
 	            std::string(SHARED_STATE_GET_CANDIDATES_CMD), ioContext );
 
 	std::stringstream neigStrStream;
@@ -377,7 +377,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	}
 	while(numReadBytes);
 	co_await getCandidatesCmd->closeStdOut();
-	co_await PipedAsyncCommand::waitForProcessTermination(getCandidatesCmd);
+	co_await AsyncCommand::waitTermination(getCandidatesCmd);
 
 #ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
 	/* When running on OpenWrt the execvp command line argv[0] is read as first

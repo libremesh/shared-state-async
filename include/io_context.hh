@@ -114,7 +114,7 @@ std::shared_ptr<AFD_T> IOContext::registerFD(
 	return aFD;
 }
 
-class PipedAsyncCommand;
+class AsyncCommand;
 
 template<class AFD_T>
 std::task<bool> IOContext::closeAFD(
@@ -123,7 +123,7 @@ std::task<bool> IOContext::closeAFD(
 {
 	static_assert( std::is_base_of<AsyncFileDescriptor, AFD_T>::value,
 	        "AsyncFileDescriptor or derivative required");
-	static_assert(!std:: is_same<PipedAsyncCommand, AFD_T>::value,
+	static_assert(!std:: is_same<AsyncCommand, AFD_T>::value,
 	        "PipedAsyncCommand have its own specialization");
 
 	auto sysCloseErr = co_await CloseOperation(*aFD.get(), errbub);

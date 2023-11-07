@@ -21,7 +21,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "dying_process_wait_operation.hh"
+#include "waitpid_operation.hh"
 #include "async_file_descriptor.hh"
 #include "io_context.hh"
 
@@ -36,40 +36,36 @@
  *  @warning Call this method after you really want the process to die. If
  *  the process is not dead the method will kill it. 
  */
-DyingProcessWaitOperation::DyingProcessWaitOperation(
+WaitpidOperation::WaitpidOperation(
         AsyncFileDescriptor& afd,
         pid_t process_to_wait,
+        int* wstatus,
         std::error_condition* ec ):
-    AwaitableSyscall{afd, ec}, mPid(process_to_wait)
+    AwaitableSyscall{afd, ec}, mPid(process_to_wait), mWstatus(wstatus)
 {
 	mAFD.getIOContext().watchRead(&mAFD);
 }
 
-DyingProcessWaitOperation::~DyingProcessWaitOperation()
+WaitpidOperation::~WaitpidOperation()
 {
 	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
-pid_t DyingProcessWaitOperation::syscall()
+pid_t WaitpidOperation::syscall()
 {
-	pid_t cpid = waitpid(mPid, NULL, WNOHANG);
+	pid_t cpid = waitpid(mPid, mWstatus, WNOHANG);
 
-	if (cpid == 0 || cpid == -1)
+	if( cpid == 0 )
 	{
-		/* TODO: kill is very harsh and may break stuff, and not what should be
-		 * done here.
-		 * We should instead implement some kind of timeout mechanism and in any
-		 * case after SIGTERM usage as a PipedAsyncCommand method */
-		kill(mPid, SIGKILL);
-
-		/* if the state has not changed wait returns 0...
-		 * but blocksyscall expects -1 */
-		cpid = -1;
+		/* Process hasn't terminated yet AwaitableSyscall expect -1 + EAGAIN */
 		errno = EAGAIN;
+		return -1;
 	}
-	else if (cpid == mPid)
-	{
-		RS_DBG2( "Success waiting process id: ", cpid, " ", mAFD );
-	}
+
+#if RS_DEBUG_LEVEL > 1
+	if (cpid == mPid)
+		RS_DBG( "Success waiting process id: ", cpid, " ", mAFD );
+#endif //  RS_DEBUG_LEVEL > 1
+
 	return cpid;
 }
