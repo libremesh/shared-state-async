@@ -132,62 +132,71 @@ std::task<int> SharedState::receiveNetworkMessage(
         Socket& socket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
+	int constexpr rFailure = -1;
 	RS_DBG4(socket);
 	// TODO: define and use proper error_conditions to return
 	// TODO: deal with socket errors
 
 	int receivedBytes = 0;
+	int recvRet = -1;
 
 	networkMessage.mTypeName.clear();
 	networkMessage.mData.clear();
 
 
 	uint8_t dataTypeNameLenght = 0;
-	receivedBytes += co_await socket.recv(&dataTypeNameLenght, 1);
+	recvRet = co_await socket.recv(&dataTypeNameLenght, 1, errbub);
+	if(recvRet == -1) co_return rFailure;
+	receivedBytes += recvRet;
 
 	RS_DBG2(socket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
 
 	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
 	{
 		rs_error_bubble_or_exit(
-		            std::errc::invalid_argument, errbub,
+		            std::errc::bad_message, errbub,
 		            " ", socket,
 		            " Got data type name invalid lenght: ",
 		            static_cast<int>(dataTypeNameLenght) );
-		co_return -receivedBytes;
+		co_return rFailure;
 	}
 
 	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
-	receivedBytes += co_await socket.recv(
+	recvRet = co_await socket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
 	            dataTypeNameLenght );
+	if(recvRet == -1) co_return rFailure;
+	receivedBytes += recvRet;
 
 	RS_DBG2(socket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
 
 	uint32_t dataLenght = 0;
-	receivedBytes += co_await socket.recv(
+	recvRet = co_await socket.recv(
 	            reinterpret_cast<uint8_t*>(&dataLenght), 4 );
+	if(recvRet == -1) co_return rFailure;
+	receivedBytes += recvRet;
 	dataLenght = ntohl(dataLenght);
 
 
 	if(dataLenght < 2 || dataLenght > DATA_MAX_LENGHT)
 	{
 		rs_error_bubble_or_exit(
-		            std::errc::invalid_argument, errbub,
+		            std::errc::bad_message, errbub,
 		            socket, " Got data invalid lenght: ", dataLenght);
-		co_return -receivedBytes;
+		co_return rFailure;
 	}
 
 	networkMessage.mData.resize(dataLenght, 0);
-	auto receivedDataBytes =  co_await
+	recvRet = co_await
 	        socket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
 	            dataLenght );
-	receivedBytes += receivedDataBytes;
+	if(recvRet == -1) co_return rFailure;
+	receivedBytes += recvRet;
 
 	RS_DBG2( socket,
 	         " Expected data lenght: ", dataLenght,
-	         " received data bytes: ", receivedDataBytes );
+	         " received data bytes: ", recvRet );
 
 	RS_DBG4( socket, " networkMessage.mData: ", networkMessage.mData);
 
