@@ -255,8 +255,7 @@ bool PipedAsyncCommand::requestTermination(
         std::error_condition* errbub )
 {
 	co_return
-	        ( pac->getPid() ==
-	        co_await WaitpidOperation(*pac, pac->getFD(), nullptr, errbub ) )
+	        pac->getPid() == co_await WaitpidOperation(*pac, nullptr, errbub)
 	        && co_await pac->getIOContext().closeAFD(pac, errbub);
 }
 

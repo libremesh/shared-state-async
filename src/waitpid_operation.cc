@@ -24,6 +24,7 @@
 #include "waitpid_operation.hh"
 #include "async_file_descriptor.hh"
 #include "io_context.hh"
+#include "async_command.hh"
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -37,11 +38,10 @@
  *  the process is not dead the method will kill it. 
  */
 WaitpidOperation::WaitpidOperation(
-        AsyncFileDescriptor& afd,
-        pid_t process_to_wait,
+        AsyncCommand& afd,
         int* wstatus,
         std::error_condition* ec ):
-    AwaitableSyscall{afd, ec}, mPid(process_to_wait), mWstatus(wstatus)
+    AwaitableSyscall{afd, ec}, mWstatus(wstatus)
 {
 	mAFD.getIOContext().watchRead(&mAFD);
 }
@@ -51,11 +51,16 @@ WaitpidOperation::~WaitpidOperation()
 	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
+pid_t WaitpidOperation::childPid() const
+{
+	return static_cast<AsyncCommand&>(mAFD).getPid();
+}
+
 pid_t WaitpidOperation::syscall()
 {
-	pid_t cpid = waitpid(mPid, mWstatus, WNOHANG);
+	pid_t cpid = waitpid(childPid(), mWstatus, WNOHANG);
 
-	if( cpid == 0 )
+	if(cpid == 0)
 	{
 		/* Process hasn't terminated yet AwaitableSyscall expect -1 + EAGAIN */
 		errno = EAGAIN;
@@ -63,7 +68,7 @@ pid_t WaitpidOperation::syscall()
 	}
 
 #if RS_DEBUG_LEVEL > 1
-	if (cpid == mPid)
+	if (cpid == childPid())
 		RS_DBG( "Success waiting process id: ", cpid, " ", mAFD );
 #endif //  RS_DEBUG_LEVEL > 1
 

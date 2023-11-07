@@ -26,15 +26,14 @@
 
 #include "awaitable_syscall.hh"
 
-class AsyncFileDescriptor;
+class AsyncCommand;
 
 class WaitpidOperation:
         public AwaitableSyscall<WaitpidOperation, pid_t, true>
 {
 public:
 	WaitpidOperation(
-	        AsyncFileDescriptor& AFD, // TODO: take a more specific type
-	        pid_t process_to_wait,
+	        AsyncCommand& afd,
 	        int* wstatus = nullptr,
 	        std::error_condition* ec = nullptr );
 	~WaitpidOperation();
@@ -42,6 +41,6 @@ public:
 	pid_t syscall();
 
 private:
-	pid_t mPid;
+	pid_t childPid() const;
 	int *const mWstatus;
 };
