@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <cerrno>
+#include <sys/time.h>
 
 #include <util/rsnet.h>
 #include <util/rserrorbubbleorexit.h>
@@ -54,22 +55,16 @@ std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
 	auto lSocket = ioContext.registerFD<ConnectingSocket>(fd);
 	ioContext.attachWriteOnly(lSocket.get());
 
-/*
-	int connectRet;
-	std::error_condition connectError;
-	do connectRet = co_await ConnectOperation(*lSocket, address, &connectError);
-	while (connectRet && !connectError);
-
-	if(connectRet)
-	{
-		rs_error_bubble_or_exit(
-		            connectError, errbub,
-		            "failure connecting to: ", sockaddr_storage_tostring(address),
-		            " on: ", *lSocket );
-		co_await ioContext.closeAFD(lSocket);
-		co_return nullptr;
-	}
-*/
+	/* SharedState connection are mostly link local, 1 second timeout should be
+	 * more then enough. Having a longer timeout now that we haven't implemented
+	 * a proper dicovery mechanism yet determine horrible usability, in case in
+	 * the same link multiple non-shared-state devices are presents.
+	 * TODO: Connection timeout should be configurable as a param
+	 * TODO: Handle setsockopt errors */
+	struct timeval timeout;
+	timeout.tv_sec  = 1;
+	timeout.tv_usec = 0;
+	setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
 	if(co_await ConnectOperation(*lSocket, address, errbub))
 	{
