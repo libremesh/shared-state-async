@@ -41,6 +41,8 @@ std::task<bool> SharedState::syncWithPeer(
         std::string dataTypeName, const sockaddr_storage& peerAddr,
         IOContext& ioContext, std::error_condition* errbub )
 {
+	RS_DBG2(dataTypeName, " ", sockaddr_storage_tostring(peerAddr), " ", errbub);
+
 	SharedState::NetworkMessage netMessage;
 	netMessage.mTypeName = dataTypeName;
 
@@ -55,7 +57,6 @@ std::task<bool> SharedState::syncWithPeer(
 	netMessage.mData.clear();
 	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-	ssize_t rec_ammount = 0;
 	ssize_t nbRecvFromPipe = 0;
 	int totalReadBytes = 0;
 	auto dataPtr = netMessage.mData.data();
