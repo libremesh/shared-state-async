@@ -73,8 +73,8 @@ int ConnectOperation::syscall()
 		            sizeof(struct sockaddr_in6) );
 	}
 
-	socklen_t peerLen = 0;
 	sockaddr_storage mPeerAddr;
+	socklen_t peerLen = sizeof(mPeerAddr);
 	int getPeerNameRet =
 	        getpeername(
 	            mAFD.getFD(),

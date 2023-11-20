@@ -59,12 +59,28 @@ struct SharedState
 	        std::vector<sockaddr_storage>& peerAddresses,
 	        IOContext& ioContext, std::error_condition* errbub = nullptr );
 
+	/**
+	 * @return returns false if error occurred, true otherwise
+	 */
+	static std::task<bool> getState(
+		const std::string& dataType,
+		std::vector<uint8_t>& dataStorage,
+		IOContext& ioContext,
+		std::error_condition* errbub = nullptr );
+
+
+	static std::task<bool> mergeSlice(
+		const std::string& dataTypeName,
+		const std::vector<uint8_t>& dataSlice,
+		IOContext& ioContext,
+		std::error_condition* errbub = nullptr );
+
 private:
 	static constexpr std::string_view SHARED_STATE_LUA_CMD =
-	        "/usr/bin/shared-state";
+			"shared-state";
 
 	static constexpr std::string_view SHARED_STATE_GET_CANDIDATES_CMD =
-	        "/usr/bin/shared-state-get_candidates_neigh";
+			"shared-state-get_candidates_neigh";
 
 	/** The message format on the wire is:
 	* |     1 byte       |           |   4 bytes   |      |

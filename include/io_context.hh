@@ -73,6 +73,9 @@ public:
     void watchWrite(AsyncFileDescriptor* socket);
     void unwatchWrite(AsyncFileDescriptor* socket);
 
+	/// Debugging helper
+	friend std::ostream &operator<<(std::ostream& out, const IOContext& ioContext);
+
 private:
 	static constexpr int DEFAULT_MAX_EVENTS = 20;
 
@@ -83,7 +86,6 @@ private:
 	/** Map OS file descriptor to managed AsyncFileDescriptor */
 	std::map<int, std::shared_ptr<AsyncFileDescriptor>> mManagedFD;
 };
-
 
 template<class AFD_T = AsyncFileDescriptor,
          typename = std::enable_if_t<std::is_base_of_v<AsyncFileDescriptor, AFD_T>>>

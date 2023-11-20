@@ -79,13 +79,13 @@ public:
 
 	bool await_ready() const noexcept
 	{
-		RS_DBG3("");
+		RS_DBG3(mAFD);
 		return false;
 	}
 
 	bool await_suspend(std::coroutine_handle<> awaitingCoroutine)
 	{
-		RS_DBG3("");
+		RS_DBG3(mAFD);
 
 		mAwaitingCoroutine = awaitingCoroutine;
 		mReturnValue = static_cast<SyscallOp *>(this)->syscall();
@@ -105,7 +105,7 @@ public:
 		{
 			/* If downstream callers apparently get an error before crashing,
 			 * but print errno 0, most likely reason is not the failed syscall
-			 * thet forgot to set it (never to me happened actually) but some
+			 * that forgot to set it (never happened to me actually) but some
 			 * null/dangling pointer that bubble up, due to a missing check,
 			 * undetected in the call stack, so when an error is finally printed
 			 * the errno value it is getting got most likely borked at some
@@ -125,7 +125,7 @@ public:
 
 	ReturnType await_resume()
 	{
-		RS_DBG3("");
+		RS_DBG2(mAFD);
 
 		if(mHaveSuspend)
 		{
@@ -156,6 +156,7 @@ public:
 
 	void suspend()
 	{
+		RS_DBG2(mAFD, " ", mAwaitingCoroutine.address());
 		mAFD.addPendingOp(mAwaitingCoroutine);
 	}
 

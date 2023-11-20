@@ -25,5 +25,5 @@
 
 std::ostream &operator<<(std::ostream& out, const AsyncFileDescriptor& aFD)
 {
-	return out << " aFD: " << &aFD << " FD: " << aFD.getFD();
+	return out << " aFD: " << &aFD << " FD: " << aFD.mFD;
 }

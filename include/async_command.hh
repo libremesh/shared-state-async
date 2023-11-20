@@ -94,12 +94,10 @@ public:
 		}
 	};
 
-	/* TODO: Maybe we should not expose XxxOp to the users, as implementation
-	 * details may likely change */
-	ReadOp readStdOut(
+	std::task<ssize_t> readStdOut(
 	        uint8_t* buffer, std::size_t len,
 	        std::error_condition* errbub = nullptr );
-	WriteOp writeStdIn(
+	std::task<ssize_t> writeStdIn(
 	        const uint8_t *buffer, std::size_t len,
 	        std::error_condition* errbub = nullptr );
 	inline pid_t getPid() const { return mProcessId; }

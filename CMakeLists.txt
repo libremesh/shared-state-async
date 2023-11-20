@@ -8,9 +8,6 @@ set(FETCHCONTENT_QUIET OFF)
 # the source. See exampleConfig.h.in for some more details.
 project(shared-state VERSION 0.0.0.1 LANGUAGES CXX)
 
-option( SS_OPENWRT_CMD_LEAK_WORKAROUND
-        "Workaround OpenWrt the execvp unxpected behaviour" OFF )
-
 option( SS_DEVELOPMENT_BUILD
         "Disable optimization to speed up build, enable verbose build log. \
          just for development purposes, not suitable for library usage"
@@ -136,11 +133,6 @@ if(IPO_LTO_AVAILABLE)
             INTERPROCEDURAL_OPTIMIZATION YES
     )
 endif(IPO_LTO_AVAILABLE)
-
-if(SS_OPENWRT_CMD_LEAK_WORKAROUND)
-        target_compile_definitions(
-                ${PROJECT_NAME} PUBLIC SS_OPENWRT_CMD_LEAK_WORKAROUND )
-endif(SS_OPENWRT_CMD_LEAK_WORKAROUND)
 
 if(SS_DEVELOPMENT_BUILD)
         set(CMAKE_VERBOSE_MAKEFILE ON)

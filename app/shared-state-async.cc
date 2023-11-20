@@ -41,9 +41,11 @@
 
 static CrashStackTrace gCrashStackTrace;
 
-/** This task doesn't return, and communicate via exit() status, to be used
+/* Following tasks doesn't return, and communicate via exit() status, to be used
  *  directly by the main */
-std::task<> syncWithPeers(
+
+
+/*noreturn*/ std::task<> syncWithPeers(
         std::string dataTypeName,
         const std::vector<sockaddr_storage>& peerAddressesPassed,
         IOContext& ioContext )
@@ -52,8 +54,17 @@ std::task<> syncWithPeers(
 
 	/* Peers weren't specified let's discover potential peers */
 	if(peerAddressesPassed.empty())
-		co_await SharedState::getCandidatesNeighbours(
-		            discoveredPeersAddresses, ioContext );
+	{
+		std::error_condition mErr;
+		if(! co_await SharedState::getCandidatesNeighbours(
+				discoveredPeersAddresses, ioContext, &mErr ))
+		{
+			RS_FATAL("Failure discovering peers ", mErr);
+			exit(mErr.value());
+		}
+	}
+
+	RS_DBG1("IOContext state after getCandidatesNeighbours ", ioContext);
 
 	const std::vector<sockaddr_storage>& peerAddresses =
 	        peerAddressesPassed.empty() ?
@@ -74,6 +85,8 @@ std::task<> syncWithPeers(
 			         " error: ", errInfo );
 			retval = errInfo.value();
 		}
+
+		RS_DBG1("IOContext state after syncWithPeer ", peerAddress, " ", ioContext);
 	}
 
 	if(retval)
@@ -82,7 +95,7 @@ std::task<> syncWithPeers(
 }
 
 
-std::task<> acceptReqSyncConnections(ListeningSocket& listener)
+/*noreturn*/ std::task<> acceptReqSyncConnections(ListeningSocket& listener)
 {
 	while(true)
 	{
@@ -93,6 +106,24 @@ std::task<> acceptReqSyncConnections(ListeningSocket& listener)
 		 * finishing the job */
 		SharedState::handleReqSyncConnection(socket).detach();
 	}
+}
+
+/*noreturn*/ std::task<> discoverPeers(IOContext& ioContext)
+{
+	std::vector<sockaddr_storage> discoveredPeersAddresses;
+
+	std::error_condition mErr;
+	if(! co_await SharedState::getCandidatesNeighbours(
+			discoveredPeersAddresses, ioContext, &mErr ))
+	{
+		RS_FATAL("Failure discovering peers ", mErr);
+		exit(mErr.value());
+	}
+
+	for(auto&& peerAddress : discoveredPeersAddresses)
+		std::cout << peerAddress << std::endl;
+
+	exit(0);
 }
 
 int main(int argc, char* argv[])
@@ -164,6 +195,13 @@ int main(int argc, char* argv[])
 
 		auto t = acceptReqSyncConnections(*listener);
 		t.resume();
+		ioContext->run();
+	}
+	else if(operationName == "discover")
+	{
+		auto ioContext = IOContext::setup();
+		auto discoverTask = discoverPeers(*ioContext);
+		discoverTask.resume();
 		ioContext->run();
 	}
 	else if(operationName == "--help" || operationName == "help")

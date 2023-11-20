@@ -43,80 +43,43 @@ std::task<bool> SharedState::syncWithPeer(
 {
 	RS_DBG2(dataTypeName, " ", sockaddr_storage_tostring(peerAddr), " ", errbub);
 
+	auto constexpr rFAILURE = false;
+	auto constexpr rSUCCESS = true;
+
 	SharedState::NetworkMessage netMessage;
 	netMessage.mTypeName = dataTypeName;
 
-	std::string cmdGet(SHARED_STATE_LUA_CMD);
-	cmdGet += " get " + netMessage.mTypeName;
-
-	std::shared_ptr<AsyncCommand> luaSharedState =
-	        AsyncCommand::execute(cmdGet, ioContext, errbub);
-	if(!luaSharedState) co_return false;
-	RS_DBG2(cmdGet, " running at: ", *luaSharedState);
-
-	netMessage.mData.clear();
-	netMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
-
-	ssize_t nbRecvFromPipe = 0;
-	int totalReadBytes = 0;
-	auto dataPtr = netMessage.mData.data();
-	do
-	{
-		// TODO: deal with errors
-		nbRecvFromPipe = co_await luaSharedState->readStdOut(
-		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
-		std::string justRecv(
-		            reinterpret_cast<char*>(dataPtr + totalReadBytes),
-		            nbRecvFromPipe );
-		totalReadBytes += nbRecvFromPipe;
-
-		RS_DBG4( luaSharedState,
-		         " nbRecvFromPipe: ", nbRecvFromPipe,
-		         " data read >>>", justRecv, "<<<" );
-	}
-	while(nbRecvFromPipe);
-	netMessage.mData.resize(totalReadBytes);
-
-	if(! co_await AsyncCommand::waitTermination(
-	            luaSharedState, errbub )) co_return false;
+	if(! co_await getState(dataTypeName, netMessage.mData, ioContext, errbub))
+		co_return false;
 
 	auto tSocket = co_await ConnectingSocket::connect(
 	            peerAddr, ioContext, errbub);
 	if(!tSocket) co_return false;
 
+	auto rSocketCleanup = [&](bool isSuccess) -> std::task<bool>
+	{
+		/* If there is a failure even closing a socket or terminating a child
+		 * process there isn't much we can do, so let downstream function report
+		 * the error and terminate the process */
+		co_await ioContext.closeAFD(tSocket);
+		co_return isSuccess;
+	};
+
 	auto sentMessageSize = netMessage.mData.size();
 
-	// TODO: deal with errors
 	auto totalSent = co_await
 	        SharedState::sendNetworkMessage(*tSocket, netMessage, errbub);
+	if(totalSent == -1) co_return co_await rSocketCleanup(rFAILURE);
 
-	// TODO: deal with errors
 	auto totalReceived = co_await
 	        SharedState::receiveNetworkMessage(*tSocket, netMessage, errbub);
+	if(totalReceived == -1) co_return co_await rSocketCleanup(rFAILURE);
 
-	std::string cmdMerge(SHARED_STATE_LUA_CMD);
-	cmdMerge += " reqsync " + netMessage.mTypeName;
+	if(! co_await mergeSlice(
+			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
+		co_return co_await rSocketCleanup(rFAILURE);
 
-
-	// TODO: deal with errors
-	luaSharedState = AsyncCommand::execute(
-	            cmdMerge, tSocket->getIOContext(), errbub );
-
-	if(co_await luaSharedState->writeStdIn(
-	            netMessage.mData.data(), netMessage.mData.size(),
-	            errbub ) == -1)
-	{
-		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
-		co_await tSocket->getIOContext().closeAFD(tSocket);
-		co_return false;
-	}
-
-	/* shared-state keeps reading until it get EOF, so we need to close the
-	 * its stdin once we finish writing so it can process the data and then
-	 * return */
-	co_await luaSharedState->closeStdIn();
-
-	co_await AsyncCommand::waitTermination(luaSharedState);
+	co_await rSocketCleanup(rSUCCESS);
 
 	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peerAddr
 	RS_INFO( /*"Synchronized with peer: ", peerAddr,*/
@@ -127,7 +90,7 @@ std::task<bool> SharedState::syncWithPeer(
 	         " Total sent bytes: ", totalSent,
 	         " Total received bytes: ", totalReceived );
 
-	co_return true;
+	co_return rSUCCESS;
 }
 
 std::task<int> SharedState::receiveNetworkMessage(
@@ -245,6 +208,18 @@ std::task<bool> SharedState::handleReqSyncConnection(
         std::shared_ptr<Socket> socket,
         std::error_condition* errbub )
 {
+	auto constexpr rFAILURE = false;
+	auto constexpr rSUCCESS = true;
+
+	auto rSocketCleanup = [&](bool isSuccess) -> std::task<bool>
+	{
+		/* If there is a failure even closing a socket or terminating a child
+		 * process there isn't much we can do, so let downstream function report
+		 * the error and terminate the process */
+		co_await socket->getIOContext().closeAFD(socket);
+		co_return isSuccess;
+	};
+
 	NetworkMessage networkMessage;
 
 	std::error_condition recvErrc;
@@ -254,63 +229,56 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	{
 		RS_INFO("Got invalid data from client ", *socket);
 		co_await socket->getIOContext().closeAFD(socket);
-		co_return false;
+		co_return rFAILURE;
 	}
 
 	auto receivedMessageSize = networkMessage.mData.size();
 
-#ifdef GIO_DUMMY_TEST
-	std::string cmd = "cat /tmp/shared-state/data/" +
-	        networkMessage.mTypeName + ".json";
-#else
 	std::string cmd(SHARED_STATE_LUA_CMD);
 	cmd += " reqsync " + networkMessage.mTypeName;
-#endif
 
 	std::error_condition tLSHErr;
-
-	// TODO: gracefully deal with errors
 	std::shared_ptr<AsyncCommand> luaSharedState =
-	        AsyncCommand::execute(cmd, socket->getIOContext());
+			AsyncCommand::execute(cmd, socket->getIOContext(), &tLSHErr);
+	if(! luaSharedState)
+	{
+		rs_error_bubble_or_exit(tLSHErr, errbub, "Failure executing: ", cmd);
+		co_return co_await rSocketCleanup(rFAILURE);
+	}
+
+	auto rSockCmdCleanup = [&](bool isSuccess) -> std::task<bool>
+	{
+		/* If there is a failure even closing a socket or terminating a child
+		 * process there isn't much we can do, so let downstream function report
+		 * the error and terminate the process */
+		co_await rSocketCleanup(isSuccess);
+		co_await AsyncCommand::waitTermination(luaSharedState);
+		co_return isSuccess;
+	};
 
 	if(co_await luaSharedState->writeStdIn(
 	            networkMessage.mData.data(), networkMessage.mData.size(),
-	            &tLSHErr ) == -1)
+				&tLSHErr ) == -1) RS_UNLIKELY
 	{
-		RS_ERR("Failure writing ", networkMessage.mData.size(), " bytes ",
-		       " to LSH stdin ", tLSHErr );
-
-		co_await luaSharedState->getIOContext().closeAFD(luaSharedState);
-		co_await socket->getIOContext().closeAFD(socket);
-		co_return false;
+		rs_error_bubble_or_exit(
+			tLSHErr, errbub, "Failure writing ", networkMessage.mData.size(),
+			" bytes to ", cmd, " stdin ", tLSHErr );
+		co_return co_await rSockCmdCleanup(rFAILURE);
 	}
 
-	/* shared-state keeps reading until it get EOF, so we need to close the
+	/* shared-state reqsync keeps reading until it get EOF, so we need to close
 	 * its stdin once we finish writing so it can process the data and then
 	 * return */
-	co_await luaSharedState->closeStdIn();
+	if(!co_await luaSharedState->closeStdIn(errbub))
+		co_return co_await rSockCmdCleanup(rFAILURE);
 
 	networkMessage.mData.clear();
 	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
 
-	ssize_t nbRecvFromPipe = 0;
-	int totalReadBytes = 0;
-	auto dataPtr = networkMessage.mData.data();
-	do
-	{
-		nbRecvFromPipe = co_await luaSharedState->readStdOut(
-		            dataPtr + totalReadBytes, DATA_MAX_LENGHT - totalReadBytes);
-		std::string justRecv(
-		            reinterpret_cast<char*>(dataPtr + totalReadBytes),
-		            nbRecvFromPipe );
-		totalReadBytes += nbRecvFromPipe;
-
-		RS_DBG0( luaSharedState,
-		         " nbRecvFromPipe: ", nbRecvFromPipe,
-		         " data read >>>", justRecv, "<<<" );
-	}
-	while(nbRecvFromPipe);
-	co_await luaSharedState->closeStdOut();
+	auto totalReadBytes = co_await luaSharedState->readStdOut(
+					networkMessage.mData.data(), DATA_MAX_LENGHT, errbub );
+	if(totalReadBytes == -1) RS_UNLIKELY
+		co_return co_await rSockCmdCleanup(rFAILURE);
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *
@@ -332,34 +300,22 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	 */
 	networkMessage.mData.resize(totalReadBytes);
 
-#ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
-	/* When running on OpenWrt the execvp command line is read as first line
-	 * of the pipe content.
-	 * It happens with both shared-state lua command and with cat command.
-	 * TODO: investigate why this is happening, and if a better way to deal with
-	 * it exists */
-	{
-		auto& mData = networkMessage.mData;
-		auto&& cmdEnd = std::find(mData.begin(), mData.end(), '\n');
-		mData.erase(mData.begin(), ++cmdEnd);
-	}
-#endif // def SS_OPENWRT_BUILD
-
-	co_await AsyncCommand::waitTermination(luaSharedState);
-
-	auto totalSent = co_await sendNetworkMessage(*socket, networkMessage);
-
-	co_await socket->getIOContext().closeAFD(socket);
+	auto totalSent = co_await sendNetworkMessage(*socket, networkMessage, errbub);
+	if(totalSent == -1)
+		co_return co_await rSockCmdCleanup(rFAILURE);
 
 	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peer address
 	RS_INFO( *socket,
-	         " Received message type: ", networkMessage.mTypeName,
-	         " Received message size: ", receivedMessageSize,
-	         " Sent message size: ", networkMessage.mData.size(),
-	         " Total sent bytes: ", totalSent,
-	         " Total received bytes: ", totalReceived );
+			" Received message type: ", networkMessage.mTypeName,
+			" Received message size: ", receivedMessageSize,
+			" Sent message size: ", networkMessage.mData.size(),
+			" Total sent bytes: ", totalSent,
+			" Total received bytes: ", totalReceived );
 
-	co_return false;
+	co_await rSockCmdCleanup(rSUCCESS);
+
+	RS_DBG2("IOContext status after success: ", socket->getIOContext());
+	co_return rSUCCESS;
 }
 
 std::task<bool> SharedState::getCandidatesNeighbours(
@@ -387,19 +343,8 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 		neigStrStream << justRecv;
 	}
 	while(numReadBytes);
-	co_await getCandidatesCmd->closeStdOut();
-	co_await AsyncCommand::waitTermination(getCandidatesCmd);
-
-#ifdef SS_OPENWRT_CMD_LEAK_WORKAROUND
-	/* When running on OpenWrt the execvp command line argv[0] is read as first
-	 * line of the stdout content, we need to discard it.
-	 * TODO: investigate why this is happening, and if a better way to deal with
-	 * it exists */
-	{
-		std::string discardFirstLine;
-		std::getline(neigStrStream, discardFirstLine);
-	}
-#endif // def SS_OPENWRT_BUILD
+	if(! co_await AsyncCommand::waitTermination(getCandidatesCmd, errbub))
+		co_return false;
 
 	for (std::string candLine; std::getline(neigStrStream, candLine); )
 	{
@@ -423,4 +368,55 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 #endif // RS_DEBUG_LEVEL
 
 	co_return true;
+}
+
+/*static*/ std::task<bool> SharedState::getState(
+	const std::string& dataTypeName,
+	std::vector<uint8_t>& dataStorage,
+	IOContext& ioContext,
+	std::error_condition* errbub )
+{
+	dataStorage.clear();
+
+	std::shared_ptr<AsyncCommand> getStateCmd =
+		AsyncCommand::execute(
+			std::string(SHARED_STATE_LUA_CMD) + " get " + dataTypeName,
+			ioContext, errbub );
+	if(!getStateCmd) co_return false;
+
+	dataStorage.resize(DATA_MAX_LENGHT);
+	auto totalReadBytes = co_await getStateCmd->readStdOut(
+		dataStorage.data(), DATA_MAX_LENGHT, errbub );
+	if(totalReadBytes == -1) co_return false;
+	dataStorage.resize(totalReadBytes);
+
+	if(! co_await AsyncCommand::waitTermination(getStateCmd, errbub))
+		co_return false;
+
+	co_return true;
+}
+
+/*static*/ std::task<bool> SharedState::mergeSlice(
+	const std::string& dataTypeName,
+	const std::vector<uint8_t>& dataSlice,
+	IOContext& ioContext,
+	std::error_condition* errbub )
+{
+	std::string cmdMerge(SHARED_STATE_LUA_CMD);
+	cmdMerge += " reqsync " + dataTypeName;
+
+	auto luaSharedState = AsyncCommand::execute(
+		cmdMerge, ioContext, errbub );
+	if(!luaSharedState) co_return false;
+
+	bool retval = -1 != co_await luaSharedState->writeStdIn(
+		dataSlice.data(), dataSlice.size(), errbub );
+
+	/* shared-state keeps reading until it get EOF, so we need to close
+	 * its stdin once we finish writing so it can process the data and then
+	 * return */
+	retval &= co_await luaSharedState->closeStdIn(errbub);
+	retval &= co_await AsyncCommand::waitTermination(luaSharedState, errbub);
+
+	co_return retval;
 }

@@ -156,8 +156,6 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 		std::istream_iterator<std::string> begin(ss);
 		std::istream_iterator<std::string> end;
 		std::vector<std::string> vstrings(begin, end);
-		std::copy( vstrings.begin(), vstrings.end(),
-		           std::ostream_iterator<std::string>(std::cout, "\n") );
 
 		std::vector<char *> argcexec(vstrings.size(), nullptr);
 		for (int i = 0; i < vstrings.size(); i++)
@@ -184,13 +182,31 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 	return nullptr;
 }
 
-ReadOp AsyncCommand::readStdOut(
+std::task<ssize_t> AsyncCommand::readStdOut(
         uint8_t* buffer, std::size_t len, std::error_condition* errbub)
 {
-	return ReadOp{*mStdOut, buffer, len};
+	RS_DBG2( *mStdOut,
+			" buffer: ", reinterpret_cast<const void*>(buffer),
+			" len: ", len);
+
+	ssize_t numReadBytes = 0;
+	ssize_t totalReadBytes = 0;
+	do
+	{
+		numReadBytes = co_await
+			ReadOp{*mStdOut, buffer + totalReadBytes, len - totalReadBytes, errbub};
+
+		if(numReadBytes == -1) RS_UNLIKELY
+				co_return -1;
+
+		totalReadBytes += numReadBytes;
+	}
+	while(numReadBytes && totalReadBytes < len);
+
+	co_return totalReadBytes;
 }
 
-WriteOp AsyncCommand::writeStdIn(
+std::task<ssize_t> AsyncCommand::writeStdIn(
         const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
 {
 	RS_DBG2( *mStdIn,
@@ -199,10 +215,24 @@ WriteOp AsyncCommand::writeStdIn(
 	RS_DBG4( " buffer content: ",
 	         std::string(reinterpret_cast<const char*>(buffer), len) );
 
-	return WriteOp{*mStdIn, buffer, len, errbub};
+	ssize_t numWriteBytes = 0;
+	ssize_t totalWriteBytes = 0;
+	do
+	{
+		numWriteBytes = co_await
+			WriteOp{*mStdIn, buffer + totalWriteBytes, len - totalWriteBytes, errbub};
+
+		if(numWriteBytes == -1) RS_UNLIKELY
+			co_return -1;
+
+		totalWriteBytes += numWriteBytes;
+	}
+	while(numWriteBytes && totalWriteBytes < len);
+
+	co_return totalWriteBytes;
 }
 
-std::task<bool>  AsyncCommand::closeStdIn(std::error_condition* errbub)
+std::task<bool> AsyncCommand::closeStdIn(std::error_condition* errbub)
 {
 	auto mRet = co_await mIOContext.closeAFD(mStdIn, errbub);
 	if(mRet) mStdIn.reset();
@@ -255,10 +285,11 @@ bool PipedAsyncCommand::requestTermination(
         std::error_condition* errbub )
 {
 	auto tPid = pac->getPid();
+	// TODO: save exit status to a member variable
 	bool terminated =
 	        tPid == co_await WaitpidOperation(*pac, nullptr, errbub);
 	bool closed = terminated &&
-	        co_await pac->getIOContext().closeAFD(pac, errbub);
+			co_await pac->getIOContext().closeAFD(pac, errbub);
 	co_return closed;
 }
 

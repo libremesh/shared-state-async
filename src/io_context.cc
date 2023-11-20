@@ -103,7 +103,6 @@ void IOContext::run()
 			aFD->resumePendingOps();
 		}
 
-		epoll_event ev;
 		for (auto&& mEl : std::as_const(mManagedFD))
 		{
 			/* Don't need a full blown shared_ptr costly copy here just take a
@@ -117,6 +116,7 @@ void IOContext::run()
 			auto io_state = aFD->getNextIoState() | EPOLLET;
 			if (aFD->getIoState() == io_state) continue;
 
+			epoll_event ev;
 			ev.events = io_state;
 			ev.data.fd = aFD->getFD();
 			if (epoll_ctl(mEpollFD, EPOLL_CTL_MOD, aFD->getFD(), &ev) == -1)
@@ -258,4 +258,14 @@ void IOContext::unwatchWrite(AsyncFileDescriptor *socket)
 
 	RS_DBG4("mFD: ", socket->mFD,
 	        " getNewIoState() " , socket->getNewIoState() );
+}
+
+std::ostream &operator<<(std::ostream& out, const IOContext& ioContext)
+{
+	out << " ioContext: " << &ioContext << " epoll FD: " << ioContext.mEpollFD
+		<< " managed FDs: " << ioContext.mManagedFD.size() << " [ ";
+	for(auto& tKV : std::as_const(ioContext.mManagedFD))
+		out << "{" << tKV.first << ", " << tKV.second << "} ";
+	out << "]";
+	return out;
 }

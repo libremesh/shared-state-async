@@ -57,6 +57,7 @@ public:
 	bool resumePendingOps()
 	{
 		auto numPending = mPendigOps.size();
+		RS_DBG2(*this, " numPending: ", numPending);
 
 		if(!numPending)
 		{
@@ -67,7 +68,7 @@ public:
 		}
 
 		/* Iterate at most numPending times to avoid re-looping on coroutines
-		 * that needs to wait again and are appended again on the pending queue
+		 * that needs to wait again and are re-appended on the pending queue
 		 */
 		for(; numPending > 0; --numPending, mPendigOps.pop_front())
 			mPendigOps.front().resume();
@@ -78,6 +79,7 @@ public:
 	void addPendingOp(std::coroutine_handle<> op)
 	{
 		mPendigOps.push_back(op);
+		RS_DBG2(*this, " numPending: ", mPendigOps.size());
 	}
 
 	inline uint32_t getIoState() const { return mIoState; }
@@ -103,6 +105,9 @@ public:
 	/// elegant solution
 	bool doneRecv_ = false;
 
+	friend std::ostream &operator<<(
+		std::ostream& out, const AsyncFileDescriptor& aFD );
+
 protected:
 	friend IOContext;
 	AsyncFileDescriptor(int fd, IOContext &io_context):
@@ -126,12 +131,10 @@ private:
 	 * @brief Keep pending operation in a queue.
 	 * The new operation queuing works very well in our case, but I
 	 * haven't reasoned enough if it would work also in other protocols
-	 * or with multiple thread. In particular shared-state protocol
-	 * is question-answere so on the same socket/file read and write
+	 * or with multiple threads. In particular shared-state protocol
+	 * is question-answer so on the same socket/file read and write
 	 * never happen at same time, and are always in order one after
 	 * another, this is not guaranted for every protocol but for now I
 	 * got no time to think more on this */
 	std::deque<std::coroutine_handle<>> mPendigOps;
 };
-
-std::ostream &operator<<(std::ostream& out, const AsyncFileDescriptor& aFD);
