@@ -31,11 +31,12 @@
 
 #include <util/rsdebuglevel2.h>
 
+/*  NOT ANYMORE: It also kills the process in case it has not died yet.
+ *  @warning Call this method after you really want the process to die. If
+ *  the process is not dead the method will kill it. */
 
 /** @brief This blocking operation waits for a child process that has 
- *  already done his job. It also kills the process in case it has not died yet. 
- *  @warning Call this method after you really want the process to die. If
- *  the process is not dead the method will kill it. 
+ *  already done his job.
  */
 WaitpidOperation::WaitpidOperation(
         AsyncCommand& afd,
@@ -63,7 +64,7 @@ pid_t WaitpidOperation::syscall()
 
 	if(waitPidRet == 0)
 	{
-		/* Process hasn't terminated yet AwaitableSyscall expect -1 + EAGAIN */
+		/* Process hasn't terminated yet, AwaitableSyscall expect -1 + EAGAIN */
 		errno = EAGAIN;
 		return -1;
 	}

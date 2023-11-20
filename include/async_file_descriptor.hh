@@ -43,7 +43,7 @@ public:
 
 	~AsyncFileDescriptor()
 	{
-		RS_DBG1(*this);
+		RS_DBG2(*this);
 		if(mFD != -1)
 		{
 			RS_FATAL( *this,
@@ -108,7 +108,7 @@ protected:
 	AsyncFileDescriptor(int fd, IOContext &io_context):
 	    mIOContext{io_context}, mFD{fd}
 	{
-		RS_DBG4(*this);
+		RS_DBG2(*this);
 
 		/* Why not attaching here?
 		 * Because child classes may have special attacching needs,
