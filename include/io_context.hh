@@ -27,6 +27,7 @@
 #include <memory>
 #include <type_traits>
 #include <fcntl.h>
+#include <sys/epoll.h>
 
 #include "task.hh"
 #include "async_file_descriptor.hh"
@@ -124,21 +125,78 @@ std::task<bool> IOContext::closeAFD(
         std::error_condition* errbub )
 {
 	static_assert( std::is_base_of<AsyncFileDescriptor, AFD_T>::value,
-	        "AsyncFileDescriptor or derivative required");
-	static_assert(!std:: is_same<AsyncCommand, AFD_T>::value,
-	        "PipedAsyncCommand have its own specialization");
+				  "AsyncFileDescriptor or derivative required" );
+	static_assert( !std::is_same<AsyncCommand, AFD_T>::value,
+				   "PipedAsyncCommand have its own specialization" );
 
-	auto sysCloseErr = co_await CloseOperation(*aFD.get(), errbub);
+	/* OBXIOUS PEDANTINC CHECK
+	 * Considering the way IOContext and AsyncFileDescriptor code are structured
+	 * this should really never happen unless you, seriously attempt to shoot
+	 * your own foot messing with memory, ponters etc. on purpose, but being
+	 * close() so "peculiar" let's check for this too.
+	 * If one of the situations marked with this comment happens it is an
+	 * obvious symptom of a pathologically unrecoverable state so terminate the
+	 * program ASAP without further error bubbling.
+	 */
 
-	if(sysCloseErr)
+	if(!aFD)
 	{
+		// @see OBXIOUS PEDANTINC CHECK
 		rs_error_bubble_or_exit(
-		            rs_errno_to_condition(errno), errbub,
-		            "failure closing ", *aFD.get() );
+			std::errc::invalid_argument, errbub,
+			"Attempt closing nullpointer AFD ", *this );
 		co_return false;
 	}
 
-	auto fdBack = aFD->mFD;
+	auto fdIt = mManagedFD.find(aFD->mFD);
+	if(fdIt == mManagedFD.end()) RS_UNLIKELY
+	{
+		// @see OBXIOUS PEDANTINC CHECK
+		rs_error_bubble_or_exit(
+			std::errc::no_such_file_or_directory, errbub,
+			"Attempt closing AFD ", *aFD, " not managed by IOContext ", this,
+			" ", *this );
+		co_return false;
+	}
+
+	if(fdIt->second != aFD) RS_UNLIKELY
+	{
+		rs_error_bubble_or_exit(
+			std::errc::state_not_recoverable, nullptr, // Force exit
+			"mismatching AFD and FD ", aFD, " ", *aFD, " IOContext: ", this,
+			" ", *this );
+		co_return false;
+	}
+
+	/* To avoid stray events on closed socket that still live on kernel side
+	 * unsubscribe them from epoll instead of relying on epoll silently removing
+	 * them when finally closed kernel side
+	 * @see https://stackoverflow.com/a/46987706 */
+	if (epoll_ctl(mEpollFD, EPOLL_CTL_DEL, aFD->mFD, nullptr) == -1) RS_UNLIKELY
+	{
+		// @see OBXIOUS PEDANTINC CHECK
+		rs_error_bubble_or_exit(
+			rs_errno_to_condition(errno), nullptr, // Force exit
+			"failure removing FD from epoll set ", aFD, " ", *aFD,
+			" IOContext: ", this, " ", *this );
+		co_return false;
+	}
+
+
+	std::error_condition closeErr;
+	auto sysCloseRet = co_await CloseOperation(*aFD, &closeErr);
+	if(sysCloseRet == -1)
+	{
+		/* As per close(2) manual even when failing the file descriptor will be
+		 * closed anyway, even if programatically dealt upstream it seems good
+		 * to print a noisy report as this should anyway not happen */
+		RS_ERR("failure closing ", *aFD, " ret: ", sysCloseRet, " ", closeErr);
+		rs_error_bubble_or_exit(
+			closeErr, errbub, "failure closing ", *aFD, " ", *this );
+	}
+
 	aFD->mFD = -1;
-	co_return mManagedFD.erase(fdBack);
+	mManagedFD.erase(fdIt);
+
+	co_return sysCloseRet == 0;
 }

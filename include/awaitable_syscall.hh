@@ -67,9 +67,9 @@ template < typename SyscallOp,
 class AwaitableSyscall
 {
 public:
-	AwaitableSyscall( AsyncFileDescriptor& afd,
-	                  std::error_condition* ec = nullptr ):
-	    mHaveSuspend{false}, mError{ec}, mAFD(afd)
+		AwaitableSyscall( AsyncFileDescriptor& afd,
+										std::error_condition* ec = nullptr ):
+				mError{ec}, mAFD(afd)
 	{
 		/* Put static checks here and not in template class scope to avoid
 		 * invalid use of imcomplete type xxxOperation compiler errors */
@@ -85,70 +85,77 @@ public:
 
 	bool await_suspend(std::coroutine_handle<> awaitingCoroutine)
 	{
-		RS_DBG3(mAFD);
-
 		mAwaitingCoroutine = awaitingCoroutine;
-		mReturnValue = static_cast<SyscallOp *>(this)->syscall();
-		mHaveSuspend = (mReturnValue == errorValue) && shouldWait(errno);
+		mReturnValue = static_cast<SyscallOp*>(this)->syscall();
 
-		if (mHaveSuspend)
+		RS_DBG2( mAFD,
+				" shouldWait(): ", shouldWait(mReturnValue, errno),
+				" mReturnValue: ", mReturnValue,
+				" ", rs_errno_to_condition(errno) );
+
+		if(shouldWait(mReturnValue, errno))
 		{
 			/* The syscall indicated we must wait, and retry later so let's
 			 * suspend to return the control to the caller and be resumed later
 			 */
-			RS_DBG3( "let suspend for now mReturnValue: ", mReturnValue,
-			         " && errno: ", rs_errno_to_condition(errno) );
-			// static_cast<SyscallOpt *>(this)->suspend();
 			suspend();
+			return true;
 		}
-		else if (mReturnValue == errorValue)
-		{
-			/* If downstream callers apparently get an error before crashing,
-			 * but print errno 0, most likely reason is not the failed syscall
-			 * that forgot to set it (never happened to me actually) but some
-			 * null/dangling pointer that bubble up, due to a missing check,
-			 * undetected in the call stack, so when an error is finally printed
-			 * the errno value it is getting got most likely borked at some
-			 * point, and is not the original from the syscall */
 
+		if(mReturnValue == errorValue)
+		{
 			/* The syscall failed for other reason let's notify the caller if
 			 * possible or close the program printing an error */
+
 			RS_DBG2( "syscall failed with ret: ", mReturnValue,
-			         " errno: ", rs_errno_to_condition(errno) );
+					 " errno: ", rs_errno_to_condition(errno) );
 			rs_error_bubble_or_exit(
-			            rs_errno_to_condition(errno), mError,
-			            " syscall failed" );
+				rs_errno_to_condition(errno), mError,
+				" syscall failed" );
+
+			/* If downstream callers apparently get an error before crashing,
+			 * but print errno 0, the reason is NEVER the failed syscall
+			 * that forgot to set it but some null/dangling pointer that bubble
+			 * up, due to a missing check, undetected in the call stack, so when
+			 * an error is finally printed  the errno value it is getting got
+			 * most likely borked at some point, and is not the original from
+			 * the syscall */
 		}
-		// We can keep going, no need to do suspend, on failure
-		return mHaveSuspend;
+
+		/* Instantaneous success or hard failure must not suspend at all */
+		return false;
 	}
 
 	ReturnType await_resume()
 	{
-		RS_DBG2(mAFD);
-
-		if(mHaveSuspend)
+		if(!mDidSuspend)
 		{
-			// We had to suspend last time, so we need to call the syscall again
-			mReturnValue = static_cast<SyscallOp *>(this)->syscall();
+			/* Operation was completed on first attempt, without suspending,
+			 * just return the result */
+			RS_DBG2( mAFD, " completed at firts attempt mReturnValue: ",
+					mReturnValue );
+			return mReturnValue;
+		}
 
-			if(multiShot && mReturnValue == errorValue && shouldWait(errno))
-			{
-				RS_DBG1( "syscall want more waiting on resume ",
-				         "mReturnValue: ", mReturnValue,
-				         rs_errno_to_condition(errno) );
-				//static_cast<SyscallOpt *>(this)->suspend();
-				suspend();
-			}
-			else if(mReturnValue == errorValue)
-			{
-				RS_DBG1( "syscall failed on resume ",
-				         "mReturnValue: ", mReturnValue,
-				         rs_errno_to_condition(errno) );
-				rs_error_bubble_or_exit(
-				            rs_errno_to_condition(errno), mError,
-				            "syscall failed on resume" );
-			}
+		// We had to suspend last time, so we need to attempt the syscall again
+		mReturnValue = static_cast<SyscallOp *>(this)->syscall();
+		RS_DBG2(mAFD, " syscall returns: ", mReturnValue );
+
+		if(multiShot && shouldWait(mReturnValue, errno))
+		{
+			RS_DBG1( "syscall want more waiting on resume ",
+					 "mReturnValue: ", mReturnValue,
+					 rs_errno_to_condition(errno) );
+			suspend();
+		}
+		else if(mReturnValue == errorValue)
+		{
+			RS_DBG1( "syscall failed on resume ",
+					 "mReturnValue: ", mReturnValue,
+					 rs_errno_to_condition(errno) );
+			rs_error_bubble_or_exit(
+				rs_errno_to_condition(errno), mError,
+				"syscall failed on resume" );
 		}
 
 		return mReturnValue;
@@ -157,6 +164,7 @@ public:
 	void suspend()
 	{
 		RS_DBG2(mAFD, " ", mAwaitingCoroutine.address());
+		mDidSuspend = true;
 		mAFD.addPendingOp(mAwaitingCoroutine);
 	}
 
@@ -165,18 +173,18 @@ public:
 	 * @param sErrno errno as set by the previous syscall
 	 * @return true if syscall told we should wait false otherwise
 	 */
-	static bool shouldWait(int sErrno)
+	static bool shouldWait(ReturnType retval, int sErrno)
 	{
-		return ( errno == EAGAIN ||
-		         errno == EWOULDBLOCK ||
-		         errno == EINPROGRESS );
+		return (retval == errorValue) && ( errno == EAGAIN ||
+										   errno == EWOULDBLOCK ||
+										   errno == EINPROGRESS );
 	}
 
 private:
-	bool mHaveSuspend = false;
+	bool mDidSuspend = false;
 	std::coroutine_handle<> mAwaitingCoroutine;
 
-	std::error_condition* const mError;
+	std::error_condition* const mError = nullptr;
 	ReturnType mReturnValue = errorValue;
 
 protected:
