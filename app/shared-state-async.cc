@@ -104,7 +104,7 @@ static CrashStackTrace gCrashStackTrace;
 		/* Going out of scope the returned task is destroyed, we need to
 		 * detach the coroutine otherwise it will be abruptly stopped too before
 		 * finishing the job */
-		SharedState::handleReqSyncConnection(socket).detach();
+		co_await SharedState::handleReqSyncConnection(socket);
 	}
 }
 

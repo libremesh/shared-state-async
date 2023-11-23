@@ -138,13 +138,8 @@ namespace std
 			RS_DBG4("");
             if (mCoroutineHandle)
 			{
-				RS_DBG4( "Task finished? ", mCoroutineHandle.done(),
-				         ", task disposable? ", mDetached );
-                if (mCoroutineHandle.done() && mDetached)
-                {
-					RS_DBG4("do noting");
-                }
-                else if (mCoroutineHandle.done() || !mDetached)
+				RS_DBG4("Task finished? ", mCoroutineHandle.done());
+				if (mCoroutineHandle.done())
                 {
 					RS_DBG4("Destroing m_coro");
                     mCoroutineHandle.destroy();
@@ -173,34 +168,8 @@ namespace std
             mCoroutineHandle.resume();
         }
 
-        /** @brief Resume and detach the task from the underlying coroutine.
-         *  After calling this method the coroutine can keep running even after
-         *  the task destruction. If this method has been called the task
-         *  destructor doesn't destroy the coroutine if it hasn't finished yet.
-         *  @warning This need to be used with special care. Detaching the task
-         *  from the coroutine means that the caller loose control over the
-         *  coroutine lifetime. This can be useful for long lived coroutines who
-         *  can deal with it's own lifetime such as the one which process
-         *  requests from a single socket.
-         *  In detached mode, the coroutine will be self destroyed after the
-         *  final suspend method has been invoked.
-         */
-        void detach()
-        {
-            mDetached = true;
-            resume();
-        }
-
     private:
-        /**
-         * the coroutine itself
-        */
         coroutine_handle<promise_type> mCoroutineHandle;
-
-        /** Internal state representing if the coroutine is "detached" or not.
-         *  TODO: Make sure it doesn't need to be std::atomic
-         */
-        bool mDetached = false;
     };
 
     template <typename T>
