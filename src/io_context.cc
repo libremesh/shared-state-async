@@ -94,13 +94,15 @@ void IOContext::run()
 				continue;
 			}
 
-			/* Don't need a full blown shared_ptr costly copy here just take a
-			 * reference to it */
-			auto& aFD = findIt->second;
+			/* NEED a FULL blown shared_ptr copy here, I haven't fully
+			 * understood yet why taking just a reference to it in this place
+			 * cause invalid memory read, expecially when some error occurs,
+			 * detected using valgrind */
+			auto aFD = findIt->second;
 
 			RS_DBG2(*aFD, " got epoll events: ", epoll_events_to_string(evFlags));
 
-			aFD->resumePendingOps();
+			aFD->resumePendingOps(evFlags);
 		}
 
 		for (auto&& mEl : std::as_const(mManagedFD))
