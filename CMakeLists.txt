@@ -20,6 +20,7 @@ set(SOURCES
     src/async_command.cc
     src/async_file_descriptor.cc
     src/close_operation.cc
+    src/epoll_events_to_string.cc
     src/io_context.cc
     src/sharedstate.cc
     src/connect_operation.cc

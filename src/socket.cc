@@ -55,18 +55,7 @@ std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
 	auto lSocket = ioContext.registerFD<ConnectingSocket>(fd);
 	ioContext.attachWriteOnly(lSocket.get());
 
-	/* SharedState connection are mostly link local, 1 second timeout should be
-	 * more then enough. Having a longer timeout now that we haven't implemented
-	 * a proper dicovery mechanism yet determine horrible usability, in case in
-	 * the same link multiple non-shared-state devices are presents.
-	 * TODO: Connection timeout should be configurable as a param
-	 * TODO: Handle setsockopt errors */
-	struct timeval timeout;
-	timeout.tv_sec  = 1;
-	timeout.tv_usec = 0;
-	setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
-	if(co_await ConnectOperation(*lSocket, address, errbub))
+	if(co_await ConnectOperation(*lSocket, address, errbub) == -1)
 	{
 		co_await ioContext.closeAFD(lSocket);
 		co_return nullptr;
@@ -152,6 +141,8 @@ std::task<std::shared_ptr<Socket>> ListeningSocket::accept()
 	co_return rsk;
 }
 
+/* TODO: proper implementation @see AsyncCommand::readStdOut and
+ * AsyncCommand::writeStdIn */
 SocketRecvOperation Socket::recv(
         uint8_t* buffer, std::size_t len,
         std::error_condition* ec )
@@ -159,6 +150,8 @@ SocketRecvOperation Socket::recv(
 	return SocketRecvOperation(*this, buffer, len, ec);
 }
 
+/* TODO: proper implementation @see AsyncCommand::readStdOut and
+ * AsyncCommand::writeStdIn */
 SocketSendOperation Socket::send(
         const uint8_t* buffer, std::size_t len,
         std::error_condition* ec )

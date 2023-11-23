@@ -29,6 +29,7 @@
 #include <ostream>
 
 #include "task.hh"
+#include "epoll_events_to_string.hh"
 
 #include <util/rsdebug.h>
 #include <util/stacktrace.h>
@@ -54,7 +55,10 @@ public:
 		}
 	}
 
-	bool resumePendingOps()
+	/**
+	 * @param events optional epoll events flags, just used for debugging
+	 */
+	bool resumePendingOps(uint32_t events)
 	{
 		auto numPending = mPendigOps.size();
 		RS_DBG2(*this, " numPending: ", numPending);
@@ -63,7 +67,7 @@ public:
 		{
 			RS_DBG2( *this,
 			         " attempt to resume pending operations on descriptor which"
-			         " have none" );
+					 " have none due: ", epoll_events_to_string(events) );
 			return false;
 		}
 

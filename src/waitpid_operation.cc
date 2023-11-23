@@ -31,13 +31,8 @@
 
 #include <util/rsdebuglevel2.h>
 
-/*  NOT ANYMORE: It also kills the process in case it has not died yet.
- *  @warning Call this method after you really want the process to die. If
- *  the process is not dead the method will kill it. */
-
-/** @brief This blocking operation waits for a child process that has 
- *  already done his job.
- */
+/** @brief This awaitable operation waits for a child process that has
+ *  already done his job. */
 WaitpidOperation::WaitpidOperation(
         AsyncCommand& afd,
         int* wstatus,

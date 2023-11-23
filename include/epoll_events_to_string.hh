@@ -20,34 +20,7 @@
  */
 #pragma once
 
-#include <sys/epoll.h>
+#include <cstdint>
 #include <string>
 
-std::string epoll_events_to_string(uint32_t events)
-{
-	std::string tRet;
-
-	auto eAdd = [&](std::string evs)
-	{
-		if(!tRet.empty()) tRet += ", ";
-		tRet += evs;
-	};
-
-	if(events & EPOLLIN) eAdd("EPOLLIN");
-	if(events & EPOLLPRI) eAdd("EPOLLPRI");
-	if(events & EPOLLOUT) eAdd("EPOLLOUT");
-	if(events & EPOLLRDNORM) eAdd("EPOLLRDNORM");
-	if(events & EPOLLRDBAND) eAdd("EPOLLRDBAND");
-	if(events & EPOLLWRNORM) eAdd("EPOLLWRNORM");
-	if(events & EPOLLWRBAND) eAdd("EPOLLWRBAND");
-	if(events & EPOLLMSG) eAdd("EPOLLMSG");
-	if(events & EPOLLERR) eAdd("EPOLLERR");
-	if(events & EPOLLHUP) eAdd("EPOLLHUP");
-	if(events & EPOLLRDHUP) eAdd("EPOLLRDHUP");
-	if(events & EPOLLEXCLUSIVE) eAdd("EPOLLEXCLUSIVE");
-	if(events & EPOLLWAKEUP) eAdd("EPOLLWAKEUP");
-	if(events & EPOLLONESHOT) eAdd("EPOLLONESHOT");
-	if(events & EPOLLET) eAdd("EPOLLET");
-
-	return tRet;
-}
+std::string epoll_events_to_string(uint32_t events);
