@@ -56,6 +56,11 @@ std::task<bool> SharedState::syncWithPeer(
 	            peerAddr, ioContext, errbub);
 	if(!tSocket) co_return false;
 
+#if 0
+	!! CAPTURING LAMBDAS THAT ARE COROUTINES BREAKS !!
+	https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rcoro-capture
+	Use a macro instead even if less elegant
+
 	auto rSocketCleanup = [&](bool isSuccess) -> std::task<bool>
 	{
 		/* If there is a failure even closing a socket or terminating a child
@@ -64,22 +69,45 @@ std::task<bool> SharedState::syncWithPeer(
 		co_await ioContext.closeAFD(tSocket);
 		co_return isSuccess;
 	};
+#else
+/* If there is a failure even closing a socket or terminating a child
+ * process there isn't much we can do, so let downstream function report
+ * the error and terminate the process */
+#	define syncWithPeer_clean_socket() \
+do \
+{ \
+	co_await ioContext.closeAFD(tSocket); \
+	RS_DBG2("IOContext status after clenup: ", ioContext); \
+} \
+while(false)
+#endif
 
 	auto sentMessageSize = netMessage.mData.size();
 
 	auto totalSent = co_await
 	        SharedState::sendNetworkMessage(*tSocket, netMessage, errbub);
-	if(totalSent == -1) co_return co_await rSocketCleanup(rFAILURE);
+	if(totalSent == -1)
+	{
+		syncWithPeer_clean_socket();
+		co_return rFAILURE;
+	}
 
 	auto totalReceived = co_await
 	        SharedState::receiveNetworkMessage(*tSocket, netMessage, errbub);
-	if(totalReceived == -1) co_return co_await rSocketCleanup(rFAILURE);
+	if(totalReceived == -1)
+	{
+		syncWithPeer_clean_socket();
+		co_return rFAILURE;
+	}
 
 	if(! co_await mergeSlice(
 			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
-		co_return co_await rSocketCleanup(rFAILURE);
+	{
+		syncWithPeer_clean_socket();
+		co_return rFAILURE;
+	}
 
-	co_await rSocketCleanup(rSUCCESS);
+	syncWithPeer_clean_socket();
 
 	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peerAddr
 	RS_INFO( /*"Synchronized with peer: ", peerAddr,*/
@@ -94,11 +122,11 @@ std::task<bool> SharedState::syncWithPeer(
 }
 
 std::task<int> SharedState::receiveNetworkMessage(
-        Socket& socket, NetworkMessage& networkMessage,
+		Socket& pSocket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
 	int constexpr rFailure = -1;
-	RS_DBG4(socket);
+	RS_DBG4(pSocket);
 	// TODO: define and use proper error_conditions to return
 	// TODO: deal with socket errors
 
@@ -110,33 +138,33 @@ std::task<int> SharedState::receiveNetworkMessage(
 
 
 	uint8_t dataTypeNameLenght = 0;
-	recvRet = co_await socket.recv(&dataTypeNameLenght, 1, errbub);
+	recvRet = co_await pSocket.recv(&dataTypeNameLenght, 1, errbub);
 	if(recvRet == -1) co_return rFailure;
 	receivedBytes += recvRet;
 
-	RS_DBG2(socket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
+	RS_DBG2(pSocket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
 
 	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::bad_message, errbub,
-		            " ", socket,
+					" ", pSocket,
 		            " Got data type name invalid lenght: ",
 		            static_cast<int>(dataTypeNameLenght) );
 		co_return rFailure;
 	}
 
 	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
-	recvRet = co_await socket.recv(
+	recvRet = co_await pSocket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
 	            dataTypeNameLenght );
 	if(recvRet == -1) co_return rFailure;
 	receivedBytes += recvRet;
 
-	RS_DBG2(socket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
+	RS_DBG2(pSocket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
 
 	uint32_t dataLenght = 0;
-	recvRet = co_await socket.recv(
+	recvRet = co_await pSocket.recv(
 	            reinterpret_cast<uint8_t*>(&dataLenght), 4 );
 	if(recvRet == -1) co_return rFailure;
 	receivedBytes += recvRet;
@@ -147,88 +175,96 @@ std::task<int> SharedState::receiveNetworkMessage(
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::bad_message, errbub,
-		            socket, " Got data invalid lenght: ", dataLenght);
+					pSocket, " Got data invalid lenght: ", dataLenght);
 		co_return rFailure;
 	}
 
 	networkMessage.mData.resize(dataLenght, 0);
 	recvRet = co_await
-	        socket.recv(
+			pSocket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
 	            dataLenght );
 	if(recvRet == -1) co_return rFailure;
 	receivedBytes += recvRet;
 
-	RS_DBG2( socket,
+	RS_DBG2( pSocket,
 	         " Expected data lenght: ", dataLenght,
 	         " received data bytes: ", recvRet );
 
-	RS_DBG4( socket, " networkMessage.mData: ", networkMessage.mData);
+	RS_DBG4( pSocket, " networkMessage.mData: ", networkMessage.mData);
 
-	RS_DBG2( socket, " Total received bytes: ", receivedBytes);
+	RS_DBG2( pSocket, " Total received bytes: ", receivedBytes);
 	co_return receivedBytes;
 }
 
 std::task<int> SharedState::sendNetworkMessage(
-        Socket& socket, const NetworkMessage& netMsg,
+		Socket& pSocket, const NetworkMessage& netMsg,
         std::error_condition* errbub )
 {
-	RS_DBG2(socket);
+	RS_DBG2(pSocket);
 
 	int sentBytes = 0;
 
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
-	sentBytes += co_await socket.send(&dataTypeLen, 1);
+	sentBytes += co_await pSocket.send(&dataTypeLen, 1);
 
-	RS_DBG2(socket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen));
+	RS_DBG2(pSocket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen));
 
-	sentBytes += co_await socket.send(
+	sentBytes += co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mTypeName.data()),
 	            dataTypeLen );
 
-	RS_DBG2( socket, " sent netMsg.mTypeName: ", netMsg.mTypeName );
+	RS_DBG2( pSocket, " sent netMsg.mTypeName: ", netMsg.mTypeName );
 
 	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.size());
-	sentBytes += co_await socket.send(
+	sentBytes += co_await pSocket.send(
 	            reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4);
 
-	RS_DBG2( socket, " sent netMsg.mData.size(): ", netMsg.mData.size() );
+	RS_DBG2( pSocket, " sent netMsg.mData.size(): ", netMsg.mData.size() );
 
-	sentBytes += co_await socket.send(
+	sentBytes += co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mData.data()),
 	            netMsg.mData.size() );
 
-	RS_DBG4( socket, " sent netMsg.mData: ", netMsg.mData);
+	RS_DBG4( pSocket, " sent netMsg.mData: ", netMsg.mData);
 
-	RS_DBG2( socket, " Total bytes sent: ", sentBytes );
+	RS_DBG2( pSocket, " Total bytes sent: ", sentBytes );
 	co_return sentBytes;
 }
 
 std::task<bool> SharedState::handleReqSyncConnection(
-        std::shared_ptr<Socket> socket,
+		std::shared_ptr<Socket> pSocket,
         std::error_condition* errbub )
 {
 	auto constexpr rFAILURE = false;
 	auto constexpr rSUCCESS = true;
+	auto& ioContext = pSocket->getIOContext();
 
-	auto rSocketCleanup = [&](bool isSuccess) -> std::task<bool>
-	{
-		/* If there is a failure even closing a socket or terminating a child
-		 * process there isn't much we can do, so let downstream function report
-		 * the error and terminate the process */
-		co_await socket->getIOContext().closeAFD(socket);
-		co_return isSuccess;
-	};
+/* !! CAPTURING LAMBDAS THAT ARE COROUTINES BREAKS !!
+ * https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rcoro-capture
+ * Use a macro instead even if less elegant
+ */
+
+/* If there is a failure even closing a socket or terminating a child
+ * process there isn't much we can do, so let downstream function report
+ * the error and terminate the process */
+#define handleReqSyncConnection_clean_socket() \
+do \
+{ \
+	co_await ioContext.closeAFD(pSocket); \
+	RS_DBG2("IOContext status after clenup: ", ioContext); \
+} \
+while(false)
 
 	NetworkMessage networkMessage;
 
 	std::error_condition recvErrc;
 	auto totalReceived = co_await
-	        receiveNetworkMessage(*socket, networkMessage, &recvErrc);
+			receiveNetworkMessage(*pSocket, networkMessage, &recvErrc);
 	if(totalReceived < 0)
 	{
-		RS_INFO("Got invalid data from client ", *socket);
-		co_await socket->getIOContext().closeAFD(socket);
+		RS_INFO("Got invalid data from client ", *pSocket);
+		handleReqSyncConnection_clean_socket();
 		co_return rFAILURE;
 	}
 
@@ -239,22 +275,25 @@ std::task<bool> SharedState::handleReqSyncConnection(
 
 	std::error_condition tLSHErr;
 	std::shared_ptr<AsyncCommand> luaSharedState =
-			AsyncCommand::execute(cmd, socket->getIOContext(), &tLSHErr);
+			AsyncCommand::execute(cmd, ioContext, &tLSHErr);
 	if(! luaSharedState)
 	{
 		rs_error_bubble_or_exit(tLSHErr, errbub, "Failure executing: ", cmd);
-		co_return co_await rSocketCleanup(rFAILURE);
+		handleReqSyncConnection_clean_socket();
+		co_return rFAILURE;
 	}
 
-	auto rSockCmdCleanup = [&](bool isSuccess) -> std::task<bool>
-	{
-		/* If there is a failure even closing a socket or terminating a child
-		 * process there isn't much we can do, so let downstream function report
-		 * the error and terminate the process */
-		co_await rSocketCleanup(isSuccess);
-		co_await AsyncCommand::waitTermination(luaSharedState);
-		co_return isSuccess;
-	};
+/* If there is a failure even closing a socket or terminating a child
+ * process there isn't much we can do, so let downstream function report
+ * the error and terminate the process */
+#define handleReqSyncConnection_clean_socket_cmd() \
+do \
+{ \
+	co_await ioContext.closeAFD(pSocket); \
+	co_await AsyncCommand::waitTermination(luaSharedState); \
+	RS_DBG2("IOContext status after clenup: ", ioContext); \
+} \
+while(false)
 
 	if(co_await luaSharedState->writeStdIn(
 	            networkMessage.mData.data(), networkMessage.mData.size(),
@@ -263,14 +302,18 @@ std::task<bool> SharedState::handleReqSyncConnection(
 		rs_error_bubble_or_exit(
 			tLSHErr, errbub, "Failure writing ", networkMessage.mData.size(),
 			" bytes to ", cmd, " stdin ", tLSHErr );
-		co_return co_await rSockCmdCleanup(rFAILURE);
+		handleReqSyncConnection_clean_socket_cmd();
+		co_return rFAILURE;
 	}
 
 	/* shared-state reqsync keeps reading until it get EOF, so we need to close
 	 * its stdin once we finish writing so it can process the data and then
 	 * return */
 	if(!co_await luaSharedState->closeStdIn(errbub))
-		co_return co_await rSockCmdCleanup(rFAILURE);
+	{
+		handleReqSyncConnection_clean_socket_cmd();
+		co_return rFAILURE;
+	}
 
 	networkMessage.mData.clear();
 	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
@@ -278,7 +321,10 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	auto totalReadBytes = co_await luaSharedState->readStdOut(
 					networkMessage.mData.data(), DATA_MAX_LENGHT, errbub );
 	if(totalReadBytes == -1) RS_UNLIKELY
-		co_return co_await rSockCmdCleanup(rFAILURE);
+	{
+		handleReqSyncConnection_clean_socket_cmd();
+		co_return rFAILURE;
+	}
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *
@@ -300,21 +346,23 @@ std::task<bool> SharedState::handleReqSyncConnection(
 	 */
 	networkMessage.mData.resize(totalReadBytes);
 
-	auto totalSent = co_await sendNetworkMessage(*socket, networkMessage, errbub);
+	auto totalSent = co_await sendNetworkMessage(*pSocket, networkMessage, errbub);
 	if(totalSent == -1)
-		co_return co_await rSockCmdCleanup(rFAILURE);
+	{
+		handleReqSyncConnection_clean_socket_cmd();
+		co_return rFAILURE;
+	}
 
 	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peer address
-	RS_INFO( *socket,
+	RS_INFO( *pSocket,
 			" Received message type: ", networkMessage.mTypeName,
 			" Received message size: ", receivedMessageSize,
 			" Sent message size: ", networkMessage.mData.size(),
 			" Total sent bytes: ", totalSent,
 			" Total received bytes: ", totalReceived );
 
-	co_await rSockCmdCleanup(rSUCCESS);
+	handleReqSyncConnection_clean_socket_cmd();
 
-	RS_DBG2("IOContext status after success: ", socket->getIOContext());
 	co_return rSUCCESS;
 }
 
