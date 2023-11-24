@@ -92,11 +92,11 @@ private:
 		std::vector<uint8_t> mData;
 	};
 
-	static std::task<int> receiveNetworkMessage(
+	static std::task<ssize_t> receiveNetworkMessage(
 	        Socket& socket, NetworkMessage& netMsg,
 	        std::error_condition* errbub = nullptr );
 
-	static std::task<int> sendNetworkMessage(
+	static std::task<ssize_t> sendNetworkMessage(
 	        Socket& socket, const NetworkMessage& netMsg,
 	        std::error_condition* errbub = nullptr );
 };

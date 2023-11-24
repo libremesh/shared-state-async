@@ -121,26 +121,25 @@ while(false)
 	co_return rSUCCESS;
 }
 
-std::task<int> SharedState::receiveNetworkMessage(
-		Socket& pSocket, NetworkMessage& networkMessage,
+std::task<ssize_t> SharedState::receiveNetworkMessage(
+    Socket& pSocket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
-	int constexpr rFailure = -1;
-	RS_DBG4(pSocket);
-	// TODO: define and use proper error_conditions to return
-	// TODO: deal with socket errors
+  RS_DBG4(pSocket);
 
-	int receivedBytes = 0;
-	int recvRet = -1;
+	int constexpr rFailure = -1;
+
+
+	ssize_t totalReceivedBytes = 0;
+	ssize_t recvRet = -1;
 
 	networkMessage.mTypeName.clear();
 	networkMessage.mData.clear();
 
-
 	uint8_t dataTypeNameLenght = 0;
 	recvRet = co_await pSocket.recv(&dataTypeNameLenght, 1, errbub);
 	if(recvRet == -1) co_return rFailure;
-	receivedBytes += recvRet;
+	totalReceivedBytes += recvRet;
 
 	RS_DBG2(pSocket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
 
@@ -148,7 +147,7 @@ std::task<int> SharedState::receiveNetworkMessage(
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::bad_message, errbub,
-					" ", pSocket,
+		            " ", pSocket,
 		            " Got data type name invalid lenght: ",
 		            static_cast<int>(dataTypeNameLenght) );
 		co_return rFailure;
@@ -157,17 +156,17 @@ std::task<int> SharedState::receiveNetworkMessage(
 	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
 	recvRet = co_await pSocket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
-	            dataTypeNameLenght );
+	                        dataTypeNameLenght, errbub );
 	if(recvRet == -1) co_return rFailure;
-	receivedBytes += recvRet;
+	totalReceivedBytes += recvRet;
 
 	RS_DBG2(pSocket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
 
 	uint32_t dataLenght = 0;
 	recvRet = co_await pSocket.recv(
-	            reinterpret_cast<uint8_t*>(&dataLenght), 4 );
+	                        reinterpret_cast<uint8_t*>(&dataLenght), 4, errbub );
 	if(recvRet == -1) co_return rFailure;
-	receivedBytes += recvRet;
+	totalReceivedBytes += recvRet;
 	dataLenght = ntohl(dataLenght);
 
 
@@ -175,17 +174,17 @@ std::task<int> SharedState::receiveNetworkMessage(
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::bad_message, errbub,
-					pSocket, " Got data invalid lenght: ", dataLenght);
+		            pSocket, " Got data invalid lenght: ", dataLenght);
 		co_return rFailure;
 	}
 
 	networkMessage.mData.resize(dataLenght, 0);
 	recvRet = co_await
-			pSocket.recv(
+	        pSocket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
-	            dataLenght );
+	                        dataLenght, errbub );
 	if(recvRet == -1) co_return rFailure;
-	receivedBytes += recvRet;
+	totalReceivedBytes += recvRet;
 
 	RS_DBG2( pSocket,
 	         " Expected data lenght: ", dataLenght,
@@ -193,47 +192,56 @@ std::task<int> SharedState::receiveNetworkMessage(
 
 	RS_DBG4( pSocket, " networkMessage.mData: ", networkMessage.mData);
 
-	RS_DBG2( pSocket, " Total received bytes: ", receivedBytes);
-	co_return receivedBytes;
+	RS_DBG2( pSocket, " Total received bytes: ", totalReceivedBytes);
+	co_return totalReceivedBytes;
 }
 
-std::task<int> SharedState::sendNetworkMessage(
-		Socket& pSocket, const NetworkMessage& netMsg,
+std::task<ssize_t> SharedState::sendNetworkMessage(
+    Socket& pSocket, const NetworkMessage& netMsg,
         std::error_condition* errbub )
 {
 	RS_DBG2(pSocket);
 
-	int sentBytes = 0;
+	ssize_t totalSentBytes = 0;
+	ssize_t sentBytes = -1;
 
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
-	sentBytes += co_await pSocket.send(&dataTypeLen, 1);
+	sentBytes = co_await pSocket.send (&dataTypeLen, 1, errbub);
+	if (sentBytes == -1) co_return -1;
+	totalSentBytes += sentBytes;
+	RS_DBG2( pSocket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen),
+	         " sentBytes: ", sentBytes );
 
-	RS_DBG2(pSocket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen));
-
-	sentBytes += co_await pSocket.send(
+	sentBytes = co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mTypeName.data()),
-	            dataTypeLen );
-
-	RS_DBG2( pSocket, " sent netMsg.mTypeName: ", netMsg.mTypeName );
+	            dataTypeLen, errbub );
+	if (sentBytes == -1) co_return -1;
+	totalSentBytes += sentBytes;
+	RS_DBG2( pSocket, " sent netMsg.mTypeName: ", netMsg.mTypeName,
+	         " sentBytes: ", sentBytes);
 
 	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.size());
-	sentBytes += co_await pSocket.send(
-	            reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4);
+	sentBytes = co_await pSocket.send(
+	    reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4, errbub );
+	if (sentBytes == -1) co_return -1;
+	totalSentBytes += sentBytes;
+	RS_DBG2( pSocket, " sent netMsg.mData.size(): ", netMsg.mData.size(),
+	         " sentBytes: ", sentBytes );
 
-	RS_DBG2( pSocket, " sent netMsg.mData.size(): ", netMsg.mData.size() );
-
-	sentBytes += co_await pSocket.send(
+	sentBytes = co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mData.data()),
-	            netMsg.mData.size() );
+	            netMsg.mData.size(), errbub );
+	if (sentBytes == -1) co_return -1;
+	totalSentBytes += sentBytes;
 
 	RS_DBG4( pSocket, " sent netMsg.mData: ", netMsg.mData);
 
-	RS_DBG2( pSocket, " Total bytes sent: ", sentBytes );
-	co_return sentBytes;
+	RS_DBG2( pSocket, " Total bytes sent: ", totalSentBytes );
+	co_return totalSentBytes;
 }
 
 std::task<bool> SharedState::handleReqSyncConnection(
-		std::shared_ptr<Socket> pSocket,
+    std::shared_ptr<Socket> pSocket,
         std::error_condition* errbub )
 {
 	auto constexpr rFAILURE = false;
@@ -260,7 +268,7 @@ while(false)
 
 	std::error_condition recvErrc;
 	auto totalReceived = co_await
-			receiveNetworkMessage(*pSocket, networkMessage, &recvErrc);
+	        receiveNetworkMessage(*pSocket, networkMessage, &recvErrc);
 	if(totalReceived < 0)
 	{
 		RS_INFO("Got invalid data from client ", *pSocket);
@@ -275,7 +283,7 @@ while(false)
 
 	std::error_condition tLSHErr;
 	std::shared_ptr<AsyncCommand> luaSharedState =
-			AsyncCommand::execute(cmd, ioContext, &tLSHErr);
+	        AsyncCommand::execute(cmd, ioContext, &tLSHErr);
 	if(! luaSharedState)
 	{
 		rs_error_bubble_or_exit(tLSHErr, errbub, "Failure executing: ", cmd);

@@ -104,7 +104,13 @@ static CrashStackTrace gCrashStackTrace;
 		/* Going out of scope the returned task is destroyed, we need to
 		 * detach the coroutine otherwise it will be abruptly stopped too before
 		 * finishing the job */
-		co_await SharedState::handleReqSyncConnection(socket);
+		std::error_condition reqSyncErr;
+		bool tSuccess = co_await
+		        SharedState::handleReqSyncConnection (socket, &reqSyncErr);
+
+		// TODO: print peer address
+		RS_INFO( tSuccess ? "Success" : "Failure", " handling reqsync on ",
+		         *socket, reqSyncErr );
 	}
 }
 
