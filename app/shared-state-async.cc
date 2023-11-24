@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 	{
 		std::cerr << "Usage: " << argv[0] << " OPERATION [ARGUMENTS]"
 		          << std::endl
-		          << "Supported operations: sync, listen" << std::endl;
+		          << "Supported operations: discover, listen, sync" << std::endl;
 	};
 
 	if(argc < 2)
