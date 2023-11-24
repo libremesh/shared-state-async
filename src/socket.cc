@@ -141,20 +141,56 @@ std::task<std::shared_ptr<Socket>> ListeningSocket::accept()
 	co_return rsk;
 }
 
-/* TODO: proper implementation @see AsyncCommand::readStdOut and
- * AsyncCommand::writeStdIn */
-SocketRecvOperation Socket::recv(
+std::task<ssize_t> Socket::recv(
         uint8_t* buffer, std::size_t len,
-        std::error_condition* ec )
+        std::error_condition* errbub )
 {
-	return SocketRecvOperation(*this, buffer, len, ec);
+	RS_DBG2( *this,
+	        " buffer: ", reinterpret_cast<const void*>(buffer),
+	        " len: ", len, " errbub: ", errbub );
+
+	ssize_t numReadBytes = 0;
+	ssize_t totalReadBytes = 0;
+	do
+	{
+		numReadBytes = co_await
+		        SocketRecvOperation(
+		            *this, buffer + totalReadBytes, len - totalReadBytes, errbub );
+
+		if(numReadBytes == -1) RS_UNLIKELY
+		        co_return -1;
+
+		totalReadBytes += numReadBytes;
+	}
+	while(numReadBytes && totalReadBytes < len);
+
+	co_return totalReadBytes;
 }
 
-/* TODO: proper implementation @see AsyncCommand::readStdOut and
- * AsyncCommand::writeStdIn */
-SocketSendOperation Socket::send(
+std::task<ssize_t> Socket::send(
         const uint8_t* buffer, std::size_t len,
-        std::error_condition* ec )
+        std::error_condition* errbub )
 {
-	return SocketSendOperation{*this, buffer, len, ec};
+	RS_DBG2( *this,
+	         " buffer: ", reinterpret_cast<const void*>(buffer),
+	         " len: ", len, " errbub: ", errbub );
+	RS_DBG4( " buffer content: ",
+	         std::string(reinterpret_cast<const char*>(buffer), len) );
+
+	ssize_t numWriteBytes = 0;
+	ssize_t totalWriteBytes = 0;
+	do
+	{
+		numWriteBytes = co_await
+		        SocketSendOperation(
+		            *this, buffer + totalWriteBytes, len - totalWriteBytes, errbub );
+
+		if(numWriteBytes == -1) RS_UNLIKELY
+		    co_return -1;
+
+		totalWriteBytes += numWriteBytes;
+	}
+	while(numWriteBytes && totalWriteBytes < len);
+
+	co_return totalWriteBytes;
 }

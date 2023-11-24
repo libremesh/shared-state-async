@@ -30,7 +30,6 @@
 
 #include "sharedstate.hh"
 #include "socket.hh"
-#include "file_read_operation.hh"
 #include "async_command.hh"
 
 #include <util/rsdebug.h>
@@ -125,10 +124,9 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
     Socket& pSocket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
-  RS_DBG4(pSocket);
+	RS_DBG4(pSocket);
 
-	int constexpr rFailure = -1;
-
+	ssize_t constexpr rFailure = -1;
 
 	ssize_t totalReceivedBytes = 0;
 	ssize_t recvRet = -1;

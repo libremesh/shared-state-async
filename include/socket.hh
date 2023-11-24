@@ -44,11 +44,11 @@ class Socket : public AsyncFileDescriptor
 public:
 	Socket(const Socket&) = delete;
 
-	SocketRecvOperation recv(
+	std::task<ssize_t> recv(
 	        uint8_t *buffer, std::size_t len,
 	        std::error_condition* ec = nullptr );
 
-	SocketSendOperation send(
+	std::task<ssize_t> send(
 	        const uint8_t* buffer, std::size_t len,
 	        std::error_condition* ec = nullptr );
 
