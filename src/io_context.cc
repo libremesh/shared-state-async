@@ -73,9 +73,8 @@ void IOContext::run()
 				continue;
 			}
 #endif //  RS_DEBUG_LEVEL > 0
-			std::error_condition* nulli = nullptr;
 			rs_error_bubble_or_exit(
-			            rs_errno_to_condition(errno), nulli,
+			            rs_errno_to_condition(errno), nullptr,
 			            "epoll_wait failed FD: ", mEpollFD );
 		}
 

@@ -35,9 +35,11 @@
 #include "async_command.hh"
 #include "io_context.hh"
 #include "waitpid_operation.hh"
+#include "file_read_operation.hh"
+#include "file_write_operation.hh"
 
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel2.h>
+#include <util/rsdebuglevel1.h>
 
 #ifndef __NR_pidfd_open
 #define __NR_pidfd_open 434 /* System call # on most architectures */

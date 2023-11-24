@@ -38,7 +38,7 @@
 #include <util/rserrorbubbleorexit.h>
 #include <util/stacktrace.h>
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel2.h>
+#include <util/rsdebuglevel1.h>
 
 std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
         const sockaddr_storage& address,
@@ -146,8 +146,8 @@ std::task<ssize_t> Socket::recv(
         std::error_condition* errbub )
 {
 	RS_DBG2( *this,
-	        " buffer: ", reinterpret_cast<const void*>(buffer),
-	        " len: ", len, " errbub: ", errbub );
+	         " buffer: ", reinterpret_cast<const void*>(buffer),
+	         " len: ", len, " errbub: ", errbub );
 
 	ssize_t numReadBytes = 0;
 	ssize_t totalReadBytes = 0;
@@ -156,9 +156,7 @@ std::task<ssize_t> Socket::recv(
 		numReadBytes = co_await
 		        SocketRecvOperation(
 		            *this, buffer + totalReadBytes, len - totalReadBytes, errbub );
-
-		if(numReadBytes == -1) RS_UNLIKELY
-		        co_return -1;
+		if(numReadBytes == -1) RS_UNLIKELY co_return -1;
 
 		totalReadBytes += numReadBytes;
 	}

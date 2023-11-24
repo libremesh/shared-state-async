@@ -64,7 +64,7 @@ static CrashStackTrace gCrashStackTrace;
 		}
 	}
 
-	RS_DBG1("IOContext state after getCandidatesNeighbours ", ioContext);
+	RS_DBG3("IOContext state after getCandidatesNeighbours ", ioContext);
 
 	const std::vector<sockaddr_storage>& peerAddresses =
 	        peerAddressesPassed.empty() ?
@@ -75,7 +75,6 @@ static CrashStackTrace gCrashStackTrace;
 	for(auto&& peerAddress : peerAddresses)
 	{
 		std::error_condition errInfo;
-		RS_DBG1("errInfo: ", &errInfo);
 		bool peerSynced = co_await
 		        SharedState::syncWithPeer(
 		            dataTypeName, peerAddress, ioContext, &errInfo );
@@ -86,7 +85,7 @@ static CrashStackTrace gCrashStackTrace;
 			retval = errInfo.value();
 		}
 
-		RS_DBG1("IOContext state after syncWithPeer ", peerAddress, " ", ioContext);
+		RS_DBG3("IOContext state after syncWithPeer ", peerAddress, " ", ioContext);
 	}
 
 	if(retval)
@@ -108,7 +107,7 @@ static CrashStackTrace gCrashStackTrace;
 		bool tSuccess = co_await
 		        SharedState::handleReqSyncConnection (socket, &reqSyncErr);
 
-		// TODO: print peer address
+		// TODO: print peer address instead of socket
 		RS_INFO( tSuccess ? "Success" : "Failure", " handling reqsync on ",
 		         *socket, reqSyncErr );
 	}
@@ -197,7 +196,7 @@ int main(int argc, char* argv[])
 		auto listener = ListeningSocket::setupListener(
 		            SharedState::TCP_PORT, *ioContext );
 
-		RS_INFO("Created listening socket ", *listener);
+		RS_INFO("Listening on TCP port: ", SharedState::TCP_PORT, " ", *listener);
 
 		auto t = acceptReqSyncConnections(*listener);
 		t.resume();

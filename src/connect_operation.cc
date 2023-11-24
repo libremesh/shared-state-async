@@ -30,7 +30,7 @@
 #include "async_file_descriptor.hh"
 
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel2.h>
+#include <util/rsdebuglevel0.h>
 
 ConnectOperation::ConnectOperation(
          AsyncFileDescriptor& socket, const sockaddr_storage& address,

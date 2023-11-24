@@ -40,7 +40,7 @@ std::task<bool> SharedState::syncWithPeer(
         std::string dataTypeName, const sockaddr_storage& peerAddr,
         IOContext& ioContext, std::error_condition* errbub )
 {
-	RS_DBG2(dataTypeName, " ", sockaddr_storage_tostring(peerAddr), " ", errbub);
+	RS_DBG3(dataTypeName, " ", sockaddr_storage_tostring(peerAddr), " ", errbub);
 
 	auto constexpr rFAILURE = false;
 	auto constexpr rSUCCESS = true;
@@ -76,7 +76,7 @@ std::task<bool> SharedState::syncWithPeer(
 do \
 { \
 	co_await ioContext.closeAFD(tSocket); \
-	RS_DBG2("IOContext status after clenup: ", ioContext); \
+	RS_DBG3("IOContext status after clenup: ", ioContext); \
 } \
 while(false)
 #endif
@@ -124,7 +124,7 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
     Socket& pSocket, NetworkMessage& networkMessage,
         std::error_condition* errbub )
 {
-	RS_DBG4(pSocket);
+	RS_DBG3(pSocket);
 
 	ssize_t constexpr rFailure = -1;
 
@@ -139,7 +139,7 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	if(recvRet == -1) co_return rFailure;
 	totalReceivedBytes += recvRet;
 
-	RS_DBG2(pSocket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
+	RS_DBG3(pSocket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
 
 	if(dataTypeNameLenght < 1 || dataTypeNameLenght > DATA_TYPE_NAME_MAX_LENGHT)
 	{
@@ -158,7 +158,7 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	if(recvRet == -1) co_return rFailure;
 	totalReceivedBytes += recvRet;
 
-	RS_DBG2(pSocket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
+	RS_DBG3(pSocket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
 
 	uint32_t dataLenght = 0;
 	recvRet = co_await pSocket.recv(
@@ -184,13 +184,13 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	if(recvRet == -1) co_return rFailure;
 	totalReceivedBytes += recvRet;
 
-	RS_DBG2( pSocket,
+	RS_DBG3( pSocket,
 	         " Expected data lenght: ", dataLenght,
 	         " received data bytes: ", recvRet );
 
 	RS_DBG4( pSocket, " networkMessage.mData: ", networkMessage.mData);
 
-	RS_DBG2( pSocket, " Total received bytes: ", totalReceivedBytes);
+	RS_DBG3( pSocket, " Total received bytes: ", totalReceivedBytes);
 	co_return totalReceivedBytes;
 }
 
@@ -198,7 +198,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
     Socket& pSocket, const NetworkMessage& netMsg,
         std::error_condition* errbub )
 {
-	RS_DBG2(pSocket);
+	RS_DBG3(pSocket, " type: ", netMsg.mTypeName, " dataLen: ", netMsg.mData.size());
 
 	ssize_t totalSentBytes = 0;
 	ssize_t sentBytes = -1;
@@ -207,7 +207,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	sentBytes = co_await pSocket.send (&dataTypeLen, 1, errbub);
 	if (sentBytes == -1) co_return -1;
 	totalSentBytes += sentBytes;
-	RS_DBG2( pSocket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen),
+	RS_DBG4( pSocket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen),
 	         " sentBytes: ", sentBytes );
 
 	sentBytes = co_await pSocket.send(
@@ -215,7 +215,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	            dataTypeLen, errbub );
 	if (sentBytes == -1) co_return -1;
 	totalSentBytes += sentBytes;
-	RS_DBG2( pSocket, " sent netMsg.mTypeName: ", netMsg.mTypeName,
+	RS_DBG4( pSocket, " sent netMsg.mTypeName: ", netMsg.mTypeName,
 	         " sentBytes: ", sentBytes);
 
 	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.size());
@@ -223,7 +223,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	    reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4, errbub );
 	if (sentBytes == -1) co_return -1;
 	totalSentBytes += sentBytes;
-	RS_DBG2( pSocket, " sent netMsg.mData.size(): ", netMsg.mData.size(),
+	RS_DBG4( pSocket, " sent netMsg.mData.size(): ", netMsg.mData.size(),
 	         " sentBytes: ", sentBytes );
 
 	sentBytes = co_await pSocket.send(
@@ -234,7 +234,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 
 	RS_DBG4( pSocket, " sent netMsg.mData: ", netMsg.mData);
 
-	RS_DBG2( pSocket, " Total bytes sent: ", totalSentBytes );
+	RS_DBG3( pSocket, " Total bytes sent: ", totalSentBytes );
 	co_return totalSentBytes;
 }
 
@@ -258,7 +258,7 @@ std::task<bool> SharedState::handleReqSyncConnection(
 do \
 { \
 	co_await ioContext.closeAFD(pSocket); \
-	RS_DBG2("IOContext status after clenup: ", ioContext); \
+	RS_DBG3("IOContext status after clenup: ", ioContext); \
 } \
 while(false)
 
@@ -269,7 +269,7 @@ while(false)
 	        receiveNetworkMessage(*pSocket, networkMessage, &recvErrc);
 	if(totalReceived < 0)
 	{
-		RS_INFO("Got invalid data from client ", *pSocket);
+		RS_DBG1("Got invalid data from client ", *pSocket);
 		handleReqSyncConnection_clean_socket();
 		co_return rFAILURE;
 	}
@@ -297,13 +297,14 @@ do \
 { \
 	co_await ioContext.closeAFD(pSocket); \
 	co_await AsyncCommand::waitTermination(luaSharedState); \
-	RS_DBG2("IOContext status after clenup: ", ioContext); \
+	RS_DBG3("IOContext status after clenup: ", ioContext); \
 } \
 while(false)
 
-	if(co_await luaSharedState->writeStdIn(
+	if( co_await
+	        luaSharedState->writeStdIn(
 	            networkMessage.mData.data(), networkMessage.mData.size(),
-				&tLSHErr ) == -1) RS_UNLIKELY
+	            &tLSHErr ) == -1 ) RS_UNLIKELY
 	{
 		rs_error_bubble_or_exit(
 			tLSHErr, errbub, "Failure writing ", networkMessage.mData.size(),
@@ -415,8 +416,8 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 		peerAddresses.push_back(peerAddr);
 	}
 
-	RS_DBG2( "Found ", peerAddresses.size(), " potential neighbours" );
-#if RS_DEBUG_LEVEL > 1
+#if RS_DEBUG_LEVEL > 2
+	RS_DBG( "Found ", peerAddresses.size(), " potential neighbours" );
 	for( auto&& peerAddr : std::as_const(peerAddresses))
 		RS_DBG(sockaddr_storage_iptostring(peerAddr));
 #endif // RS_DEBUG_LEVEL

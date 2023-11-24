@@ -33,7 +33,7 @@
 
 #include <util/rsdebug.h>
 #include <util/stacktrace.h>
-#include <util/rsdebuglevel2.h>
+#include <util/rsdebuglevel1.h>
 
 class IOContext;
 

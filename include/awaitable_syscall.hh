@@ -33,7 +33,7 @@
 
 #include <util/rserrorbubbleorexit.h>
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel2.h>
+#include <util/rsdebuglevel1.h>
 
 /**
  * @brief AwaitableSyscall is a base class for all kind of asynchronous syscalls
@@ -48,7 +48,7 @@
  * deal with it.
  * @tparam multiShot true if wrapped syscall may cause epoll_wait to return more
  * then once before being ready/complete, waitpid is an example of that.
- * @tparam errorValue customize value that represent failure returned bt syscall
+ * @tparam errorValue customize value that represent failure returned by syscall
  *
  * Derived classes MUST pass themselves as SyscallOpt and implement the
  * following method:
@@ -67,9 +67,9 @@ template < typename SyscallOp,
 class AwaitableSyscall
 {
 public:
-		AwaitableSyscall( AsyncFileDescriptor& afd,
-										std::error_condition* ec = nullptr ):
-				mError{ec}, mAFD(afd)
+	AwaitableSyscall( AsyncFileDescriptor& afd,
+	                  std::error_condition* ec = nullptr ):
+	    mError{ec}, mAFD(afd)
 	{
 		/* Put static checks here and not in template class scope to avoid
 		 * invalid use of imcomplete type xxxOperation compiler errors */
@@ -89,9 +89,9 @@ public:
 		mReturnValue = static_cast<SyscallOp*>(this)->syscall();
 
 		RS_DBG2( mAFD,
-				" shouldWait(): ", shouldWait(mReturnValue, errno),
-				" mReturnValue: ", mReturnValue,
-				" ", rs_errno_to_condition(errno) );
+		         " shouldWait(): ", shouldWait(mReturnValue, errno),
+		         " mReturnValue: ", mReturnValue,
+		         " ", rs_errno_to_condition(errno) );
 
 		if(shouldWait(mReturnValue, errno))
 		{
@@ -108,10 +108,10 @@ public:
 			 * possible or close the program printing an error */
 
 			RS_DBG2( "syscall failed with ret: ", mReturnValue,
-					 " errno: ", rs_errno_to_condition(errno) );
+			         " errno: ", rs_errno_to_condition(errno) );
 			rs_error_bubble_or_exit(
-				rs_errno_to_condition(errno), mError,
-				" syscall failed" );
+			            rs_errno_to_condition(errno), mError,
+			            " syscall failed" );
 
 			/* If downstream callers apparently get an error before crashing,
 			 * but print errno 0, the reason is NEVER the failed syscall
@@ -133,7 +133,7 @@ public:
 			/* Operation was completed on first attempt, without suspending,
 			 * just return the result */
 			RS_DBG2( mAFD, " completed at firts attempt mReturnValue: ",
-					mReturnValue );
+			         mReturnValue );
 			return mReturnValue;
 		}
 
@@ -144,18 +144,18 @@ public:
 		if(multiShot && shouldWait(mReturnValue, errno))
 		{
 			RS_DBG1( "syscall want more waiting on resume ",
-					 "mReturnValue: ", mReturnValue,
-					 rs_errno_to_condition(errno) );
+			         "mReturnValue: ", mReturnValue,
+			         rs_errno_to_condition(errno) );
 			suspend();
 		}
 		else if(mReturnValue == errorValue)
 		{
 			RS_DBG1( "syscall failed on resume ",
-					 "mReturnValue: ", mReturnValue,
-					 rs_errno_to_condition(errno) );
+			         "mReturnValue: ", mReturnValue,
+			         rs_errno_to_condition(errno) );
 			rs_error_bubble_or_exit(
-				rs_errno_to_condition(errno), mError,
-				"syscall failed on resume" );
+			            rs_errno_to_condition(errno), mError,
+			            "syscall failed on resume" );
 		}
 
 		return mReturnValue;
@@ -176,8 +176,8 @@ public:
 	static bool shouldWait(ReturnType retval, int sErrno)
 	{
 		return (retval == errorValue) && ( errno == EAGAIN ||
-										   errno == EWOULDBLOCK ||
-										   errno == EINPROGRESS );
+		                                   errno == EWOULDBLOCK ||
+		                                   errno == EINPROGRESS );
 	}
 
 private:
