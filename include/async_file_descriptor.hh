@@ -23,7 +23,7 @@
 #pragma once
 
 #include <memory>
-#include <deque>
+#include <queue>
 #include <fcntl.h>
 #include <system_error>
 #include <ostream>
@@ -74,7 +74,7 @@ public:
 		/* Iterate at most numPending times to avoid re-looping on coroutines
 		 * that needs to wait again and are re-appended on the pending queue
 		 */
-		for(; numPending > 0; --numPending, mPendigOps.pop_front())
+		for(; numPending > 0; --numPending, mPendigOps.pop())
 			mPendigOps.front().resume();
 
 		return true;
@@ -82,7 +82,7 @@ public:
 
 	void addPendingOp(std::coroutine_handle<> op)
 	{
-		mPendigOps.push_back(op);
+		mPendigOps.push(op);
 		RS_DBG2(*this, " numPending: ", mPendigOps.size());
 	}
 
@@ -140,5 +140,5 @@ private:
 	 * never happen at same time, and are always in order one after
 	 * another, this is not guaranted for every protocol but for now I
 	 * got no time to think more on this */
-	std::deque<std::coroutine_handle<>> mPendigOps;
+	std::queue<std::coroutine_handle<>> mPendigOps;
 };
