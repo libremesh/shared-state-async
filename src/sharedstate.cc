@@ -51,9 +51,15 @@ std::task<bool> SharedState::syncWithPeer(
 	if(! co_await getState(dataTypeName, netMessage.mData, ioContext, errbub))
 		co_return false;
 
+	using namespace std::chrono;
+	const auto connectBTP = high_resolution_clock::now();
+
 	auto tSocket = co_await ConnectingSocket::connect(
 	            peerAddr, ioContext, errbub);
 	if(!tSocket) co_return false;
+
+	const auto connectETP = high_resolution_clock::now();
+	const auto connectMuSecs = duration_cast<microseconds>(connectETP - connectBTP);
 
 #if 0
 	!! CAPTURING LAMBDAS THAT ARE COROUTINES BREAKS !!
@@ -83,6 +89,8 @@ while(false)
 
 	auto sentMessageSize = netMessage.mData.size();
 
+	const auto sendBTP = high_resolution_clock::now();
+
 	auto totalSent = co_await
 	        SharedState::sendNetworkMessage(*tSocket, netMessage, errbub);
 	if(totalSent == -1)
@@ -99,6 +107,10 @@ while(false)
 		co_return rFAILURE;
 	}
 
+	const auto recvETP = high_resolution_clock::now();
+
+	const auto mergeBTP = high_resolution_clock::now();
+
 	if(! co_await mergeSlice(
 			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
 	{
@@ -106,16 +118,35 @@ while(false)
 		co_return rFAILURE;
 	}
 
+	const auto mergeETP = high_resolution_clock::now();
+	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
+
 	syncWithPeer_clean_socket();
 
-	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peerAddr
-	RS_INFO( /*"Synchronized with peer: ", peerAddr,*/
+	/* Measuring only send is pointless due to kernel buffering, measuring from
+	 * send begin to end of receive will account for bidirectional trasfer plus
+	 * remote processing time (which might be relevant but we can assume it is
+	 * similar to local processing time) plus RTT that we can extimate from
+	 * connect time, so we can do a better extimation.
+	 * This way we obtain good enough BW and RTT statistics passively, the
+	 * more data is shared the more accurated the exitamtion will be, this is
+	 * expecially important because the more crowded is the network the more
+	 * important becomes to make optimal routing decisions based on available BW
+	 */
+	int bandwidthMbEXT = (totalSent+totalReceived) * 1000 /
+	        (duration_cast<microseconds>(recvETP - sendBTP).count() -
+	        ( connectMuSecs.count() + mergeMuSecs.count() ));
+
+	RS_INFO( "Synchronized with peer: ", peerAddr,
 	         " Sent message type: ", dataTypeName,
 	         " Sent message size: ", sentMessageSize,
 	         " Received message type: ", netMessage.mTypeName,
 	         " Received message size: ", netMessage.mData.size(),
 	         " Total sent bytes: ", totalSent,
-	         " Total received bytes: ", totalReceived );
+	         " Total received bytes: ", totalReceived,
+	         " Extimated BW: ", bandwidthMbEXT, "Mb/s",
+	         " Extimated RTT: ", connectMuSecs.count(), "μs",
+	         " Processing time: ", mergeMuSecs.count(), "μs" );
 
 	co_return rSUCCESS;
 }
