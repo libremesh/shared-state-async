@@ -27,6 +27,7 @@
 #include <system_error>
 #include <cstdint>
 #include <vector>
+#include <chrono>
 
 #include "task.hh"
 #include "socket.hh"
@@ -51,6 +52,7 @@ struct SharedState
 	static std::task<bool> handleReqSyncConnection(
 	        std::shared_ptr<Socket> clientSocket,
 	        std::error_condition* errbub = nullptr );
+
 
 	/**
 	 * @return returns false if error occurred, true otherwise
@@ -82,6 +84,8 @@ private:
 	static constexpr std::string_view SHARED_STATE_GET_CANDIDATES_CMD =
 			"shared-state-get_candidates_neigh";
 
+	static constexpr uint32_t WIRE_PROTO_VERSION = 1;
+
 	/** The message format on the wire is:
 	* |     1 byte       |           |   4 bytes   |      |
 	* | type name lenght | type name | data lenght | data |
@@ -92,11 +96,49 @@ private:
 		std::vector<uint8_t> mData;
 	};
 
+	/** Measuring socket performances is a tricky businnes due to complete lack
+	 * of statistic support from standard socket API plus kernel buffering
+	 * magic, so each fieald of this struct is extimated in the best place we
+	 * can, and a reference to the struct is passed around. Also the protocol
+	 * have some modification just to make possible to have reasonable
+	 * measurements/extimations.
+	 * This way we obtain good enough bandwidht and round trip time statistics
+	 * almost passively, the more data is shared the more accurated the
+	 * extimation will be, this is expecially important because the more crowded
+	 * is the network the more important becomes to make optimal routing
+	 * decisions based on available BW.
+	 */
+	struct NetworkStats
+	{
+		NetworkStats(): mPeer(), mRttExt(0), mUpBwMbsExt(0), mDownBwMbsExt(0) {}
+
+		sockaddr_storage mPeer;
+
+		/** Round trip time extimation */
+		std::chrono::microseconds mRttExt;
+
+		/** Upload bandwidth extimation in Mbit/s */
+		uint32_t mUpBwMbsExt;
+
+		/** Download bandwidth extimation in Mbit/s */
+		uint32_t mDownBwMbsExt;
+	};
+
+	static std::task<bool> clientHandShake(
+	        Socket& pSocket, NetworkStats& netStats,
+	        std::error_condition* errbub = nullptr );
+
+	static std::task<bool> serverHandShake(
+	        Socket& pSocket, NetworkStats& netStats,
+	        std::error_condition* errbub = nullptr );
+
 	static std::task<ssize_t> receiveNetworkMessage(
 	        Socket& socket, NetworkMessage& netMsg,
+	        NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 
 	static std::task<ssize_t> sendNetworkMessage(
 	        Socket& socket, const NetworkMessage& netMsg,
+	        NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 };

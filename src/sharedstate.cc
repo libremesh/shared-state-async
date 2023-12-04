@@ -51,15 +51,9 @@ std::task<bool> SharedState::syncWithPeer(
 	if(! co_await getState(dataTypeName, netMessage.mData, ioContext, errbub))
 		co_return false;
 
-	using namespace std::chrono;
-	const auto connectBTP = high_resolution_clock::now();
-
 	auto tSocket = co_await ConnectingSocket::connect(
 	            peerAddr, ioContext, errbub);
 	if(!tSocket) co_return false;
-
-	const auto connectETP = high_resolution_clock::now();
-	const auto connectMuSecs = duration_cast<microseconds>(connectETP - connectBTP);
 
 #if 0
 	!! CAPTURING LAMBDAS THAT ARE COROUTINES BREAKS !!
@@ -87,12 +81,19 @@ do \
 while(false)
 #endif
 
+	/* Let's compare latency measuerd by connect and by version handshake */
+	NetworkStats netStats;
+	if(!co_await SharedState::clientHandShake(
+	            *tSocket, netStats, errbub )) RS_UNLIKELY
+	{
+		syncWithPeer_clean_socket();
+		co_return rFAILURE;
+	}
+
 	auto sentMessageSize = netMessage.mData.size();
-
-	const auto sendBTP = high_resolution_clock::now();
-
 	auto totalSent = co_await
-	        SharedState::sendNetworkMessage(*tSocket, netMessage, errbub);
+	        SharedState::sendNetworkMessage(
+	            *tSocket, netMessage, netStats, errbub );
 	if(totalSent == -1)
 	{
 		syncWithPeer_clean_socket();
@@ -100,42 +101,29 @@ while(false)
 	}
 
 	auto totalReceived = co_await
-	        SharedState::receiveNetworkMessage(*tSocket, netMessage, errbub);
+	        SharedState::receiveNetworkMessage(
+	            *tSocket, netMessage, netStats, errbub );
 	if(totalReceived == -1)
 	{
 		syncWithPeer_clean_socket();
 		co_return rFAILURE;
 	}
 
-	const auto recvETP = high_resolution_clock::now();
-
+	RS_DBG("merge init");
+	using namespace std::chrono;
 	const auto mergeBTP = high_resolution_clock::now();
-
 	if(! co_await mergeSlice(
 			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
 	{
+		RS_DBG("merge failure");
 		syncWithPeer_clean_socket();
 		co_return rFAILURE;
 	}
-
+	RS_DBG("merge success");
 	const auto mergeETP = high_resolution_clock::now();
 	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
 
 	syncWithPeer_clean_socket();
-
-	/* Measuring only send is pointless due to kernel buffering, measuring from
-	 * send begin to end of receive will account for bidirectional trasfer plus
-	 * remote processing time (which might be relevant but we can assume it is
-	 * similar to local processing time) plus RTT that we can extimate from
-	 * connect time, so we can do a better extimation.
-	 * This way we obtain good enough BW and RTT statistics passively, the
-	 * more data is shared the more accurated the exitamtion will be, this is
-	 * expecially important because the more crowded is the network the more
-	 * important becomes to make optimal routing decisions based on available BW
-	 */
-	int bandwidthMbEXT = (totalSent+totalReceived) * 1000 /
-	        (duration_cast<microseconds>(recvETP - sendBTP).count() -
-	        ( connectMuSecs.count() + mergeMuSecs.count() ));
 
 	RS_INFO( "Synchronized with peer: ", peerAddr,
 	         " Sent message type: ", dataTypeName,
@@ -144,20 +132,21 @@ while(false)
 	         " Received message size: ", netMessage.mData.size(),
 	         " Total sent bytes: ", totalSent,
 	         " Total received bytes: ", totalReceived,
-	         " Extimated BW: ", bandwidthMbEXT, "Mb/s",
-	         " Extimated RTT: ", connectMuSecs.count(), "μs",
+	         " Extimated upload BW: ", netStats.mUpBwMbsExt, "Mbit/s",
+	         " Extimated download BW: ", netStats.mDownBwMbsExt, "Mbit/s",
+	         " Extimated RTT: ", netStats.mRttExt.count(), "μs",
 	         " Processing time: ", mergeMuSecs.count(), "μs" );
 
 	co_return rSUCCESS;
 }
 
 std::task<ssize_t> SharedState::receiveNetworkMessage(
-    Socket& pSocket, NetworkMessage& networkMessage,
+    Socket& pSocket, NetworkMessage& networkMessage, NetworkStats& netStats,
         std::error_condition* errbub )
 {
 	RS_DBG3(pSocket);
 
-	ssize_t constexpr rFailure = -1;
+	ssize_t constexpr rFAILURE = -1;
 
 	ssize_t totalReceivedBytes = 0;
 	ssize_t recvRet = -1;
@@ -165,9 +154,12 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	networkMessage.mTypeName.clear();
 	networkMessage.mData.clear();
 
+	using namespace std::chrono;
+	const auto recvBTP = high_resolution_clock::now();
+
 	uint8_t dataTypeNameLenght = 0;
 	recvRet = co_await pSocket.recv(&dataTypeNameLenght, 1, errbub);
-	if(recvRet == -1) co_return rFailure;
+	if(recvRet == -1) co_return rFAILURE;
 	totalReceivedBytes += recvRet;
 
 	RS_DBG3(pSocket, " dataTypeNameLenght: ", static_cast<int>(dataTypeNameLenght));
@@ -179,14 +171,14 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 		            " ", pSocket,
 		            " Got data type name invalid lenght: ",
 		            static_cast<int>(dataTypeNameLenght) );
-		co_return rFailure;
+		co_return rFAILURE;
 	}
 
 	networkMessage.mTypeName.resize(dataTypeNameLenght, static_cast<char>(0));
 	recvRet = co_await pSocket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mTypeName.data()),
 	                        dataTypeNameLenght, errbub );
-	if(recvRet == -1) co_return rFailure;
+	if(recvRet == -1) co_return rFAILURE;
 	totalReceivedBytes += recvRet;
 
 	RS_DBG3(pSocket, " networkMessage.mTypeName: ", networkMessage.mTypeName);
@@ -194,17 +186,16 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	uint32_t dataLenght = 0;
 	recvRet = co_await pSocket.recv(
 	                        reinterpret_cast<uint8_t*>(&dataLenght), 4, errbub );
-	if(recvRet == -1) co_return rFailure;
+	if(recvRet == -1) co_return rFAILURE;
 	totalReceivedBytes += recvRet;
 	dataLenght = ntohl(dataLenght);
-
 
 	if(dataLenght < 2 || dataLenght > DATA_MAX_LENGHT)
 	{
 		rs_error_bubble_or_exit(
 		            std::errc::bad_message, errbub,
 		            pSocket, " Got data invalid lenght: ", dataLenght);
-		co_return rFailure;
+		co_return rFAILURE;
 	}
 
 	networkMessage.mData.resize(dataLenght, 0);
@@ -212,31 +203,61 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	        pSocket.recv(
 	            reinterpret_cast<uint8_t*>(networkMessage.mData.data()),
 	                        dataLenght, errbub );
-	if(recvRet == -1) co_return rFailure;
+	if(recvRet == -1) co_return rFAILURE;
 	totalReceivedBytes += recvRet;
+
+	const auto recvETP = high_resolution_clock::now();
+
+	/* Acknowledge total received bytes, all tests without this worked fine
+	 * anyway, so this has been added mainly to enable the sender to extimate
+	 * sending time in user space */
+	uint32_t netOrderReceivedB = htonl(totalReceivedBytes);
+	auto sendRet = co_await
+	        pSocket.send(
+	            reinterpret_cast<uint8_t*>(&netOrderReceivedB), 4, errbub );
+	if(sendRet == -1) co_return rFAILURE;
+
+
+	int bandwidthDownMbEXT = totalReceivedBytes * 8 * 1000 /
+	        duration_cast<microseconds>(recvETP - recvBTP).count();
+	/* RTT impact on bandwidth calculation should be usually neglegible, and for
+	 * sure becomes even more neglegible when the network and hence the shared
+	 * data size grows.
+	 * Subtracting it causes negative result in some situations for no
+	 * appreciable benefit in the rest of the cases so we don't take it in
+	 * account here */
+	if(bandwidthDownMbEXT < 1) RS_UNLIKELY
+	    RS_ERR( "Time must have wrapped during download bandwidth extimation: ",
+	            bandwidthDownMbEXT, " ignoring" );
+	else netStats.mDownBwMbsExt = bandwidthDownMbEXT;
 
 	RS_DBG3( pSocket,
 	         " Expected data lenght: ", dataLenght,
 	         " received data bytes: ", recvRet );
 
-	RS_DBG4( pSocket, " networkMessage.mData: ", networkMessage.mData);
+	RS_DBG4(pSocket, " networkMessage.mData: ", networkMessage.mData);
 
-	RS_DBG3( pSocket, " Total received bytes: ", totalReceivedBytes);
+	RS_DBG3(pSocket, " Total received bytes: ", totalReceivedBytes);
 	co_return totalReceivedBytes;
 }
 
 std::task<ssize_t> SharedState::sendNetworkMessage(
-    Socket& pSocket, const NetworkMessage& netMsg,
+    Socket& pSocket, const NetworkMessage& netMsg, NetworkStats& netStats,
         std::error_condition* errbub )
 {
 	RS_DBG3(pSocket, " type: ", netMsg.mTypeName, " dataLen: ", netMsg.mData.size());
 
+	ssize_t constexpr rFAILURE = -1;
+
 	ssize_t totalSentBytes = 0;
 	ssize_t sentBytes = -1;
 
+	using namespace std::chrono;
+	const auto sendBTP = high_resolution_clock::now();
+
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
-	sentBytes = co_await pSocket.send (&dataTypeLen, 1, errbub);
-	if (sentBytes == -1) co_return -1;
+	sentBytes = co_await pSocket.send(&dataTypeLen, 1, errbub);
+	if (sentBytes == -1) RS_UNLIKELY co_return rFAILURE;
 	totalSentBytes += sentBytes;
 	RS_DBG4( pSocket, " sent dataTypeLen: ", static_cast<int>(dataTypeLen),
 	         " sentBytes: ", sentBytes );
@@ -244,7 +265,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	sentBytes = co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mTypeName.data()),
 	            dataTypeLen, errbub );
-	if (sentBytes == -1) co_return -1;
+	if (sentBytes == -1) co_return rFAILURE;
 	totalSentBytes += sentBytes;
 	RS_DBG4( pSocket, " sent netMsg.mTypeName: ", netMsg.mTypeName,
 	         " sentBytes: ", sentBytes);
@@ -252,7 +273,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	uint32_t dataTypeLenNetOrder = htonl(netMsg.mData.size());
 	sentBytes = co_await pSocket.send(
 	    reinterpret_cast<uint8_t*>(&dataTypeLenNetOrder), 4, errbub );
-	if (sentBytes == -1) co_return -1;
+	if (sentBytes == -1) RS_UNLIKELY co_return rFAILURE;
 	totalSentBytes += sentBytes;
 	RS_DBG4( pSocket, " sent netMsg.mData.size(): ", netMsg.mData.size(),
 	         " sentBytes: ", sentBytes );
@@ -260,8 +281,47 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	sentBytes = co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(netMsg.mData.data()),
 	            netMsg.mData.size(), errbub );
-	if (sentBytes == -1) co_return -1;
+	if (sentBytes == -1) RS_UNLIKELY co_return rFAILURE;
 	totalSentBytes += sentBytes;
+
+	/* Wait for total received bytes acknowledge, all tests without this worked
+	 * fine anyway, so this has been added mainly to enable the sender to
+	 * extimate sending time in user space */
+	uint32_t totalAckBytes = 0;
+	auto recvRet = co_await
+	        pSocket.recv(
+	            reinterpret_cast<uint8_t*>(&totalAckBytes), 4, errbub );
+	if(recvRet == -1) RS_UNLIKELY co_return rFAILURE;
+
+	const auto ackETP = high_resolution_clock::now();
+
+	totalAckBytes = htonl(totalAckBytes);
+	if(totalAckBytes != totalSentBytes) RS_UNLIKELY
+	{
+		RS_WARN( "Peer acknowledged ", totalAckBytes,
+		         " bytes instead of ", totalSentBytes );
+		// TODO: pass peer address
+		// TODO: define proper error condition instead of abusing std::errc
+		rs_error_bubble_or_exit(
+		            std::errc::message_size, errbub,
+		            "Peer XXX acknowledge mismatch got: ",
+		            totalAckBytes,
+		            " expected: ", totalSentBytes );
+		co_return rFAILURE;
+	}
+
+	int bandwidthUpMbEXT = totalSentBytes * 8 * 1000 /
+	        duration_cast<microseconds>(ackETP - sendBTP).count();
+	/* RTT impact on bandwidth calculation should be usually neglegible, and for
+	 * sure becomes even more neglegible when the network and hence the shared
+	 * data size grows.
+	 * Subtracting it causes negative result in some situations for no
+	 * appreciable benefit in the rest of the cases so we don't take it in
+	 * account here */
+	if(bandwidthUpMbEXT < 1) RS_UNLIKELY
+	    RS_ERR( "Time must have wrapped during upload bandwidth extimation: ",
+	            bandwidthUpMbEXT, " ignoring" );
+	else netStats.mUpBwMbsExt = bandwidthUpMbEXT;
 
 	RS_DBG4( pSocket, " sent netMsg.mData: ", netMsg.mData);
 
@@ -293,11 +353,20 @@ do \
 } \
 while(false)
 
-	NetworkMessage networkMessage;
+	NetworkStats netStats;
 
+	if(!co_await SharedState::serverHandShake(
+	            *pSocket, netStats, errbub )) RS_UNLIKELY
+	{
+		handleReqSyncConnection_clean_socket();
+		co_return rFAILURE;
+	}
+
+	NetworkMessage networkMessage;
 	std::error_condition recvErrc;
 	auto totalReceived = co_await
-	        receiveNetworkMessage(*pSocket, networkMessage, &recvErrc);
+	        receiveNetworkMessage(
+	            *pSocket, networkMessage, netStats, &recvErrc );
 	if(totalReceived < 0)
 	{
 		RS_DBG1("Got invalid data from client ", *pSocket);
@@ -332,6 +401,9 @@ do \
 } \
 while(false)
 
+	using namespace std::chrono;
+	const auto mergeBTP = high_resolution_clock::now();
+
 	if( co_await
 	        luaSharedState->writeStdIn(
 	            networkMessage.mData.data(), networkMessage.mData.size(),
@@ -364,6 +436,9 @@ while(false)
 		co_return rFAILURE;
 	}
 
+	const auto mergeETP = high_resolution_clock::now();
+	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
+
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
 	 *
 	 * While testing on my Gentoo machine, I noticed that printing to the
@@ -384,7 +459,8 @@ while(false)
 	 */
 	networkMessage.mData.resize(totalReadBytes);
 
-	auto totalSent = co_await sendNetworkMessage(*pSocket, networkMessage, errbub);
+	auto totalSent = co_await sendNetworkMessage(
+	            *pSocket, networkMessage, netStats, errbub );
 	if(totalSent == -1)
 	{
 		handleReqSyncConnection_clean_socket_cmd();
@@ -396,6 +472,10 @@ while(false)
 			" Received message type: ", networkMessage.mTypeName,
 			" Received message size: ", receivedMessageSize,
 			" Sent message size: ", networkMessage.mData.size(),
+	        " Extimated upload BW: ", netStats.mUpBwMbsExt, "Mbit/s",
+	        " Extimated download BW: ", netStats.mDownBwMbsExt, "Mbit/s",
+	        " Extimated RTT: ", netStats.mRttExt.count(), "μs",
+	        " Processing time: ", mergeMuSecs.count(), "μs"
 			" Total sent bytes: ", totalSent,
 			" Total received bytes: ", totalReceived );
 
@@ -505,4 +585,86 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	retval &= co_await AsyncCommand::waitTermination(luaSharedState, errbub);
 
 	co_return retval;
+}
+
+/*static*/ std::task<bool> SharedState::serverHandShake(
+        Socket& pSocket, NetworkStats& netStats, std::error_condition* errbub )
+{
+	uint32_t wireProtoVer = 0;
+	auto recvRet = co_await pSocket.recv(
+	        reinterpret_cast<uint8_t*>(&wireProtoVer), 4, errbub );
+	if(recvRet == -1) RS_UNLIKELY co_return false;
+
+	wireProtoVer = htonl(wireProtoVer);
+	if(WIRE_PROTO_VERSION != wireProtoVer) RS_UNLIKELY
+	{
+		// TODO: pass peer address
+		// TODO: define proper error condition instead of abusing std::errc
+		rs_error_bubble_or_exit(
+		            std::errc::protocol_error, errbub,
+		            "Peer XXX wire protocol version mismatch got: ",
+		            wireProtoVer, " expected: ", WIRE_PROTO_VERSION );
+		co_return false;
+	}
+
+	/* Wire proto handshake is very very lightweight it seems acceptable to
+	 * interact a bit longer to extimate RTT more precisely on both sides */
+
+	using namespace std::chrono;
+	const auto verBTP = high_resolution_clock::now();
+	wireProtoVer = htonl(WIRE_PROTO_VERSION);
+	auto sendRet = co_await pSocket.send(
+	            reinterpret_cast<const uint8_t*>(&wireProtoVer), 4, errbub );
+	if(sendRet == -1) RS_UNLIKELY co_return false;
+
+	recvRet = co_await pSocket.recv(
+	        reinterpret_cast<uint8_t*>(&wireProtoVer), 4, errbub );
+	if(recvRet == -1) RS_UNLIKELY co_return false;
+
+	const auto verETP = high_resolution_clock::now();
+	netStats.mRttExt = duration_cast<microseconds>(verETP - verBTP);
+
+	co_return true;
+}
+
+/*static*/ std::task<bool> SharedState::clientHandShake(
+        Socket& pSocket, NetworkStats& netStats, std::error_condition* errbub )
+{
+	/* Wire proto handshake seems an acceptable interacion to extimate RTT on
+	 * both sides */
+
+	using namespace std::chrono;
+	const auto verBTP = high_resolution_clock::now();
+
+	uint32_t wireProtoVer = htonl(WIRE_PROTO_VERSION);
+
+	auto sendRet = co_await pSocket.send(
+	            reinterpret_cast<const uint8_t*>(&wireProtoVer), 4, errbub );
+	if(sendRet == -1) RS_UNLIKELY co_return false;
+
+	auto recvRet = co_await pSocket.recv(
+	        reinterpret_cast<uint8_t*>(&wireProtoVer), 4, errbub );
+	if(recvRet == -1) RS_UNLIKELY co_return false;
+
+	const auto verETP = high_resolution_clock::now();
+
+	wireProtoVer = htonl(wireProtoVer);
+	if(WIRE_PROTO_VERSION != wireProtoVer) RS_UNLIKELY
+	{
+		// TODO: pass peer address
+		// TODO: define proper error condition instead of abusing std::errc
+		rs_error_bubble_or_exit(
+		            std::errc::protocol_error, errbub,
+		            "Peer XXX wire protocol version mismatch got: ",
+		            wireProtoVer, " expected: ", WIRE_PROTO_VERSION );
+		co_return false;
+	}
+
+	sendRet = co_await pSocket.send(
+	            reinterpret_cast<const uint8_t*>(&wireProtoVer), 4, errbub );
+	if(sendRet == -1) RS_UNLIKELY co_return false;
+
+	netStats.mRttExt = duration_cast<microseconds>(verETP - verBTP);
+
+	co_return true;
 }
