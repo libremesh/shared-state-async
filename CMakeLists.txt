@@ -19,13 +19,13 @@ option( SS_TESTS
 set(SOURCES
     src/async_command.cc
     src/async_file_descriptor.cc
+    src/async_socket.cc
     src/close_operation.cc
     src/epoll_events_to_string.cc
     src/io_context.cc
     src/sharedstate.cc
     src/connect_operation.cc
     src/socket_accept_operation.cc
-    src/socket.cc
     src/socket_recv_operation.cc
     src/socket_send_operation.cc
     src/file_read_operation.cc

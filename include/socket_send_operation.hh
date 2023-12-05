@@ -27,7 +27,7 @@
 
 #include <cstdint>
 
-class Socket;
+class AsyncSocket;
 
 /**
  * @brief Implements an asynchronous Socket Send Operation
@@ -36,9 +36,9 @@ class SocketSendOperation : public AwaitableSyscall<SocketSendOperation, ssize_t
 {
 public:
 	SocketSendOperation(
-	        Socket& socket,
+	        AsyncSocket& socket,
 	        const uint8_t* buffer, std::size_t len,
-	        std::error_condition* ec = nullptr );
+	        std::error_condition* errbub = nullptr );
 	~SocketSendOperation();
 
 	ssize_t syscall();

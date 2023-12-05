@@ -30,7 +30,7 @@
 #include <chrono>
 
 #include "task.hh"
-#include "socket.hh"
+#include "async_socket.hh"
 
 
 struct SharedState
@@ -50,7 +50,7 @@ struct SharedState
 	 * @return returns false if error occurred, true otherwise
 	 */
 	static std::task<bool> handleReqSyncConnection(
-	        std::shared_ptr<Socket> clientSocket,
+	        std::shared_ptr<AsyncSocket> clientSocket,
 	        std::error_condition* errbub = nullptr );
 
 
@@ -125,20 +125,20 @@ private:
 	};
 
 	static std::task<bool> clientHandShake(
-	        Socket& pSocket, NetworkStats& netStats,
+	        AsyncSocket& pSocket, NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 
 	static std::task<bool> serverHandShake(
-	        Socket& pSocket, NetworkStats& netStats,
+	        AsyncSocket& pSocket, NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 
 	static std::task<ssize_t> receiveNetworkMessage(
-	        Socket& socket, NetworkMessage& netMsg,
+	        AsyncSocket& socket, NetworkMessage& netMsg,
 	        NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 
 	static std::task<ssize_t> sendNetworkMessage(
-	        Socket& socket, const NetworkMessage& netMsg,
+	        AsyncSocket& socket, const NetworkMessage& netMsg,
 	        NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 };

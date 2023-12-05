@@ -27,7 +27,7 @@
 
 #include "awaitable_syscall.hh"
 
-class Socket;
+class AsyncSocket;
 
 /**
  * @brief Implements an asynchronous Socket Receive Operation
@@ -37,7 +37,7 @@ class SocketRecvOperation : public AwaitableSyscall<SocketRecvOperation, ssize_t
 {
 public:
 	SocketRecvOperation(
-	        Socket& socket,
+	        AsyncSocket& socket,
 	        uint8_t* buffer, std::size_t len,
 	        std::error_condition* ec = nullptr );
 	~SocketRecvOperation();

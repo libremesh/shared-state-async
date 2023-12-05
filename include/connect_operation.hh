@@ -24,7 +24,7 @@
 #include "awaitable_syscall.hh"
 
 
-class AsyncFileDescriptor;
+class ConnectingSocket;
 
 /**
  * @brief Wrap connect system call for asynchronous operation
@@ -33,7 +33,7 @@ class ConnectOperation : public AwaitableSyscall<ConnectOperation, int>
 {
 public:
 	ConnectOperation(
-	        AsyncFileDescriptor& socket, const sockaddr_storage& address,
+	        ConnectingSocket& pSocket, const sockaddr_storage& address,
 	        std::error_condition* ec = nullptr );
 	~ConnectOperation();
 

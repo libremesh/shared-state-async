@@ -27,18 +27,19 @@
 
 #include "io_context.hh"
 #include "connect_operation.hh"
+#include "async_socket.hh"
 #include "async_file_descriptor.hh"
 
 #include <util/rsdebug.h>
 #include <util/rsdebuglevel0.h>
 
 ConnectOperation::ConnectOperation(
-         AsyncFileDescriptor& socket, const sockaddr_storage& address,
+         ConnectingSocket& pSocket, const sockaddr_storage& address,
         std::error_condition* ec ) :
-    AwaitableSyscall<ConnectOperation, int>(socket, ec), mAddr(address)
+    AwaitableSyscall<ConnectOperation, int>(pSocket, ec), mAddr(address)
 {
 	RS_DBG2(socket, " ", sockaddr_storage_tostring(address));
-	socket.getIOContext().watchWrite(&socket);
+	pSocket.getIOContext().watchWrite(&pSocket);
 };
 
 

@@ -22,7 +22,8 @@
  */
 
 #include "socket_accept_operation.hh"
-#include "socket.hh"
+#include "async_socket.hh"
+#include "io_context.hh"
 
 SocketAcceptOperation::SocketAcceptOperation(
         ListeningSocket& socket, std::error_condition* ec ):

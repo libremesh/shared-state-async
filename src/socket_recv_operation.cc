@@ -22,12 +22,13 @@
  */
 
 #include "socket_recv_operation.hh"
-#include "socket.hh"
+#include "async_socket.hh"
+#include "io_context.hh"
 
 #include <util/rsdebug.h>
 
 SocketRecvOperation::SocketRecvOperation(
-        Socket& afd,
+        AsyncSocket& afd,
         uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
     AwaitableSyscall(afd, ec), mBuffer{buffer}, mLen{len}

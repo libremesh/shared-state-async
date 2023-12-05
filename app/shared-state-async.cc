@@ -29,7 +29,7 @@
 
 #include <util/rsnet.h>
 
-#include "socket.hh"
+#include "async_socket.hh"
 #include "task.hh"
 #include "sharedstate.hh"
 

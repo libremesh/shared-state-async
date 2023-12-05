@@ -23,47 +23,41 @@
 
 #pragma once
 
-#include <cstring>
 #include <memory>
 #include <sys/socket.h>
 
 #include "async_file_descriptor.hh"
-#include "io_context.hh"
-#include "socket_accept_operation.hh"
-#include "socket_recv_operation.hh"
-#include "socket_send_operation.hh"
-#include "file_read_operation.hh"
 #include "task.hh"
 
+class IOContext;
 
 /**
  * @brief Non blocking socket
  */
-class Socket : public AsyncFileDescriptor
+class AsyncSocket : public AsyncFileDescriptor
 {
 public:
-	Socket(const Socket&) = delete;
+	AsyncSocket(const AsyncSocket&) = delete;
 
 	std::task<ssize_t> recv(
 	        uint8_t *buffer, std::size_t len,
-	        std::error_condition* ec = nullptr );
+	        std::error_condition* errbub = nullptr );
 
 	std::task<ssize_t> send(
 	        const uint8_t* buffer, std::size_t len,
-	        std::error_condition* ec = nullptr );
+	        std::error_condition* errbub = nullptr );
+
+	bool getPeerAddr(
+	        sockaddr_storage& peerAddr,
+	        std::error_condition* errbub = nullptr );
 
 protected:
 	friend IOContext;
-	Socket(int fd, IOContext& io_context): AsyncFileDescriptor(fd, io_context) {}
-
-	friend SocketAcceptOperation;
-	friend SocketRecvOperation;
-	friend SocketSendOperation;
-	friend ReadOp;
-	friend ListeningSocket;
+	AsyncSocket(int fd, IOContext& io_context):
+	    AsyncFileDescriptor(fd, io_context) {}
 };
 
-class ConnectingSocket: public Socket
+class ConnectingSocket: public AsyncSocket
 {
 public:
 	ConnectingSocket() = delete;
@@ -76,16 +70,17 @@ public:
 
 protected:
 	friend IOContext;
-	ConnectingSocket(int fd, IOContext &io_context): Socket(fd, io_context) {}
+	ConnectingSocket(int fd, IOContext &io_context):
+	    AsyncSocket(fd, io_context) {}
 };
 
-class ListeningSocket: public Socket
+class ListeningSocket: public AsyncFileDescriptor
 {
 public:
 	ListeningSocket() = delete;
 	ListeningSocket(const ListeningSocket&) = delete;
 
-	std::task<std::shared_ptr<Socket>> accept();
+	std::task<std::shared_ptr<AsyncSocket>> accept();
 
 	static std::shared_ptr<ListeningSocket> setupListener(
 	        uint16_t port, IOContext& ioContext,
@@ -93,7 +88,8 @@ public:
 
 protected:
 	friend IOContext;
-	ListeningSocket(int fd, IOContext& io_context): Socket(fd, io_context) {}
+	ListeningSocket(int fd, IOContext& io_context):
+	    AsyncFileDescriptor(fd, io_context) {}
 
 	static constexpr int DEFAULT_LISTEN_BACKLOG = 8;
 };

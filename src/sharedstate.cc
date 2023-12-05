@@ -29,7 +29,7 @@
 #include <util/rsnet.h>
 
 #include "sharedstate.hh"
-#include "socket.hh"
+#include "async_socket.hh"
 #include "async_command.hh"
 
 #include <util/rsdebug.h>
@@ -81,7 +81,6 @@ do \
 while(false)
 #endif
 
-	/* Let's compare latency measuerd by connect and by version handshake */
 	NetworkStats netStats;
 	if(!co_await SharedState::clientHandShake(
 	            *tSocket, netStats, errbub )) RS_UNLIKELY
@@ -109,17 +108,14 @@ while(false)
 		co_return rFAILURE;
 	}
 
-	RS_DBG("merge init");
 	using namespace std::chrono;
 	const auto mergeBTP = high_resolution_clock::now();
 	if(! co_await mergeSlice(
 			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
 	{
-		RS_DBG("merge failure");
 		syncWithPeer_clean_socket();
 		co_return rFAILURE;
 	}
-	RS_DBG("merge success");
 	const auto mergeETP = high_resolution_clock::now();
 	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
 
@@ -141,8 +137,8 @@ while(false)
 }
 
 std::task<ssize_t> SharedState::receiveNetworkMessage(
-    Socket& pSocket, NetworkMessage& networkMessage, NetworkStats& netStats,
-        std::error_condition* errbub )
+        AsyncSocket& pSocket, NetworkMessage& networkMessage,
+        NetworkStats& netStats, std::error_condition* errbub )
 {
 	RS_DBG3(pSocket);
 
@@ -242,8 +238,8 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 }
 
 std::task<ssize_t> SharedState::sendNetworkMessage(
-    Socket& pSocket, const NetworkMessage& netMsg, NetworkStats& netStats,
-        std::error_condition* errbub )
+        AsyncSocket& pSocket, const NetworkMessage& netMsg,
+        NetworkStats& netStats, std::error_condition* errbub )
 {
 	RS_DBG3(pSocket, " type: ", netMsg.mTypeName, " dataLen: ", netMsg.mData.size());
 
@@ -330,7 +326,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 }
 
 std::task<bool> SharedState::handleReqSyncConnection(
-    std::shared_ptr<Socket> pSocket,
+        std::shared_ptr<AsyncSocket> pSocket,
         std::error_condition* errbub )
 {
 	auto constexpr rFAILURE = false;
@@ -467,17 +463,19 @@ while(false)
 		co_return rFAILURE;
 	}
 
-	// TODO: Add elapsed time, data trasfer bandwhidt estimation, peer address
-	RS_INFO( *pSocket,
-			" Received message type: ", networkMessage.mTypeName,
-			" Received message size: ", receivedMessageSize,
-			" Sent message size: ", networkMessage.mData.size(),
-	        " Extimated upload BW: ", netStats.mUpBwMbsExt, "Mbit/s",
-	        " Extimated download BW: ", netStats.mDownBwMbsExt, "Mbit/s",
-	        " Extimated RTT: ", netStats.mRttExt.count(), "μs",
-	        " Processing time: ", mergeMuSecs.count(), "μs"
-			" Total sent bytes: ", totalSent,
-			" Total received bytes: ", totalReceived );
+	sockaddr_storage peerAddr;
+	pSocket->getPeerAddr(peerAddr);
+
+	RS_INFO( "Handled sync request from peer: ", peerAddr,
+	         " Received message type: ", networkMessage.mTypeName,
+	         " Received message size: ", receivedMessageSize,
+	         " Sent message size: ", networkMessage.mData.size(),
+	         " Extimated upload BW: ", netStats.mUpBwMbsExt, "Mbit/s",
+	         " Extimated download BW: ", netStats.mDownBwMbsExt, "Mbit/s",
+	         " Extimated RTT: ", netStats.mRttExt.count(), "μs",
+	         " Processing time: ", mergeMuSecs.count(), "μs"
+	         " Total sent bytes: ", totalSent,
+	         " Total received bytes: ", totalReceived );
 
 	handleReqSyncConnection_clean_socket_cmd();
 
@@ -588,7 +586,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 }
 
 /*static*/ std::task<bool> SharedState::serverHandShake(
-        Socket& pSocket, NetworkStats& netStats, std::error_condition* errbub )
+        AsyncSocket& pSocket, NetworkStats& netStats, std::error_condition* errbub )
 {
 	uint32_t wireProtoVer = 0;
 	auto recvRet = co_await pSocket.recv(
@@ -628,7 +626,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 }
 
 /*static*/ std::task<bool> SharedState::clientHandShake(
-        Socket& pSocket, NetworkStats& netStats, std::error_condition* errbub )
+        AsyncSocket& pSocket, NetworkStats& netStats, std::error_condition* errbub )
 {
 	/* Wire proto handshake seems an acceptable interacion to extimate RTT on
 	 * both sides */

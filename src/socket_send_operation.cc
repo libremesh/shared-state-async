@@ -24,10 +24,11 @@
 #include <sys/socket.h>
 
 #include "socket_send_operation.hh"
-#include "socket.hh"
+#include "async_socket.hh"
+#include "io_context.hh"
 
 SocketSendOperation::SocketSendOperation(
-        Socket& socket, const uint8_t* buffer, std::size_t len,
+        AsyncSocket& socket, const uint8_t* buffer, std::size_t len,
         std::error_condition* ec ):
     AwaitableSyscall{socket, ec}, mBuffer{buffer}, mLen{len}
 {

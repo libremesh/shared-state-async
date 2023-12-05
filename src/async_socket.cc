@@ -21,8 +21,12 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "socket.hh"
+#include "async_socket.hh"
 #include "connect_operation.hh"
+#include "socket_accept_operation.hh"
+#include "socket_recv_operation.hh"
+#include "socket_send_operation.hh"
+#include "io_context.hh"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -133,15 +137,15 @@ std::shared_ptr<ListeningSocket> ListeningSocket::setupListener(
 	return lSocket;
 }
 
-std::task<std::shared_ptr<Socket>> ListeningSocket::accept()
+std::task<std::shared_ptr<AsyncSocket>> ListeningSocket::accept()
 {
 	int fd = co_await SocketAcceptOperation(*this);
-	auto rsk = mIOContext.registerFD<Socket>(fd);
+	auto rsk = mIOContext.registerFD<AsyncSocket>(fd);
 	mIOContext.attach(rsk.get());
 	co_return rsk;
 }
 
-std::task<ssize_t> Socket::recv(
+std::task<ssize_t> AsyncSocket::recv(
         uint8_t* buffer, std::size_t len,
         std::error_condition* errbub )
 {
@@ -165,7 +169,7 @@ std::task<ssize_t> Socket::recv(
 	co_return totalReadBytes;
 }
 
-std::task<ssize_t> Socket::send(
+std::task<ssize_t> AsyncSocket::send(
         const uint8_t* buffer, std::size_t len,
         std::error_condition* errbub )
 {
@@ -191,4 +195,23 @@ std::task<ssize_t> Socket::send(
 	while(numWriteBytes && totalWriteBytes < len);
 
 	co_return totalWriteBytes;
+}
+
+bool AsyncSocket::getPeerAddr(
+        sockaddr_storage& peerAddr,
+        std::error_condition* errbub )
+{
+	socklen_t peerLen = sizeof(peerAddr);
+	int getPeerNameRet =
+	        getpeername(mFD, reinterpret_cast<sockaddr*>(&peerAddr), &peerLen );
+
+	if(getPeerNameRet)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "getpeername failed");
+		return false;
+	}
+
+	return true;
 }
