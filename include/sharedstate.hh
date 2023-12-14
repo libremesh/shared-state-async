@@ -86,6 +86,14 @@ private:
 
 	static constexpr uint32_t WIRE_PROTO_VERSION = 1;
 
+	static inline constexpr auto MbitPerSec(auto bytes, auto microseconds)
+	{
+		/* Both dividend and divisor have 10^6 scaling so no need to scale both.
+		 * If possible keep using integer math which is faster.
+		 * Left shift 3 is equivalent to multiply for 8 = 2^3 but much faster */
+		return std::max<decltype(bytes)>(1, (bytes<<3)/microseconds);
+	}
+
 	/** The message format on the wire is:
 	* |     1 byte       |           |   4 bytes   |      |
 	* | type name lenght | type name | data lenght | data |

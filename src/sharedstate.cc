@@ -213,19 +213,20 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	            reinterpret_cast<uint8_t*>(&netOrderReceivedB), 4, errbub );
 	if(sendRet == -1) co_return rFAILURE;
 
-
-	int bandwidthDownMbEXT = totalReceivedBytes * 8 * 1000 /
-	        duration_cast<microseconds>(recvETP - recvBTP).count();
 	/* RTT impact on bandwidth calculation should be usually neglegible, and for
 	 * sure becomes even more neglegible when the network and hence the shared
 	 * data size grows.
 	 * Subtracting it causes negative result in some situations for no
 	 * appreciable benefit in the rest of the cases so we don't take it in
 	 * account here */
-	if(bandwidthDownMbEXT < 1) RS_UNLIKELY
-	    RS_ERR( "Time must have wrapped during download bandwidth extimation: ",
-	            bandwidthDownMbEXT, " ignoring" );
-	else netStats.mDownBwMbsExt = bandwidthDownMbEXT;
+	if(recvETP > recvBTP) RS_LIKELY
+	        netStats.mDownBwMbsExt = MbitPerSec(
+	            totalReceivedBytes,
+	            duration_cast<microseconds>(recvETP - recvBTP).count() );
+	else
+		RS_ERR( "Time must have wrapped during download, bandwidth extimation "
+		        "ignored" );
+
 
 	RS_DBG3( pSocket,
 	         " Expected data lenght: ", dataLenght,
@@ -306,18 +307,19 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 		co_return rFAILURE;
 	}
 
-	int bandwidthUpMbEXT = totalSentBytes * 8 * 1000 /
-	        duration_cast<microseconds>(ackETP - sendBTP).count();
 	/* RTT impact on bandwidth calculation should be usually neglegible, and for
 	 * sure becomes even more neglegible when the network and hence the shared
 	 * data size grows.
 	 * Subtracting it causes negative result in some situations for no
 	 * appreciable benefit in the rest of the cases so we don't take it in
 	 * account here */
-	if(bandwidthUpMbEXT < 1) RS_UNLIKELY
-	    RS_ERR( "Time must have wrapped during upload bandwidth extimation: ",
-	            bandwidthUpMbEXT, " ignoring" );
-	else netStats.mUpBwMbsExt = bandwidthUpMbEXT;
+	if(ackETP > sendBTP) RS_LIKELY
+	    netStats.mUpBwMbsExt = MbitPerSec(
+	            totalSentBytes,
+	            duration_cast<microseconds>(ackETP - sendBTP).count() );
+	else
+		RS_ERR( "Time must have wrapped during upload, bandwidth extimation ",
+		        " ignored" );
 
 	RS_DBG4( pSocket, " sent netMsg.mData: ", netMsg.mData);
 
