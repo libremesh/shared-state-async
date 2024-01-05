@@ -173,7 +173,8 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 			/* We are on the child process so no-one must be there to deal with
 			 * the error condition bubbling up, terminate printing error
 			 * details */
-			RS_FATAL( rs_errno_to_condition(errno), " execvp failed");
+			RS_FATAL( rs_errno_to_condition(errno), " execvp failed for cmd: ",
+			          cmd );
 			print_stacktrace();
 			exit(errno);
 		}
