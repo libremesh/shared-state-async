@@ -109,14 +109,14 @@ while(false)
 	}
 
 	using namespace std::chrono;
-	const auto mergeBTP = high_resolution_clock::now();
+	const auto mergeBTP = steady_clock::now();
 	if(! co_await mergeSlice(
 			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
 	{
 		syncWithPeer_clean_socket();
 		co_return rFAILURE;
 	}
-	const auto mergeETP = high_resolution_clock::now();
+	const auto mergeETP = steady_clock::now();
 	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
 
 	syncWithPeer_clean_socket();
@@ -151,7 +151,7 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	networkMessage.mData.clear();
 
 	using namespace std::chrono;
-	const auto recvBTP = high_resolution_clock::now();
+	const auto recvBTP = steady_clock::now();
 
 	uint8_t dataTypeNameLenght = 0;
 	recvRet = co_await pSocket.recv(&dataTypeNameLenght, 1, errbub);
@@ -202,7 +202,7 @@ std::task<ssize_t> SharedState::receiveNetworkMessage(
 	if(recvRet == -1) co_return rFAILURE;
 	totalReceivedBytes += recvRet;
 
-	const auto recvETP = high_resolution_clock::now();
+	const auto recvETP = steady_clock::now();
 
 	/* Acknowledge total received bytes, all tests without this worked fine
 	 * anyway, so this has been added mainly to enable the sender to extimate
@@ -250,7 +250,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	ssize_t sentBytes = -1;
 
 	using namespace std::chrono;
-	const auto sendBTP = high_resolution_clock::now();
+	const auto sendBTP = steady_clock::now();
 
 	uint8_t dataTypeLen = netMsg.mTypeName.length();
 	sentBytes = co_await pSocket.send(&dataTypeLen, 1, errbub);
@@ -290,7 +290,7 @@ std::task<ssize_t> SharedState::sendNetworkMessage(
 	            reinterpret_cast<uint8_t*>(&totalAckBytes), 4, errbub );
 	if(recvRet == -1) RS_UNLIKELY co_return rFAILURE;
 
-	const auto ackETP = high_resolution_clock::now();
+	const auto ackETP = steady_clock::now();
 
 	totalAckBytes = htonl(totalAckBytes);
 	if(totalAckBytes != totalSentBytes) RS_UNLIKELY
@@ -400,7 +400,7 @@ do \
 while(false)
 
 	using namespace std::chrono;
-	const auto mergeBTP = high_resolution_clock::now();
+	const auto mergeBTP = steady_clock::now();
 
 	if( co_await
 	        luaSharedState->writeStdIn(
@@ -434,7 +434,7 @@ while(false)
 		co_return rFAILURE;
 	}
 
-	const auto mergeETP = high_resolution_clock::now();
+	const auto mergeETP = steady_clock::now();
 	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
 
 	/* Truncate data size to necessary. Avoid sending millions of zeros around.
@@ -611,7 +611,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	 * interact a bit longer to extimate RTT more precisely on both sides */
 
 	using namespace std::chrono;
-	const auto verBTP = high_resolution_clock::now();
+	const auto verBTP = steady_clock::now();
 	wireProtoVer = htonl(WIRE_PROTO_VERSION);
 	auto sendRet = co_await pSocket.send(
 	            reinterpret_cast<const uint8_t*>(&wireProtoVer), 4, errbub );
@@ -621,7 +621,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	        reinterpret_cast<uint8_t*>(&wireProtoVer), 4, errbub );
 	if(recvRet == -1) RS_UNLIKELY co_return false;
 
-	const auto verETP = high_resolution_clock::now();
+	const auto verETP = steady_clock::now();
 	netStats.mRttExt = duration_cast<microseconds>(verETP - verBTP);
 
 	co_return true;
@@ -634,7 +634,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	 * both sides */
 
 	using namespace std::chrono;
-	const auto verBTP = high_resolution_clock::now();
+	const auto verBTP = steady_clock::now();
 
 	uint32_t wireProtoVer = htonl(WIRE_PROTO_VERSION);
 
@@ -646,7 +646,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	        reinterpret_cast<uint8_t*>(&wireProtoVer), 4, errbub );
 	if(recvRet == -1) RS_UNLIKELY co_return false;
 
-	const auto verETP = high_resolution_clock::now();
+	const auto verETP = steady_clock::now();
 
 	wireProtoVer = htonl(wireProtoVer);
 	if(WIRE_PROTO_VERSION != wireProtoVer) RS_UNLIKELY
