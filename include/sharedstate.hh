@@ -1,10 +1,10 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023-2024  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ * Copyright (C) 2023-2024  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the
@@ -77,6 +77,37 @@ struct SharedState
 		IOContext& ioContext,
 		std::error_condition* errbub = nullptr );
 
+	/** Measuring socket performances is a tricky businnes due to complete lack
+	 * of statistic support from standard socket API plus kernel buffering
+	 * magic, so each field of this struct is extimated in the best place we
+	 * can, and a reference to the struct is passed around. Also the protocol
+	 * have some modification just to make possible to have reasonable
+	 * measurements/extimations.
+	 * This way we obtain good enough bandwidht and round trip time statistics
+	 * almost passively, the more data is shared the more accurated the
+	 * extimation will be, this is expecially important because the more crowded
+	 * is the network the more important becomes to make optimal routing
+	 * decisions based on available BW.
+	 */
+	struct NetworkStats
+	{
+		NetworkStats(): mPeer(), mRttExt(0), mUpBwMbsExt(0), mDownBwMbsExt(0) {}
+
+		sockaddr_storage mPeer;
+
+		/** Statistic record collection timestamp */
+		std::chrono::time_point<std::chrono::steady_clock> mTS;
+
+		/** Round trip time extimation */
+		std::chrono::microseconds mRttExt;
+
+		/** Upload bandwidth extimation in Mbit/s */
+		uint32_t mUpBwMbsExt;
+
+		/** Download bandwidth extimation in Mbit/s */
+		uint32_t mDownBwMbsExt;
+	};
+
 private:
 	static constexpr std::string_view SHARED_STATE_LUA_CMD =
 			"shared-state";
@@ -104,34 +135,6 @@ private:
 		std::vector<uint8_t> mData;
 	};
 
-	/** Measuring socket performances is a tricky businnes due to complete lack
-	 * of statistic support from standard socket API plus kernel buffering
-	 * magic, so each fieald of this struct is extimated in the best place we
-	 * can, and a reference to the struct is passed around. Also the protocol
-	 * have some modification just to make possible to have reasonable
-	 * measurements/extimations.
-	 * This way we obtain good enough bandwidht and round trip time statistics
-	 * almost passively, the more data is shared the more accurated the
-	 * extimation will be, this is expecially important because the more crowded
-	 * is the network the more important becomes to make optimal routing
-	 * decisions based on available BW.
-	 */
-	struct NetworkStats
-	{
-		NetworkStats(): mPeer(), mRttExt(0), mUpBwMbsExt(0), mDownBwMbsExt(0) {}
-
-		sockaddr_storage mPeer;
-
-		/** Round trip time extimation */
-		std::chrono::microseconds mRttExt;
-
-		/** Upload bandwidth extimation in Mbit/s */
-		uint32_t mUpBwMbsExt;
-
-		/** Download bandwidth extimation in Mbit/s */
-		uint32_t mDownBwMbsExt;
-	};
-
 	static std::task<bool> clientHandShake(
 	        AsyncSocket& pSocket, NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
@@ -147,6 +150,18 @@ private:
 
 	static std::task<ssize_t> sendNetworkMessage(
 	        AsyncSocket& socket, const NetworkMessage& netMsg,
+	        NetworkStats& netStats,
+	        std::error_condition* errbub = nullptr );
+
+	static constexpr std::string_view SHARED_STATE_NET_STAT_FILE_PATH =
+	        "/tmp/shared-state-network_statistics.json";
+
+	static constexpr uint8_t SHARED_STATE_NET_STAT_MAX_RECORDS = 10;
+
+	static constexpr std::chrono::minutes SHARED_STATE_NET_STAT_MAX_AGE =
+	        std::chrono::minutes(30);
+
+	static bool collectStat(
 	        NetworkStats& netStats,
 	        std::error_condition* errbub = nullptr );
 };

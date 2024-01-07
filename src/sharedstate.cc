@@ -1,10 +1,10 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023-2024  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ * Copyright (C) 2023-2024  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the
@@ -25,8 +25,17 @@
 #include <algorithm>
 #include <arpa/inet.h>
 #include <sstream>
+#include <fstream>
+
+#ifdef SHARED_STATE_STAT_FILE_LOCKING
+#	include <fcntl.h>
+#	include <sys/file.h>
+#endif // def SHARED_STATE_STAT_FILE_LOCKING
+
+#include <nlohmann/json.hpp>
 
 #include <util/rsnet.h>
+#include <util/rsurl.h>
 
 #include "sharedstate.hh"
 #include "async_socket.hh"
@@ -35,6 +44,31 @@
 #include <util/rsdebug.h>
 #include <util/rserrorbubbleorexit.h>
 #include <util/rsdebuglevel2.h>
+
+using json = nlohmann::json;
+
+void to_json(json& pJson, const SharedState::NetworkStats& pStat)
+{
+	pJson = json{
+	    { "mTS", pStat.mTS.time_since_epoch().count() },
+	    { "mRttExt", pStat.mRttExt.count() },
+	    { "mUpBwMbsExt", pStat.mUpBwMbsExt },
+	    { "mDownBwMbsExt", pStat.mDownBwMbsExt }
+    };
+}
+
+void from_json(const json& pJson, SharedState::NetworkStats& pStat)
+{
+	pStat.mTS = std::chrono::time_point<std::chrono::steady_clock>(
+	            std::chrono::time_point<std::chrono::steady_clock>::duration(
+	                pJson.at("mTS").get<uint64_t>()) );
+
+	pStat.mRttExt = std::chrono::microseconds{
+	        pJson.at("mRttExt").get<uint64_t>() };
+
+	pJson.at("mUpBwMbsExt").get_to(pStat.mUpBwMbsExt);
+	pJson.at("mDownBwMbsExt").get_to(pStat.mDownBwMbsExt);
+}
 
 std::task<bool> SharedState::syncWithPeer(
         std::string dataTypeName, const sockaddr_storage& peerAddr,
@@ -82,6 +116,8 @@ while(false)
 #endif
 
 	NetworkStats netStats;
+	sockaddr_storage_copy(peerAddr, netStats.mPeer);
+
 	if(!co_await SharedState::clientHandShake(
 	            *tSocket, netStats, errbub )) RS_UNLIKELY
 	{
@@ -133,7 +169,7 @@ while(false)
 	         " Extimated RTT: ", netStats.mRttExt.count(), "μs",
 	         " Processing time: ", mergeMuSecs.count(), "μs" );
 
-	co_return rSUCCESS;
+	co_return rSUCCESS && collectStat(netStats, errbub);
 }
 
 std::task<ssize_t> SharedState::receiveNetworkMessage(
@@ -352,6 +388,7 @@ do \
 while(false)
 
 	NetworkStats netStats;
+	pSocket->getPeerAddr(netStats.mPeer);
 
 	if(!co_await SharedState::serverHandShake(
 	            *pSocket, netStats, errbub )) RS_UNLIKELY
@@ -481,7 +518,7 @@ while(false)
 
 	handleReqSyncConnection_clean_socket_cmd();
 
-	co_return rSUCCESS;
+	co_return rSUCCESS && collectStat(netStats, errbub);
 }
 
 std::task<bool> SharedState::getCandidatesNeighbours(
@@ -667,4 +704,128 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	netStats.mRttExt = duration_cast<microseconds>(verETP - verBTP);
 
 	co_return true;
+}
+
+/*static*/ bool SharedState::collectStat(
+        NetworkStats& netStat,
+        std::error_condition* errbub )
+{
+	const std::string statPath(SHARED_STATE_NET_STAT_FILE_PATH);
+	const std::string tPeerStr = sockaddr_storage_iptostring(netStat.mPeer);
+	const auto tNow = std::chrono::steady_clock::now();
+
+#ifdef SHARED_STATE_STAT_FILE_LOCKING
+	int openRet = open(
+	            statPath.c_str(),
+	            O_RDWR | O_CREAT | O_CLOEXEC,
+	            S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
+	if(openRet == -1) RS_UNLIKELY
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "Failure opening network statistics file: ", statPath );
+		return false;
+	}
+
+	int flockRet = flock(openRet, LOCK_EX);
+	if(flockRet == -1) RS_UNLIKELY
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "Failure acquiring lock on network statistics file: ",
+		            statPath );
+		return false;
+	}
+#endif // def SHARED_STATE_STAT_FILE_LOCKING
+
+	json newJsonStats = json::object();
+
+	{
+		std::ifstream statsFileReadStream(statPath);
+		if(statsFileReadStream.is_open())
+		{
+			json jsonStats = json::parse(statsFileReadStream, nullptr, false);
+			if(!jsonStats.is_discarded() && jsonStats.is_object())
+			{
+				for(auto& [ePeer, eRecords] : std::as_const(jsonStats).items())
+				{
+					int mSkip = 0;
+					if(ePeer == tPeerStr)
+					{
+						mSkip = std::max<int>(
+						    eRecords.size() - SHARED_STATE_NET_STAT_MAX_RECORDS,
+						    0 );
+						RS_DBG1("Skip: ", mSkip, " records to keep size at bay");
+					}
+
+					for( auto mIt = eRecords.begin() + mSkip;
+					     mIt != eRecords.end();  ++mIt )
+					{
+						std::chrono::time_point<std::chrono::steady_clock> tTS{};
+
+						if( mIt->contains("mTS") &&
+						        mIt->at("mTS").is_number_integer() )
+							tTS = std::chrono::time_point<std::chrono::steady_clock>(
+							            std::chrono::time_point<std::chrono::steady_clock>::duration(
+							            mIt->at("mTS").get<int64_t>() ) );
+
+						auto tAge = std::chrono::duration_cast<std::chrono::minutes>(
+						            tNow - tTS );
+						if( tAge > SHARED_STATE_NET_STAT_MAX_AGE )
+						{
+							RS_DBG3( "Skipping too old record with age: ", tAge);
+						}
+						else
+						{
+							RS_DBG3( "Keeping record with age: ", tAge );
+							newJsonStats[ePeer].push_back(*mIt);
+						}
+					}
+				}
+			}
+			else RS_WARN("Discarding corrupted or empty stored statistics");
+		}
+		statsFileReadStream.close();
+	}
+
+	netStat.mTS = tNow;
+	newJsonStats[tPeerStr].push_back(netStat);
+
+	{
+		std::ofstream statsFileWriteStream(
+		            statPath, std::ios::out | std::ios::trunc );
+		if(!statsFileWriteStream.is_open())
+		{
+			RS_ERR("Failure opening network statistic files in write mode");
+			rs_error_bubble_or_exit(
+			            std::errc::io_error, errbub,
+			            "Failure opening network statistic files in write mode" );
+			return false;
+		}
+
+		statsFileWriteStream << newJsonStats;
+		statsFileWriteStream.close();
+	}
+
+#ifdef SHARED_STATE_STAT_FILE_LOCKING
+	flockRet = flock(openRet, LOCK_UN);
+	if(flockRet == -1) RS_UNLIKELY
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "Failure releasing lock on network statistics file: ",
+		            statPath );
+		return false;
+	}
+	if(close(openRet) == -1)
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "Failure closing network statistics file: ",
+		            statPath );
+		return false;
+	}
+#endif // def SHARED_STATE_STAT_FILE_LOCKING
+
+	return true;
 }

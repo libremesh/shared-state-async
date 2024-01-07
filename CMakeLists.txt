@@ -8,6 +8,10 @@ set(FETCHCONTENT_QUIET OFF)
 # the source. See exampleConfig.h.in for some more details.
 project(shared-state VERSION 0.0.0.1 LANGUAGES CXX)
 
+option( SS_STAT_FILE_LOCKING
+        "Enable shared-state network statistics file locking"
+        OFF )
+
 option( SS_DEVELOPMENT_BUILD
         "Disable optimization to speed up build, enable verbose build log. \
          just for development purposes, not suitable for library usage"
@@ -88,6 +92,9 @@ include_directories(${LIBRETROSHARE_DIR}/src/)
 
 add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
 
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
 set(SOURCES
     ${SOURCES}
     ${LIBRETROSHARE_DIR}/src/serialiser/rsbaseserial.cc
@@ -107,6 +114,8 @@ add_library(${LIBRARY_NAME} OBJECT ${SOURCES})
 target_include_directories(${LIBRARY_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${LIBRARY_NAME} PUBLIC "-fcoroutines")
+
+target_link_libraries(${LIBRARY_NAME} PRIVATE nlohmann_json::nlohmann_json)
 
 add_executable(${EXECUTABLE_NAME} app/${EXECUTABLE_NAME}.cc)
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE ${LIBRARY_NAME})
@@ -143,3 +152,9 @@ endif(SS_DEVELOPMENT_BUILD)
 if(SS_TESTS)
     add_subdirectory(tests)
 endif(SS_TESTS)
+
+if(SS_STAT_FILE_LOCKING)
+    target_compile_definitions(
+        ${LIBRARY_NAME}
+        PRIVATE SHARED_STATE_STAT_FILE_LOCKING )
+endif(SS_STAT_FILE_LOCKING)
