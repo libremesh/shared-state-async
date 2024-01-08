@@ -23,9 +23,9 @@
 
 #include "async_socket.hh"
 #include "connect_operation.hh"
-#include "socket_accept_operation.hh"
-#include "socket_recv_operation.hh"
-#include "socket_send_operation.hh"
+#include "accept_operation.hh"
+#include "recv_operation.hh"
+#include "send_operation.hh"
 #include "io_context.hh"
 
 #include <arpa/inet.h>
@@ -139,7 +139,7 @@ std::shared_ptr<ListeningSocket> ListeningSocket::setupListener(
 
 std::task<std::shared_ptr<AsyncSocket>> ListeningSocket::accept()
 {
-	int fd = co_await SocketAcceptOperation(*this);
+	int fd = co_await AcceptOperation(*this);
 	auto rsk = mIOContext.registerFD<AsyncSocket>(fd);
 	mIOContext.attach(rsk.get());
 	co_return rsk;
@@ -158,7 +158,7 @@ std::task<ssize_t> AsyncSocket::recv(
 	do
 	{
 		numReadBytes = co_await
-		        SocketRecvOperation(
+		        RecvOperation(
 		            *this, buffer + totalReadBytes, len - totalReadBytes, errbub );
 		if(numReadBytes == -1) RS_UNLIKELY co_return -1;
 
@@ -184,7 +184,7 @@ std::task<ssize_t> AsyncSocket::send(
 	do
 	{
 		numWriteBytes = co_await
-		        SocketSendOperation(
+		        SendOperation(
 		            *this, buffer + totalWriteBytes, len - totalWriteBytes, errbub );
 
 		if(numWriteBytes == -1) RS_UNLIKELY

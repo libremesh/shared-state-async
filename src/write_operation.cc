@@ -1,10 +1,10 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023-2024  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ * Copyright (C) 2023-2024  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the
@@ -21,7 +21,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "file_write_operation.hh"
+#include "write_operation.hh"
 #include "async_file_descriptor.hh"
 #include "io_context.hh"
 

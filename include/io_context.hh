@@ -1,10 +1,10 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023-2024  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ * Copyright (C) 2023-2024  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the
@@ -39,11 +39,11 @@
 
 
 /**
- * This class works as dispacher, notifying suspended blocksyscall when
- * ready to be activated. Blocksyscalls must suscribe to this class in order
- * to be notified.
+ * @brief epoll based I/O scheduler
  *
- * @brief This class is an Just an epoll wrapper 
+ * @note Sadly epoll doesn't work with regular files but you can wait
+ * asyncronously on a lot of interesting things
+ * @see https://darkcoding.net/software/linux-what-can-you-epoll/
  */
 class IOContext
 {

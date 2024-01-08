@@ -1,10 +1,10 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2023-2024  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ * Copyright (C) 2023-2024  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the
@@ -23,28 +23,27 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "awaitable_syscall.hh"
+
+#include <cstdint>
 
 class AsyncSocket;
 
 /**
- * @brief Implements an asynchronous Socket Receive Operation
- * 
+ * @brief Implements an asynchronous Socket Send Operation
  */
-class SocketRecvOperation : public AwaitableSyscall<SocketRecvOperation, ssize_t>
+class SendOperation : public AwaitableSyscall<SendOperation, ssize_t>
 {
 public:
-	SocketRecvOperation(
+	SendOperation(
 	        AsyncSocket& socket,
-	        uint8_t* buffer, std::size_t len,
-	        std::error_condition* ec = nullptr );
-	~SocketRecvOperation();
+	        const uint8_t* buffer, std::size_t len,
+	        std::error_condition* errbub = nullptr );
+	~SendOperation();
 
 	ssize_t syscall();
 
 private:
-	uint8_t* mBuffer;
+	const uint8_t* mBuffer;
 	std::size_t mLen;
 };

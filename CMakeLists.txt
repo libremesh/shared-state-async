@@ -29,11 +29,11 @@ set(SOURCES
     src/io_context.cc
     src/sharedstate.cc
     src/connect_operation.cc
-    src/socket_accept_operation.cc
-    src/socket_recv_operation.cc
-    src/socket_send_operation.cc
-    src/file_read_operation.cc
-    src/file_write_operation.cc
+    src/accept_operation.cc
+    src/recv_operation.cc
+    src/send_operation.cc
+    src/read_operation.cc
+    src/write_operation.cc
     src/waitpid_operation.cc
 )
 

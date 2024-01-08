@@ -1,9 +1,9 @@
 /*
  * Shared State
  *
+ * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
@@ -21,23 +21,26 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#pragma once
+#include <sys/socket.h>
 
-#include "awaitable_syscall.hh"
+#include "send_operation.hh"
+#include "async_socket.hh"
+#include "io_context.hh"
 
-class ListeningSocket;
-
-/**
- * @brief Implements an asynchronous Socket Accept Operation
- * 
- */
-class SocketAcceptOperation : public AwaitableSyscall<SocketAcceptOperation, int>
+SendOperation::SendOperation(
+        AsyncSocket& socket, const uint8_t* buffer, std::size_t len,
+        std::error_condition* ec ):
+    AwaitableSyscall{socket, ec}, mBuffer{buffer}, mLen{len}
 {
-public:
-	explicit SocketAcceptOperation(
-	        ListeningSocket& socket,
-	        std::error_condition* ec = nullptr );
-	~SocketAcceptOperation();
+	socket.getIOContext().watchWrite(&socket);
+}
 
-	int syscall();
-};
+SendOperation::~SendOperation()
+{
+	mAFD.getIOContext().unwatchWrite(&mAFD);
+}
+
+ssize_t SendOperation::syscall()
+{
+	return send(mAFD.getFD(), mBuffer, mLen, 0);
+}

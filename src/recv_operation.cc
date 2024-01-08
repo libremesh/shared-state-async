@@ -1,10 +1,10 @@
 /*
  * Shared State
  *
- * Copyright (C) 2023  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (c) 2023-2024  Gioacchino Mazzurco <gio@eigenlab.org>
  * Copyright (c) 2023  Javier Jorge <jjorge@inti.gob.ar>
  * Copyright (c) 2023  Instituto Nacional de Tecnología Industrial
- * Copyright (C) 2023  Asociación Civil Altermundi <info@altermundi.net>
+ * Copyright (C) 2023-2024  Asociación Civil Altermundi <info@altermundi.net>
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License as published by the
@@ -21,29 +21,27 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#pragma once
+#include "recv_operation.hh"
+#include "async_socket.hh"
+#include "io_context.hh"
 
-#include "awaitable_syscall.hh"
+#include <util/rsdebug.h>
 
-#include <cstdint>
-
-class AsyncSocket;
-
-/**
- * @brief Implements an asynchronous Socket Send Operation
- */
-class SocketSendOperation : public AwaitableSyscall<SocketSendOperation, ssize_t>
+RecvOperation::RecvOperation(
+        AsyncSocket& afd,
+        uint8_t* buffer, std::size_t len,
+        std::error_condition* ec ):
+    AwaitableSyscall(afd, ec), mBuffer{buffer}, mLen{len}
 {
-public:
-	SocketSendOperation(
-	        AsyncSocket& socket,
-	        const uint8_t* buffer, std::size_t len,
-	        std::error_condition* errbub = nullptr );
-	~SocketSendOperation();
+	mAFD.getIOContext().watchRead(&mAFD);
+}
 
-	ssize_t syscall();
+RecvOperation::~RecvOperation()
+{
+	mAFD.getIOContext().unwatchRead(&mAFD);
+}
 
-private:
-	const uint8_t* mBuffer;
-	std::size_t mLen;
-};
+ssize_t RecvOperation::syscall()
+{
+	return recv(mAFD.getFD(), mBuffer, mLen, 0);
+}

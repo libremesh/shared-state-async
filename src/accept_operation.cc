@@ -21,11 +21,11 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-#include "socket_accept_operation.hh"
+#include "accept_operation.hh"
 #include "async_socket.hh"
 #include "io_context.hh"
 
-SocketAcceptOperation::SocketAcceptOperation(
+AcceptOperation::AcceptOperation(
         ListeningSocket& socket, std::error_condition* ec ):
     AwaitableSyscall{socket, ec}
 {
@@ -33,13 +33,13 @@ SocketAcceptOperation::SocketAcceptOperation(
 	mAFD.getIOContext().watchRead(&mAFD);
 }
 
-SocketAcceptOperation::~SocketAcceptOperation()
+AcceptOperation::~AcceptOperation()
 {
 	RS_DBG3("");
 	mAFD.getIOContext().unwatchRead(&mAFD);
 }
 
-int SocketAcceptOperation::syscall()
+int AcceptOperation::syscall()
 {
 	sockaddr_storage their_addr;
 	socklen_t addr_size = sizeof their_addr;
