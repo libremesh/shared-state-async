@@ -21,20 +21,21 @@ option( SS_TESTS
         "Build tests" OFF )
 
 set(SOURCES
+    src/accept_operation.cc
     src/async_command.cc
     src/async_file_descriptor.cc
     src/async_socket.cc
+    src/async_timer.cc
     src/close_operation.cc
+    src/connect_operation.cc
     src/epoll_events_to_string.cc
     src/io_context.cc
-    src/sharedstate.cc
-    src/connect_operation.cc
-    src/accept_operation.cc
+    src/read_operation.cc
     src/recv_operation.cc
     src/send_operation.cc
-    src/read_operation.cc
-    src/write_operation.cc
+    src/sharedstate.cc
     src/waitpid_operation.cc
+    src/write_operation.cc
 )
 
 set(LIBRARY_NAME shared-state)
