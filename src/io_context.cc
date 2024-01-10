@@ -86,10 +86,17 @@ void IOContext::run()
 			auto findIt = mManagedFD.find(mFD);
 			if (findIt == mManagedFD.end())
 			{
-				RS_WARN( "Got stray epoll events: ",
-				         epoll_events_to_string(evFlags),
-				         " for FD: ", mFD,
-				         " which is not subscribed (anymore)" );
+				/* While testing we have been getting EPOLLERR regularly on
+				 * not-subscribed-anymore FD. For example after finish reading
+				 * on a timer FD, so let's avoid flooding the log for this
+				 * "normal" (yet not fully understood) circumstance unless
+				 * debugging is enabled. */
+				if(RS_DEBUG_LEVEL > 2 || evFlags != EPOLLERR)
+					RS_WARN( "Got stray epoll events: ",
+					         epoll_events_to_string(evFlags),
+					         " for FD: ", mFD,
+					         " which is not subscribed (anymore)" );
+
 				continue;
 			}
 
