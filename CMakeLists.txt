@@ -20,7 +20,7 @@ option( SS_DEVELOPMENT_BUILD
 option( SS_TESTS
         "Build tests" OFF )
 
-set(SOURCES
+set(LIBRARY_SOURCES
     src/accept_operation.cc
     src/async_command.cc
     src/async_file_descriptor.cc
@@ -34,6 +34,7 @@ set(SOURCES
     src/recv_operation.cc
     src/send_operation.cc
     src/sharedstate.cc
+    src/shared_state_errors.cc
     src/waitpid_operation.cc
     src/write_operation.cc
 )
@@ -93,32 +94,38 @@ include_directories(${LIBRETROSHARE_DIR}/src/)
 
 add_compile_definitions(RS_DISABLE_DEPRECATED_DEBUG_UTILS)
 
-FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
-FetchContent_MakeAvailable(json)
-
-set(SOURCES
-    ${SOURCES}
+set(LIBRARY_SOURCES
+    ${LIBRARY_SOURCES}
     ${LIBRETROSHARE_DIR}/src/serialiser/rsbaseserial.cc
+    ${LIBRETROSHARE_DIR}/src/serialiser/rsserializer.cc
+    ${LIBRETROSHARE_DIR}/src/serialiser/rsserializable.cc
+    ${LIBRETROSHARE_DIR}/src/serialiser/rsserial.cc
     ${LIBRETROSHARE_DIR}/src/serialiser/rstlvbase.cc
     ${LIBRETROSHARE_DIR}/src/serialiser/rstypeserializer.cc
     ${LIBRETROSHARE_DIR}/src/util/rsbase64.cc
     ${LIBRETROSHARE_DIR}/src/util/rsdebug.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsjson.cc
     ${LIBRETROSHARE_DIR}/src/util/rsnet.cc
     ${LIBRETROSHARE_DIR}/src/util/rsnet_ss.cc
     ${LIBRETROSHARE_DIR}/src/util/rsstring.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsthreads.cc
     ${LIBRETROSHARE_DIR}/src/util/rsurl.cc
+    ${LIBRETROSHARE_DIR}/src/util/smallobject.cc
+)
+
+set(CLI_SOURCES
+    app/${EXECUTABLE_NAME}.cc
+    app/shared_state_cli.cc
 )
 
 ################################################################################
 
-add_library(${LIBRARY_NAME} OBJECT ${SOURCES})
+add_library(${LIBRARY_NAME} OBJECT ${LIBRARY_SOURCES})
 target_include_directories(${LIBRARY_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${LIBRARY_NAME} PUBLIC "-fcoroutines")
 
-target_link_libraries(${LIBRARY_NAME} PRIVATE nlohmann_json::nlohmann_json)
-
-add_executable(${EXECUTABLE_NAME} app/${EXECUTABLE_NAME}.cc)
+add_executable(${EXECUTABLE_NAME} ${CLI_SOURCES})
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE ${LIBRARY_NAME})
 # TODO: check if coroutines support has been added to target_compile_features()
 target_compile_options(${EXECUTABLE_NAME} PRIVATE "-fcoroutines")

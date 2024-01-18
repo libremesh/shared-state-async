@@ -50,3 +50,29 @@ ssize_t WriteOp::syscall()
 
 	return bytes_writen;
 }
+
+std::task<ssize_t> asyncWrite(
+        AsyncFileDescriptor& aFD,
+        const uint8_t* buffer, std::size_t len,
+        std::error_condition* errbub )
+{
+	RS_DBG2( aFD,
+	        " buffer: ", reinterpret_cast<const void*>(buffer),
+	        " len: ", len);
+
+	ssize_t numWriteBytes = 0;
+	ssize_t totalWriteBytes = 0;
+	do
+	{
+		numWriteBytes = co_await
+		    WriteOp{aFD, buffer + totalWriteBytes, len - totalWriteBytes, errbub};
+
+		if(numWriteBytes == -1) RS_UNLIKELY
+		    co_return -1;
+
+		totalWriteBytes += numWriteBytes;
+	}
+	while(numWriteBytes && totalWriteBytes < len);
+
+	co_return totalWriteBytes;
+}

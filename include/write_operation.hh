@@ -42,3 +42,8 @@ private:
 	const uint8_t* mBuffer = nullptr;
 	std::size_t mLen = 0;
 };
+
+std::task<ssize_t> asyncWrite(
+        AsyncFileDescriptor& aFD,
+        const uint8_t* buffer, std::size_t len,
+        std::error_condition* errbub = nullptr );

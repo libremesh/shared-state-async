@@ -48,3 +48,29 @@ ssize_t ReadOp::syscall()
 {
 	return read(mAFD.getFD(), mBuffer, mLen);
 }
+
+std::task<ssize_t> asyncRead(
+        AsyncFileDescriptor& aFD,
+        uint8_t* buffer, std::size_t len,
+        std::error_condition* errbub )
+{
+	RS_DBG2( aFD,
+	        " buffer: ", reinterpret_cast<const void*>(buffer),
+	        " len: ", len);
+
+	ssize_t numReadBytes = 0;
+	ssize_t totalReadBytes = 0;
+	do
+	{
+		numReadBytes = co_await
+		    ReadOp{aFD, buffer + totalReadBytes, len - totalReadBytes, errbub};
+
+		if(numReadBytes == -1) RS_UNLIKELY
+		        co_return -1;
+
+		totalReadBytes += numReadBytes;
+	}
+	while(numReadBytes && totalReadBytes < len);
+
+	co_return totalReadBytes;
+}

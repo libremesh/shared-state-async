@@ -26,67 +26,51 @@
 #include <arpa/inet.h>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <deque>
 
+#define SHARED_STATE_STAT_FILE_LOCKING
 #ifdef SHARED_STATE_STAT_FILE_LOCKING
 #	include <fcntl.h>
 #	include <sys/file.h>
 #endif // def SHARED_STATE_STAT_FILE_LOCKING
 
-#include <nlohmann/json.hpp>
+#include <rapidjson/istreamwrapper.h>
 
 #include <util/rsnet.h>
 #include <util/rsurl.h>
+#include <serialiser/rstypeserializer.h>
 
 #include "sharedstate.hh"
 #include "async_socket.hh"
 #include "async_command.hh"
+#include "shared_state_errors.hh"
 
 #include <util/rsdebug.h>
 #include <util/rserrorbubbleorexit.h>
 #include <util/rsdebuglevel2.h>
 
-using json = nlohmann::json;
-
-void to_json(json& pJson, const SharedState::NetworkStats& pStat)
-{
-	pJson = json{
-	    { "mTS", pStat.mTS.time_since_epoch().count() },
-	    { "mRttExt", pStat.mRttExt.count() },
-	    { "mUpBwMbsExt", pStat.mUpBwMbsExt },
-	    { "mDownBwMbsExt", pStat.mDownBwMbsExt }
-    };
-}
-
-void from_json(const json& pJson, SharedState::NetworkStats& pStat)
-{
-	pStat.mTS = std::chrono::time_point<std::chrono::steady_clock>(
-	            std::chrono::time_point<std::chrono::steady_clock>::duration(
-	                pJson.at("mTS").get<uint64_t>()) );
-
-	pStat.mRttExt = std::chrono::microseconds{
-	        pJson.at("mRttExt").get<uint64_t>() };
-
-	pJson.at("mUpBwMbsExt").get_to(pStat.mUpBwMbsExt);
-	pJson.at("mDownBwMbsExt").get_to(pStat.mDownBwMbsExt);
-}
 
 std::task<bool> SharedState::syncWithPeer(
         std::string dataTypeName, const sockaddr_storage& peerAddr,
-        IOContext& ioContext, std::error_condition* errbub )
+        std::error_condition* errbub )
 {
 	RS_DBG3(dataTypeName, " ", sockaddr_storage_tostring(peerAddr), " ", errbub);
 
 	auto constexpr rFAILURE = false;
 	auto constexpr rSUCCESS = true;
 
-	SharedState::NetworkMessage netMessage;
-	netMessage.mTypeName = dataTypeName;
-
-	if(! co_await getState(dataTypeName, netMessage.mData, ioContext, errbub))
+	const auto statesIt = mStates.find(dataTypeName);
+	if(statesIt == mStates.end())
+	{
+		rs_error_bubble_or_exit( SharedStateErrors::UNKOWN_DATA_TYPE, errbub,
+		                         dataTypeName );
 		co_return false;
+	}
+	auto& tState = statesIt->second;
 
 	auto tSocket = co_await ConnectingSocket::connect(
-	            peerAddr, ioContext, errbub);
+	            peerAddr, mIoContext, errbub);
 	if(!tSocket) co_return false;
 
 #if 0
@@ -109,8 +93,8 @@ std::task<bool> SharedState::syncWithPeer(
 #	define syncWithPeer_clean_socket() \
 do \
 { \
-	co_await ioContext.closeAFD(tSocket); \
-	RS_DBG3("IOContext status after clenup: ", ioContext); \
+	co_await mIoContext.closeAFD(tSocket); \
+	RS_DBG3("IOContext status after clenup: ", mIoContext); \
 } \
 while(false)
 #endif
@@ -124,6 +108,10 @@ while(false)
 		syncWithPeer_clean_socket();
 		co_return rFAILURE;
 	}
+
+	SharedState::NetworkMessage netMessage;
+	netMessage.mTypeName = dataTypeName;
+	netMessage.fromStateSlice(tState);
 
 	auto sentMessageSize = netMessage.mData.size();
 	auto totalSent = co_await
@@ -146,8 +134,13 @@ while(false)
 
 	using namespace std::chrono;
 	const auto mergeBTP = steady_clock::now();
-	if(! co_await mergeSlice(
-			netMessage.mTypeName, netMessage.mData, ioContext, errbub ))
+
+	std::map<StateKey, StateEntry> receivedState;
+	netMessage.toStateSlice(receivedState);
+
+	ssize_t changes = co_await merge(
+	            netMessage.mTypeName, receivedState, errbub);
+	if(changes == -1)
 	{
 		syncWithPeer_clean_socket();
 		co_return rFAILURE;
@@ -169,7 +162,9 @@ while(false)
 	         " Extimated RTT: ", netStats.mRttExt.count(), "μs",
 	         " Processing time: ", mergeMuSecs.count(), "μs" );
 
-	co_return rSUCCESS && collectStat(netStats, errbub);
+	co_return rSUCCESS &&
+	        collectStat(netStats, errbub) &&
+	        (changes < 1 || co_await notifyHooks(netMessage.mTypeName, errbub));
 }
 
 std::task<ssize_t> SharedState::receiveNetworkMessage(
@@ -369,7 +364,6 @@ std::task<bool> SharedState::handleReqSyncConnection(
 {
 	auto constexpr rFAILURE = false;
 	auto constexpr rSUCCESS = true;
-	auto& ioContext = pSocket->getIOContext();
 
 /* !! CAPTURING LAMBDAS THAT ARE COROUTINES BREAKS !!
  * https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rcoro-capture
@@ -382,7 +376,7 @@ std::task<bool> SharedState::handleReqSyncConnection(
 #define handleReqSyncConnection_clean_socket() \
 do \
 { \
-	co_await ioContext.closeAFD(pSocket); \
+	co_await mIoContext.closeAFD(pSocket); \
 	RS_DBG3("IOContext status after clenup: ", ioContext); \
 } \
 while(false)
@@ -411,101 +405,35 @@ while(false)
 
 	auto receivedMessageSize = networkMessage.mData.size();
 
-	std::string cmd(SHARED_STATE_LUA_CMD);
-	cmd += " reqsync " + networkMessage.mTypeName;
-
-	std::error_condition tLSHErr;
-	std::shared_ptr<AsyncCommand> luaSharedState =
-	        AsyncCommand::execute(cmd, ioContext, &tLSHErr);
-	if(! luaSharedState)
-	{
-		rs_error_bubble_or_exit(tLSHErr, errbub, "Failure executing: ", cmd);
-		handleReqSyncConnection_clean_socket();
-		co_return rFAILURE;
-	}
-
-/* If there is a failure even closing a socket or terminating a child
- * process there isn't much we can do, so let downstream function report
- * the error and terminate the process */
-#define handleReqSyncConnection_clean_socket_cmd() \
-do \
-{ \
-	co_await ioContext.closeAFD(pSocket); \
-	co_await AsyncCommand::waitTermination(luaSharedState); \
-	RS_DBG3("IOContext status after clenup: ", ioContext); \
-} \
-while(false)
-
 	using namespace std::chrono;
 	const auto mergeBTP = steady_clock::now();
 
-	if( co_await
-	        luaSharedState->writeStdIn(
-	            networkMessage.mData.data(), networkMessage.mData.size(),
-	            &tLSHErr ) == -1 ) RS_UNLIKELY
-	{
-		rs_error_bubble_or_exit(
-			tLSHErr, errbub, "Failure writing ", networkMessage.mData.size(),
-			" bytes to ", cmd, " stdin ", tLSHErr );
-		handleReqSyncConnection_clean_socket_cmd();
-		co_return rFAILURE;
-	}
+	std::map<StateKey, StateEntry> peerState;
+	networkMessage.toStateSlice(peerState);
 
-	/* shared-state reqsync keeps reading until it get EOF, so we need to close
-	 * its stdin once we finish writing so it can process the data and then
-	 * return */
-	if(!co_await luaSharedState->closeStdIn(errbub))
-	{
-		handleReqSyncConnection_clean_socket_cmd();
-		co_return rFAILURE;
-	}
+	ssize_t changes = co_await merge(
+	            networkMessage.mTypeName, peerState, errbub );
 
-	networkMessage.mData.clear();
-	networkMessage.mData.resize(DATA_MAX_LENGHT, static_cast<char>(0));
-
-	auto totalReadBytes = co_await luaSharedState->readStdOut(
-					networkMessage.mData.data(), DATA_MAX_LENGHT, errbub );
-	if(totalReadBytes == -1) RS_UNLIKELY
+	if(changes == -1) RS_UNLIKELY
 	{
-		handleReqSyncConnection_clean_socket_cmd();
+		handleReqSyncConnection_clean_socket();
 		co_return rFAILURE;
 	}
 
 	const auto mergeETP = steady_clock::now();
 	const auto mergeMuSecs = duration_cast<microseconds>(mergeETP - mergeBTP);
 
-	/* Truncate data size to necessary. Avoid sending millions of zeros around.
-	 *
-	 * While testing on my Gentoo machine, I noticed that printing to the
-	 * terminal networkMessage.mData seemed to be extremely costly to the point
-	 * to keep my CPU usage at 100% for at least 20 seconds doing something
-	 * unclear, even more curious the process being reported to eat the CPU was
-	 * not shared-state-server but the parent console on which the process is
-	 * running, in my case either Qt Creator or Konsole, even when running under
-	 * gdb. When redirecting the output to either a file or /dev/null the
-	 * problem didn't happen, but the created file was 1GB, aka
-	 * DATA_MAX_LENGHT of that time.
-	 *
-	 * Similar behavior appeared if printing networkMessage.mData on the
-	 * shared-state-client.
-	 *
-	 * The culprit wasn't that obvious at first all those nullbytes where
-	 * invisible.
-	 */
-	networkMessage.mData.resize(totalReadBytes);
+	networkMessage.fromStateSlice(mStates[networkMessage.mTypeName]);
 
 	auto totalSent = co_await sendNetworkMessage(
 	            *pSocket, networkMessage, netStats, errbub );
 	if(totalSent == -1)
 	{
-		handleReqSyncConnection_clean_socket_cmd();
+		handleReqSyncConnection_clean_socket();
 		co_return rFAILURE;
 	}
 
-	sockaddr_storage peerAddr;
-	pSocket->getPeerAddr(peerAddr);
-
-	RS_INFO( "Handled sync request from peer: ", peerAddr,
+	RS_INFO( "Handled sync request from peer: ", netStats.mPeer,
 	         " Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,
 	         " Sent message size: ", networkMessage.mData.size(),
@@ -516,9 +444,11 @@ while(false)
 	         " Total sent bytes: ", totalSent,
 	         " Total received bytes: ", totalReceived );
 
-	handleReqSyncConnection_clean_socket_cmd();
+	handleReqSyncConnection_clean_socket();
 
-	co_return rSUCCESS && collectStat(netStats, errbub);
+	co_return rSUCCESS &&
+	        collectStat(netStats, errbub) &&
+	        (changes < 1 || co_await notifyHooks(networkMessage.mTypeName, errbub));
 }
 
 std::task<bool> SharedState::getCandidatesNeighbours(
@@ -571,57 +501,6 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 #endif // RS_DEBUG_LEVEL
 
 	co_return true;
-}
-
-/*static*/ std::task<bool> SharedState::getState(
-	const std::string& dataTypeName,
-	std::vector<uint8_t>& dataStorage,
-	IOContext& ioContext,
-	std::error_condition* errbub )
-{
-	dataStorage.clear();
-
-	std::shared_ptr<AsyncCommand> getStateCmd =
-		AsyncCommand::execute(
-			std::string(SHARED_STATE_LUA_CMD) + " get " + dataTypeName,
-			ioContext, errbub );
-	if(!getStateCmd) co_return false;
-
-	dataStorage.resize(DATA_MAX_LENGHT);
-	auto totalReadBytes = co_await getStateCmd->readStdOut(
-		dataStorage.data(), DATA_MAX_LENGHT, errbub );
-	if(totalReadBytes == -1) co_return false;
-	dataStorage.resize(totalReadBytes);
-
-	if(! co_await AsyncCommand::waitTermination(getStateCmd, errbub))
-		co_return false;
-
-	co_return true;
-}
-
-/*static*/ std::task<bool> SharedState::mergeSlice(
-	const std::string& dataTypeName,
-	const std::vector<uint8_t>& dataSlice,
-	IOContext& ioContext,
-	std::error_condition* errbub )
-{
-	std::string cmdMerge(SHARED_STATE_LUA_CMD);
-	cmdMerge += " reqsync " + dataTypeName;
-
-	auto luaSharedState = AsyncCommand::execute(
-		cmdMerge, ioContext, errbub );
-	if(!luaSharedState) co_return false;
-
-	bool retval = -1 != co_await luaSharedState->writeStdIn(
-		dataSlice.data(), dataSlice.size(), errbub );
-
-	/* shared-state keeps reading until it get EOF, so we need to close
-	 * its stdin once we finish writing so it can process the data and then
-	 * return */
-	retval &= co_await luaSharedState->closeStdIn(errbub);
-	retval &= co_await AsyncCommand::waitTermination(luaSharedState, errbub);
-
-	co_return retval;
 }
 
 /*static*/ std::task<bool> SharedState::serverHandShake(
@@ -711,8 +590,10 @@ std::task<bool> SharedState::getCandidatesNeighbours(
         std::error_condition* errbub )
 {
 	const std::string statPath(SHARED_STATE_NET_STAT_FILE_PATH);
+	sockaddr_storage_ipv4_to_ipv6(netStat.mPeer);
 	const std::string tPeerStr = sockaddr_storage_iptostring(netStat.mPeer);
 	const auto tNow = std::chrono::steady_clock::now();
+	netStat.mTS = tNow;
 
 #ifdef SHARED_STATE_STAT_FILE_LOCKING
 	int openRet = open(
@@ -738,74 +619,48 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	}
 #endif // def SHARED_STATE_STAT_FILE_LOCKING
 
-	json newJsonStats = json::object();
+	std::map<std::string, std::deque<NetworkStats>> stats;
 
+	std::ifstream statFileReadStream(statPath);
+	if(statFileReadStream.is_open())
 	{
-		std::ifstream statsFileReadStream(statPath);
-		if(statsFileReadStream.is_open())
-		{
-			json jsonStats = json::parse(statsFileReadStream, nullptr, false);
-			if(!jsonStats.is_discarded() && jsonStats.is_object())
-			{
-				for(auto& [ePeer, eRecords] : std::as_const(jsonStats).items())
-				{
-					int mSkip = 0;
-					if(ePeer == tPeerStr)
-					{
-						mSkip = std::max<int>(
-						    eRecords.size() - SHARED_STATE_NET_STAT_MAX_RECORDS,
-						    0 );
-						RS_DBG1("Skip: ", mSkip, " records to keep size at bay");
-					}
+		rapidjson::IStreamWrapper jStream(statFileReadStream);
+		RsGenericSerializer::SerializeJob j(RsGenericSerializer::FROM_JSON);
+		RsGenericSerializer::SerializeContext ctx;
+		ctx.mJson.ParseStream(jStream);
+		statFileReadStream.close();
+		RS_SERIAL_PROCESS(stats);
+	}
+	else RS_WARN("Discarding corrupted or empty statistics file: ", statPath);
 
-					for( auto mIt = eRecords.begin() + mSkip;
-					     mIt != eRecords.end();  ++mIt )
-					{
-						std::chrono::time_point<std::chrono::steady_clock> tTS{};
 
-						if( mIt->contains("mTS") &&
-						        mIt->at("mTS").is_number_integer() )
-							tTS = std::chrono::time_point<std::chrono::steady_clock>(
-							            std::chrono::time_point<std::chrono::steady_clock>::duration(
-							            mIt->at("mTS").get<int64_t>() ) );
+	stats[tPeerStr].push_back(netStat);
 
-						auto tAge = std::chrono::duration_cast<std::chrono::minutes>(
-						            tNow - tTS );
-						if( tAge > SHARED_STATE_NET_STAT_MAX_AGE )
-						{
-							RS_DBG3( "Skipping too old record with age: ", tAge);
-						}
-						else
-						{
-							RS_DBG3( "Keeping record with age: ", tAge );
-							newJsonStats[ePeer].push_back(*mIt);
-						}
-					}
-				}
-			}
-			else RS_WARN("Discarding corrupted or empty stored statistics");
-		}
-		statsFileReadStream.close();
+	// Prune excessive or too old records
+	for(auto&& [peerStr, peerStats] : stats)
+	{
+		int mSkip = std::max<int>(
+		                peerStats.size() - SHARED_STATE_NET_STAT_MAX_RECORDS, 0 );
+		RS_DBG( "Skip: ", mSkip,
+		        " records for peer: ", tPeerStr," to keep size at bay" );
+		while(mSkip-- > 0) peerStats.pop_front();
+
+		while( !peerStats.empty() &&
+		       ((tNow - peerStats.front().mTS) > SHARED_STATE_NET_STAT_MAX_AGE) )
+			peerStats.pop_front();
 	}
 
-	netStat.mTS = tNow;
-	newJsonStats[tPeerStr].push_back(netStat);
-
+	std::ofstream statsFileWriteStream(
+	            statPath, std::ios::out | std::ios::trunc );
+	if(statsFileWriteStream.is_open())
 	{
-		std::ofstream statsFileWriteStream(
-		            statPath, std::ios::out | std::ios::trunc );
-		if(!statsFileWriteStream.is_open())
-		{
-			RS_ERR("Failure opening network statistic files in write mode");
-			rs_error_bubble_or_exit(
-			            std::errc::io_error, errbub,
-			            "Failure opening network statistic files in write mode" );
-			return false;
-		}
-
-		statsFileWriteStream << newJsonStats;
+		RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
+		RsGenericSerializer::SerializeContext ctx;
+		RS_SERIAL_PROCESS(stats);
+		if(ctx.mOk) statsFileWriteStream << ctx.mJson;
 		statsFileWriteStream.close();
 	}
+	else rs_error_bubble_or_exit(std::errc::io_error, errbub, statPath);
 
 #ifdef SHARED_STATE_STAT_FILE_LOCKING
 	flockRet = flock(openRet, LOCK_UN);
@@ -828,4 +683,378 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 #endif // def SHARED_STATE_STAT_FILE_LOCKING
 
 	return true;
+}
+
+bool SharedState::registerDataType(
+        const std::string& typeName, const std::string& typeScope,
+        std::chrono::seconds updateInterval, std::chrono::seconds TTL,
+        std::error_condition* errbub )
+{
+	if(typeName.empty())
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::invalid_argument, errbub,
+		            "empty type name" );
+		return false;
+	}
+
+	if(typeName.size() > DATA_TYPE_NAME_MAX_LENGHT)
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::invalid_argument, errbub,
+		            "type name too long" );
+		return false;
+	}
+
+
+	const std::string tConfigPath(
+	            std::string(SHARED_STATE_CONFIG_DIR) +
+	            std::string(SHARED_STATE_CONFIG_FILE_NAME) );
+
+	std::error_condition loadErr;
+	if(!loadRegisteredTypes(&loadErr))
+	{
+		RS_INFO( "Config file: ", tConfigPath,
+		         " corrupted or non-existent, creting a new one");
+
+		namespace fs = std::filesystem;
+		const fs::path confPath(SHARED_STATE_CONFIG_DIR);
+		std::error_code confDirErr;
+		fs::create_directory(confPath, confDirErr);
+		if(confDirErr)
+		{
+			rs_error_bubble_or_exit(
+			            confDirErr.default_error_condition(), errbub,
+			            "Failure creating config directory" );
+			return false;
+		}
+	}
+
+	auto&& tConf = mTypeConf[typeName];
+	tConf.mName = typeName;
+	tConf.mBleachTTL = TTL;
+	tConf.mScope = typeScope;
+	tConf.mUpdateInterval = updateInterval;
+	// TODO: use inizializer list costructor
+
+	RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
+	RsGenericSerializer::SerializeContext ctx;
+	RS_SERIAL_PROCESS(mTypeConf);
+
+	std::ofstream confFileWriteStream(
+	            tConfigPath, std::ios::out | std::ios::trunc );
+	if(!confFileWriteStream.is_open())
+	{
+		RS_ERR("Failure opening config file:", tConfigPath, " for writing");
+		rs_error_bubble_or_exit(std::errc::io_error, errbub);
+		return false;
+	}
+	confFileWriteStream << ctx.mJson << std::endl;
+
+	return ctx.mOk;
+}
+
+
+bool SharedState::loadRegisteredTypes(std::error_condition* errbub)
+{
+	const std::string tConfigPath(
+	            std::string(SHARED_STATE_CONFIG_DIR) +
+	            std::string(SHARED_STATE_CONFIG_FILE_NAME) );
+
+	std::ifstream confFileReadStream(tConfigPath);
+	if(!confFileReadStream.is_open())
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "Failure opening config file for reading" );
+		return false;
+	}
+	rapidjson::IStreamWrapper jStream(confFileReadStream);
+
+	RsGenericSerializer::SerializeJob j(RsGenericSerializer::FROM_JSON);
+	RsGenericSerializer::SerializeContext ctx;
+	ctx.mJson.ParseStream(jStream);
+
+	if(ctx.mJson.HasParseError())
+	{
+		rs_error_bubble_or_exit(
+		            rs_errno_to_condition(errno), errbub,
+		            "Corrupted type config file:", tConfigPath );
+		return false;
+	}
+
+	RS_SERIAL_PROCESS(mTypeConf);
+
+	// Create empty states for new types, do nothing if already presents
+	for(auto&& [typeName, _]: mTypeConf) mStates[typeName];
+
+	// Remove states for types that are not registered anymore
+	for(auto sIt = mStates.begin(); sIt != mStates.end();)
+		if(mTypeConf.find(sIt->first) == mTypeConf.end())
+			sIt = mStates.erase(sIt);
+		else ++sIt;
+
+	return ctx.mOk;
+}
+
+void SharedState::StateEntry::serial_process(
+        RsGenericSerializer::SerializeJob j,
+        RsGenericSerializer::SerializeContext& ctx)
+{
+	RS_SERIAL_PROCESS(mAuthor);
+	RS_SERIAL_PROCESS(mBleachTTL);
+	RS_SERIAL_PROCESS(mData);
+}
+
+
+/*static*/ const sockaddr_storage& SharedState::localInstanceAddr()
+{
+	static sockaddr_storage lAddr{};
+	static bool mInitialized = false;
+	if(!mInitialized)
+	{
+		sockaddr_storage_ipv4_aton(lAddr, "127.0.0.1");
+		sockaddr_storage_setport(lAddr, TCP_PORT);
+		mInitialized = true;
+	}
+
+	return lAddr;
+}
+
+std::task<ssize_t> SharedState::merge(
+        const std::string& dataTypeName,
+        const std::map<StateKey, StateEntry>& stateSlice,
+        std::error_condition* errbub )
+{
+	constexpr ssize_t rFAILURE = -1;
+
+	RS_DBG(dataTypeName, " slice size: ", stateSlice.size());
+
+	const auto statesIt = mStates.find(dataTypeName);
+	if(statesIt == mStates.end())
+	{
+		rs_error_bubble_or_exit( SharedStateErrors::UNKOWN_DATA_TYPE, errbub,
+		                         dataTypeName );
+		co_return rFAILURE;
+	}
+
+	auto& tState = statesIt->second;
+	ssize_t significantChanges = 0;
+
+	for(auto&& [stateKey, sliceEntry]: stateSlice)
+	{
+		auto knownEntryIt = tState.find(stateKey);
+
+		if(knownEntryIt == tState.end()) RS_UNLIKELY
+		{
+			tState.emplace(stateKey, sliceEntry);
+			++significantChanges;
+			RS_DBG3("Inserted new entry with key: ", stateKey);
+			continue;
+		}
+
+		auto&& knownEntry = knownEntryIt->second;
+		if(sliceEntry.mBleachTTL > knownEntry.mBleachTTL)
+		{
+			bool significant = knownEntry.mData != sliceEntry.mData;
+			RS_DBG3( "Updating entry with key: ", stateKey, " TTL: ",
+			         sliceEntry.mBleachTTL, " > ", knownEntry.mBleachTTL,
+			         " significant: ", significant? "true" : "false" );
+			if(significant) ++significantChanges;
+			tState.erase(stateKey);
+			tState.emplace(stateKey, sliceEntry);
+		}
+	}
+
+	RS_DBG(significantChanges, " significative changes");
+	co_return significantChanges;
+}
+
+
+void SharedState::NetworkMessage::fromStateSlice(
+        std::map<StateKey, StateEntry>& stateSlice )
+{
+	/* !!Keep stateSlice paramather name the same as in toStateSlice */
+
+	// Take allocator from first (non null?) element
+	auto* jAllocator = stateSlice.empty() ?
+	            nullptr : &stateSlice.begin()->second.mData.GetAllocator();
+
+	RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
+	RsGenericSerializer::SerializeContext ctx(
+	            nullptr, 0, RsSerializationFlags::NONE, jAllocator );
+	RS_SERIAL_PROCESS(stateSlice);
+
+	std::stringstream ss;
+	ss << ctx.mJson;
+	mData.assign(ss.view().begin(), ss.view().end());
+}
+
+void SharedState::NetworkMessage::toStateSlice(
+        std::map<StateKey, StateEntry>& stateSlice ) const
+{
+	/* !! Keep stateSlice paramather name the same as in fromStateSlice */
+
+	// Take allocator from first (non null?) element
+	auto* jAllocator = stateSlice.empty() ?
+	            nullptr : &stateSlice.begin()->second.mData.GetAllocator();
+
+	RsGenericSerializer::SerializeJob j(RsGenericSerializer::FROM_JSON);
+	RsGenericSerializer::SerializeContext ctx(
+	            nullptr, 0, RsSerializationFlags::NONE, jAllocator );
+	ctx.mJson.Parse(
+	            reinterpret_cast<const char*>(mData.data()),
+	            mData.size() );
+	RS_DBG4(ctx.mJson);
+	RS_SERIAL_PROCESS(stateSlice);
+}
+
+std::task<bool> SharedState::notifyHooks(
+        const std::string& typeName, std::error_condition* errbub )
+{
+	auto statesIt = mStates.find(typeName);
+	if(statesIt == mStates.end())
+	{
+		rs_error_bubble_or_exit( SharedStateErrors::UNKOWN_DATA_TYPE, errbub,
+		                         typeName );
+		co_return false;
+	}
+	auto& tState = statesIt->second;
+
+	const std::string hooksDirStr = std::string(SHARED_STATE_CONFIG_DIR) +
+	        "hooks/" + typeName + "/";
+
+	namespace fs = std::filesystem;
+
+	std::error_code fsErr;
+	if(!fs::is_directory(hooksDirStr, fsErr))
+		co_return false; // No hooks, nothing to do
+
+	std::string tDataStr;
+
+	{
+		RsJson cleanJsonData(
+		            rapidjson::kObjectType,
+		            tState.empty() ?
+		                nullptr : &tState.begin()->second.mData.GetAllocator() );
+
+		for(auto& [key, stateEntry]: tState)
+		{
+			rapidjson::Value jKey;
+			jKey.SetString( key.c_str(),
+			                static_cast<rapidjson::SizeType>(key.length()) );
+
+			cleanJsonData.AddMember(
+			            jKey, stateEntry.mData,
+			            cleanJsonData.GetAllocator() );
+		}
+
+		std::stringstream ss;
+		ss << cleanJsonData;
+		tDataStr = ss.str();
+	}
+
+	for (auto const& dirEntry : fs::directory_iterator{hooksDirStr})
+	{
+		auto&& hookPath = dirEntry.path();
+		auto&& stRet = dirEntry.status(fsErr);
+		if(fsErr)
+		{
+			RS_ERR( "Skipping invalid hook: ", hookPath, " ",
+			         fsErr.default_error_condition() );
+			continue;
+		}
+
+		if(fs::perms::none == (fs::perms::owner_exec & stRet.permissions()))
+		{
+			RS_ERR( "Skipping non-executable hook: ", hookPath, " ",
+			         fsErr.default_error_condition() );
+			continue;
+		}
+
+		std::error_condition hookErr;
+		auto hookCmd = AsyncCommand::execute(
+		            dirEntry.path(), mIoContext, &hookErr );
+		if(!hookCmd)
+		{
+			RS_ERR("Failure executing hook: ", hookPath, " ", hookErr);
+			continue;
+		}
+
+		co_await hookCmd->writeStdIn(
+		    reinterpret_cast<uint8_t*>(tDataStr.data()), tDataStr.size(),
+		            &hookErr );
+		co_await hookCmd->closeStdIn(&hookErr);
+		co_await AsyncCommand::waitTermination(hookCmd, &hookErr);
+
+		if(hookErr)
+			RS_ERR("Hook: ", hookPath, " failed with: ", hookErr);
+	}
+
+	co_return true;
+}
+
+ssize_t SharedState::bleach(
+        const std::string& dataTypeName, std::error_condition* errbub )
+{
+	auto statesIt = mStates.find(dataTypeName);
+	if(statesIt == mStates.end())
+	{
+		rs_error_bubble_or_exit(
+		            SharedStateErrors::UNKOWN_DATA_TYPE, errbub,
+		            dataTypeName );
+		return -1;
+	}
+	auto& tState = statesIt->second;
+
+
+	ssize_t significativeChanges = 0;
+	for(auto& [key, stateEntry]: tState)
+	{
+		if(--stateEntry.mBleachTTL) continue;
+
+		tState.erase(key);
+		++significativeChanges;
+	}
+
+	return significativeChanges;
+}
+void SharedState::DataTypeConf::serial_process(
+        RsGenericSerializer::SerializeJob j,
+        RsGenericSerializer::SerializeContext &ctx)
+{
+	RS_SERIAL_PROCESS(mName);
+	RS_SERIAL_PROCESS(mScope);
+
+	decltype(mUpdateInterval)::rep tUpdateInterval = mUpdateInterval.count();
+	RsTypeSerializer::serial_process(j, ctx, tUpdateInterval, "mUpdateInterval");
+	mUpdateInterval = decltype(mUpdateInterval)(tUpdateInterval);
+
+	decltype(mBleachTTL)::rep tBleachTTL = mBleachTTL.count();
+	RsTypeSerializer::serial_process(j, ctx, tBleachTTL, "mBleachTTL");
+	mBleachTTL = decltype(mBleachTTL)(tBleachTTL);
+}
+
+void SharedState::NetworkStats::serial_process(
+        RsGenericSerializer::SerializeJob j,
+        RsGenericSerializer::SerializeContext &ctx)
+{
+	/* Do not serialize peer address as it ends up being reduntant with
+	 * statistic storage key which is peer address */
+	//std::string tPeer = sockaddr_storage_iptostring(mPeer);
+	//RsTypeSerializer::serial_process(j, ctx, tPeer, "mPeer");
+	//sockaddr_storage_inet_pton(mPeer, tPeer);
+
+	using tp_t = decltype(mTS);
+	using dur_t = tp_t::duration;
+	int64_t tmTS = mTS.time_since_epoch().count();
+	RsTypeSerializer::serial_process(j, ctx, tmTS, "mTS");
+	mTS = tp_t(dur_t(tmTS));
+
+	decltype(mRttExt)::rep tRTT = mRttExt.count();
+	RsTypeSerializer::serial_process(j, ctx, tRTT, "mRttExt");
+	mRttExt = decltype(mRttExt)(tRTT);
+
+	RS_SERIAL_PROCESS(mUpBwMbsExt);
+	RS_SERIAL_PROCESS(mDownBwMbsExt);
 }

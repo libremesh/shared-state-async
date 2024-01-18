@@ -187,27 +187,7 @@ static int pidfd_open(pid_t pid, unsigned int flags)
 
 std::task<ssize_t> AsyncCommand::readStdOut(
         uint8_t* buffer, std::size_t len, std::error_condition* errbub)
-{
-	RS_DBG2( *mStdOut,
-			" buffer: ", reinterpret_cast<const void*>(buffer),
-			" len: ", len);
-
-	ssize_t numReadBytes = 0;
-	ssize_t totalReadBytes = 0;
-	do
-	{
-		numReadBytes = co_await
-			ReadOp{*mStdOut, buffer + totalReadBytes, len - totalReadBytes, errbub};
-
-		if(numReadBytes == -1) RS_UNLIKELY
-				co_return -1;
-
-		totalReadBytes += numReadBytes;
-	}
-	while(numReadBytes && totalReadBytes < len);
-
-	co_return totalReadBytes;
-}
+{ co_return co_await asyncRead(*mStdOut, buffer, len, errbub); }
 
 std::task<ssize_t> AsyncCommand::writeStdIn(
         const uint8_t* buffer, std::size_t len, std::error_condition* errbub )
@@ -218,21 +198,7 @@ std::task<ssize_t> AsyncCommand::writeStdIn(
 	RS_DBG4( " buffer content: ",
 	         std::string(reinterpret_cast<const char*>(buffer), len) );
 
-	ssize_t numWriteBytes = 0;
-	ssize_t totalWriteBytes = 0;
-	do
-	{
-		numWriteBytes = co_await
-			WriteOp{*mStdIn, buffer + totalWriteBytes, len - totalWriteBytes, errbub};
-
-		if(numWriteBytes == -1) RS_UNLIKELY
-			co_return -1;
-
-		totalWriteBytes += numWriteBytes;
-	}
-	while(numWriteBytes && totalWriteBytes < len);
-
-	co_return totalWriteBytes;
+	co_return co_await asyncWrite(*mStdIn, buffer, len, errbub);
 }
 
 std::task<bool> AsyncCommand::closeStdIn(std::error_condition* errbub)

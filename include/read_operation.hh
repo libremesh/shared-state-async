@@ -42,3 +42,9 @@ private:
 	uint8_t* mBuffer;
 	std::size_t mLen;
 };
+
+
+std::task<ssize_t> asyncRead(
+        AsyncFileDescriptor& aFD,
+        uint8_t* buffer, std::size_t len,
+        std::error_condition* errbub = nullptr );
