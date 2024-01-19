@@ -67,6 +67,7 @@ std::task<NoReturn> SharedStateCli::insert(const std::string& typeName)
 		entry.mData.CopyFrom(member.value, jAllocator);
 	}
 
+#if RS_DEBUG_LEVEL > 2
 	RS_DBG("State content after insert:");
 	for(auto& [key, value]: tState)
 	{
@@ -74,10 +75,11 @@ std::task<NoReturn> SharedStateCli::insert(const std::string& typeName)
 		        " TTL: ", value.mBleachTTL,
 		        " data: ", value.mData );
 	}
+#endif // RS_DEBUG_LEVEL
 
 	co_await SharedState::syncWithPeer(typeName, localInstanceAddr());
 
-
+#if RS_DEBUG_LEVEL > 2
 	RS_DBG("State content after sync:");
 	for(auto& [key, value]: tState)
 	{
@@ -85,6 +87,7 @@ std::task<NoReturn> SharedStateCli::insert(const std::string& typeName)
 		        " TTL: ", value.mBleachTTL,
 		        " data: ", value.mData );
 	}
+#endif // RS_DEBUG_LEVEL
 
 	exit(0);
 }
@@ -166,10 +169,6 @@ std::task<NoReturn> SharedStateCli::acceptReqSyncConnectionsLoop(
 		std::error_condition reqSyncErr;
 		bool tSuccess = co_await
 		        SharedState::handleReqSyncConnection(socket, &reqSyncErr);
-
-		// TODO: print peer address instead of socket
-		RS_INFO( tSuccess ? "Success" : "Failure", " handling reqsync on ",
-		         *socket, reqSyncErr );
 	}
 }
 
@@ -215,7 +214,7 @@ std::task<NoReturn> SharedStateCli::peer()
 				bool peerSynced = co_await
 				        SharedState::syncWithPeer(
 				            typeName, peerAddress, &errInfo );
-				RS_INFO( peerSynced ? "Success" : "Failure",
+				RS_DBG3( peerSynced ? "Success" : "Failure",
 				         " synchronizing data type: ",  typeName,
 				         " with peer: ", peerAddress, " error: ", errInfo );
 			}

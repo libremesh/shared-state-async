@@ -29,7 +29,6 @@
 #include <filesystem>
 #include <deque>
 
-#define SHARED_STATE_STAT_FILE_LOCKING
 #ifdef SHARED_STATE_STAT_FILE_LOCKING
 #	include <fcntl.h>
 #	include <sys/file.h>
@@ -150,7 +149,7 @@ while(false)
 
 	syncWithPeer_clean_socket();
 
-	RS_INFO( "Synchronized with peer: ", peerAddr,
+	RS_DBG3( "Synchronized with peer: ", peerAddr,
 	         " Sent message type: ", dataTypeName,
 	         " Sent message size: ", sentMessageSize,
 	         " Received message type: ", netMessage.mTypeName,
@@ -433,7 +432,7 @@ while(false)
 		co_return rFAILURE;
 	}
 
-	RS_INFO( "Handled sync request from peer: ", netStats.mPeer,
+	RS_DBG3( "Handled sync request from peer: ", netStats.mPeer,
 	         " Received message type: ", networkMessage.mTypeName,
 	         " Received message size: ", receivedMessageSize,
 	         " Sent message size: ", networkMessage.mData.size(),
@@ -641,8 +640,8 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	{
 		int mSkip = std::max<int>(
 		                peerStats.size() - SHARED_STATE_NET_STAT_MAX_RECORDS, 0 );
-		RS_DBG( "Skip: ", mSkip,
-		        " records for peer: ", tPeerStr," to keep size at bay" );
+		RS_DBG4( "Skip: ", mSkip,
+		         " records for peer: ", tPeerStr," to keep size at bay" );
 		while(mSkip-- > 0) peerStats.pop_front();
 
 		while( !peerStats.empty() &&
@@ -828,7 +827,7 @@ std::task<ssize_t> SharedState::merge(
 {
 	constexpr ssize_t rFAILURE = -1;
 
-	RS_DBG(dataTypeName, " slice size: ", stateSlice.size());
+	RS_DBG3(dataTypeName, " slice size: ", stateSlice.size());
 
 	const auto statesIt = mStates.find(dataTypeName);
 	if(statesIt == mStates.end())
@@ -849,7 +848,7 @@ std::task<ssize_t> SharedState::merge(
 		{
 			tState.emplace(stateKey, sliceEntry);
 			++significantChanges;
-			RS_DBG3("Inserted new entry with key: ", stateKey);
+			RS_DBG4("Inserted new entry with key: ", stateKey);
 			continue;
 		}
 
@@ -857,7 +856,7 @@ std::task<ssize_t> SharedState::merge(
 		if(sliceEntry.mBleachTTL > knownEntry.mBleachTTL)
 		{
 			bool significant = knownEntry.mData != sliceEntry.mData;
-			RS_DBG3( "Updating entry with key: ", stateKey, " TTL: ",
+			RS_DBG4( "Updating entry with key: ", stateKey, " TTL: ",
 			         sliceEntry.mBleachTTL, " > ", knownEntry.mBleachTTL,
 			         " significant: ", significant? "true" : "false" );
 			if(significant) ++significantChanges;
@@ -866,7 +865,8 @@ std::task<ssize_t> SharedState::merge(
 		}
 	}
 
-	RS_DBG(significantChanges, " significative changes");
+	RS_DBG2( dataTypeName, " got ", significantChanges,
+	         " significative changes out of ", stateSlice.size(), " slice size");
 	co_return significantChanges;
 }
 
@@ -912,6 +912,8 @@ void SharedState::NetworkMessage::toStateSlice(
 std::task<bool> SharedState::notifyHooks(
         const std::string& typeName, std::error_condition* errbub )
 {
+	RS_DBG2(typeName);
+
 	auto statesIt = mStates.find(typeName);
 	if(statesIt == mStates.end())
 	{
@@ -989,6 +991,10 @@ std::task<bool> SharedState::notifyHooks(
 
 		if(hookErr)
 			RS_ERR("Hook: ", hookPath, " failed with: ", hookErr);
+#if RS_DEBUG_LEVEL > 1
+		else
+			RS_DBG("Success executing hool=k: ", hookPath);
+#endif // RS_DEBUG_LEVEL
 	}
 
 	co_return true;
