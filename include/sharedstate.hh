@@ -52,6 +52,9 @@ struct SharedState
 	static constexpr std::string_view SHARED_STATE_CONFIG_DIR =
 	        "/tmp/shared-state/";
 
+	static constexpr std::string_view SHARED_STATE_HOOKS_DIR =
+	        "/usr/share/shared-state/hooks/";
+
 	static constexpr std::string_view SHARED_STATE_CONFIG_FILE_NAME =
 	        "shared-state-async.conf";
 

@@ -923,8 +923,8 @@ std::task<bool> SharedState::notifyHooks(
 	}
 	auto& tState = statesIt->second;
 
-	const std::string hooksDirStr = std::string(SHARED_STATE_CONFIG_DIR) +
-	        "hooks/" + typeName + "/";
+	const std::string hooksDirStr = std::string(SHARED_STATE_HOOKS_DIR) +
+	        typeName + "/";
 
 	namespace fs = std::filesystem;
 
