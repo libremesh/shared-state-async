@@ -285,4 +285,7 @@ protected:
 	std::map<std::string, DataTypeConf> mTypeConf;
 
 	IOContext& mIoContext;
+
+	/** Only peer instance is in charge of notifying hooks */
+	bool isPeer = false;
 };

@@ -174,6 +174,8 @@ std::task<NoReturn> SharedStateCli::acceptReqSyncConnectionsLoop(
 
 std::task<NoReturn> SharedStateCli::peer()
 {
+	isPeer = true;
+
 	loadRegisteredTypes();
 
 	auto listener = ListeningSocket::setupListener(

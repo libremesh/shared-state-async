@@ -56,21 +56,21 @@ std::task<bool> SharedState::syncWithPeer(
 {
 	RS_DBG3(dataTypeName, " ", sockaddr_storage_tostring(peerAddr), " ", errbub);
 
-	auto constexpr rFAILURE = false;
-	auto constexpr rSUCCESS = true;
+	constexpr bool rFAILURE = false;
+	constexpr bool rSUCCESS = true;
 
 	const auto statesIt = mStates.find(dataTypeName);
 	if(statesIt == mStates.end())
 	{
 		rs_error_bubble_or_exit( SharedStateErrors::UNKOWN_DATA_TYPE, errbub,
 		                         dataTypeName );
-		co_return false;
+		co_return rFAILURE;
 	}
 	auto& tState = statesIt->second;
 
 	auto tSocket = co_await ConnectingSocket::connect(
 	            peerAddr, mIoContext, errbub);
-	if(!tSocket) co_return false;
+	if(!tSocket) co_return rFAILURE;
 
 #if 0
 	!! CAPTURING LAMBDAS THAT ARE COROUTINES BREAKS !!
@@ -161,9 +161,12 @@ while(false)
 	         " Extimated RTT: ", netStats.mRttExt.count(), "μs",
 	         " Processing time: ", mergeMuSecs.count(), "μs" );
 
-	co_return rSUCCESS &&
-	        collectStat(netStats, errbub) &&
-	        (changes < 1 || co_await notifyHooks(netMessage.mTypeName, errbub));
+	if(!collectStat(netStats, errbub)) co_return rFAILURE;
+
+	if(isPeer && (changes > 0))
+		co_return co_await notifyHooks(netMessage.mTypeName, errbub);
+
+	co_return rSUCCESS;
 }
 
 std::task<ssize_t> SharedState::receiveNetworkMessage(
@@ -445,9 +448,12 @@ while(false)
 
 	handleReqSyncConnection_clean_socket();
 
-	co_return rSUCCESS &&
-	        collectStat(netStats, errbub) &&
-	        (changes < 1 || co_await notifyHooks(networkMessage.mTypeName, errbub));
+	if(!collectStat(netStats, errbub)) co_return rFAILURE;
+
+	if(isPeer && (changes > 0))
+		co_return co_await notifyHooks(networkMessage.mTypeName, errbub);
+
+	co_return rSUCCESS;
 }
 
 std::task<bool> SharedState::getCandidatesNeighbours(
@@ -594,6 +600,8 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 	const auto tNow = std::chrono::steady_clock::now();
 	netStat.mTS = tNow;
 
+	RS_DBG3(tPeerStr);
+
 #ifdef SHARED_STATE_STAT_FILE_LOCKING
 	int openRet = open(
 	            statPath.c_str(),
@@ -641,7 +649,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 		int mSkip = std::max<int>(
 		                peerStats.size() - SHARED_STATE_NET_STAT_MAX_RECORDS, 0 );
 		RS_DBG4( "Skip: ", mSkip,
-		         " records for peer: ", tPeerStr," to keep size at bay" );
+		         " records for peer: ", peerStr," to keep size at bay" );
 		while(mSkip-- > 0) peerStats.pop_front();
 
 		while( !peerStats.empty() &&
@@ -993,7 +1001,7 @@ std::task<bool> SharedState::notifyHooks(
 			RS_ERR("Hook: ", hookPath, " failed with: ", hookErr);
 #if RS_DEBUG_LEVEL > 1
 		else
-			RS_DBG("Success executing hool=k: ", hookPath);
+			RS_DBG("Success executing hook: ", hookPath);
 #endif // RS_DEBUG_LEVEL
 	}
 
