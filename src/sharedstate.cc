@@ -657,7 +657,7 @@ std::task<bool> SharedState::getCandidatesNeighbours(
 		RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
 		RsGenericSerializer::SerializeContext ctx;
 		RS_SERIAL_PROCESS(stats);
-		if(ctx.mOk) statsFileWriteStream << ctx.mJson;
+		if(ctx.mOk) statsFileWriteStream << ctx.mJson << std::endl;
 		statsFileWriteStream.close();
 	}
 	else rs_error_bubble_or_exit(std::errc::io_error, errbub, statPath);
@@ -715,7 +715,7 @@ bool SharedState::registerDataType(
 	if(!loadRegisteredTypes(&loadErr))
 	{
 		RS_INFO( "Config file: ", tConfigPath,
-		         " corrupted or non-existent, creting a new one");
+		         " corrupted or non-existent, creating a new one" );
 
 		namespace fs = std::filesystem;
 		const fs::path confPath(SHARED_STATE_CONFIG_DIR);
@@ -766,7 +766,7 @@ bool SharedState::loadRegisteredTypes(std::error_condition* errbub)
 	{
 		rs_error_bubble_or_exit(
 		            rs_errno_to_condition(errno), errbub,
-		            "Failure opening config file for reading" );
+		            "Failure opening config file for reading: ", tConfigPath );
 		return false;
 	}
 	rapidjson::IStreamWrapper jStream(confFileReadStream);
@@ -1019,6 +1019,7 @@ ssize_t SharedState::bleach(
 
 	return significativeChanges;
 }
+
 void SharedState::DataTypeConf::serial_process(
         RsGenericSerializer::SerializeJob j,
         RsGenericSerializer::SerializeContext &ctx)

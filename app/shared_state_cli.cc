@@ -203,6 +203,8 @@ std::task<NoReturn> SharedStateCli::peer()
 
 		for(auto&& [typeName, typeConf]: std::as_const(mTypeConf))
 		{
+			bleach(typeName);
+
 			if( tNow.time_since_epoch().count() %
 			        typeConf.mUpdateInterval.count() )
 				continue;
@@ -217,8 +219,6 @@ std::task<NoReturn> SharedStateCli::peer()
 				         " syncronizing data type: ",  typeName,
 				         " with peer: ", peerAddress, " error: ", errInfo );
 			}
-
-			bleach(typeName);
 		}
 	}
 
