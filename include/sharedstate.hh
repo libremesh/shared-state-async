@@ -207,7 +207,7 @@ struct SharedState
 
 private:
 	static constexpr std::string_view SHARED_STATE_GET_CANDIDATES_CMD =
-			"shared-state-get_candidates_neigh";
+	        "shared-state-async-discover";
 
 	static constexpr uint32_t WIRE_PROTO_VERSION = 1;
 
@@ -254,7 +254,7 @@ private:
 	        "/tmp/shared-state/";
 
 	static constexpr std::string_view SHARED_STATE_NET_STAT_FILE_PATH =
-	        "/tmp/shared-state-network_statistics.json";
+	        "/tmp/shared-state/network_statistics.json";
 
 	static constexpr uint8_t SHARED_STATE_NET_STAT_MAX_RECORDS = 10;
 
@@ -274,9 +274,6 @@ protected:
 		hostReadStream >> hostName;
 		return hostName;
 	}
-
-	RS_DEPRECATED
-	static constexpr uint32_t TTL_PLACEOLDER = 63;
 
 	/// Shared state in memory storage
 	std::map<std::string, std::map<StateKey, StateEntry>> mStates;

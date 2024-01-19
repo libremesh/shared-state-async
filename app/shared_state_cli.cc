@@ -216,7 +216,7 @@ std::task<NoReturn> SharedStateCli::peer()
 				        SharedState::syncWithPeer(
 				            typeName, peerAddress, &errInfo );
 				RS_INFO( peerSynced ? "Success" : "Failure",
-				         " syncronizing data type: ",  typeName,
+				         " synchronizing data type: ",  typeName,
 				         " with peer: ", peerAddress, " error: ", errInfo );
 			}
 		}
