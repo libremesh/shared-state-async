@@ -175,6 +175,8 @@ if(SS_STAT_FILE_LOCKING)
 endif(SS_STAT_FILE_LOCKING)
 
 if(SS_CPPTRACE_STACKTRACE)
+    # Apparently PreventInSourceBuilds check shipped within Cpptrace give false
+    # positive with OpenWrt build system
     FetchContent_Declare(
       cpptrace
       GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
@@ -182,6 +184,7 @@ if(SS_CPPTRACE_STACKTRACE)
       GIT_SHALLOW TRUE
       GIT_PROGRESS TRUE
       TIMEOUT 10
+      PATCH_COMMAND echo > cmake/PreventInSourceBuilds.cmake
     )
     FetchContent_MakeAvailable(cpptrace)
     target_link_libraries(${LIBRARY_NAME} PRIVATE cpptrace::cpptrace)
