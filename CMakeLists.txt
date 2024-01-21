@@ -20,6 +20,12 @@ option( SS_DEVELOPMENT_BUILD
 option( SS_TESTS
         "Build tests" OFF )
 
+option( SS_CPPTRACE_STACKTRACE
+        "Use Jeremy Rifkin Cpptrace library to print stacktrace instead of \
+         our implementation"
+        ON )
+
+
 set(LIBRARY_SOURCES
     src/accept_operation.cc
     src/async_command.cc
@@ -108,6 +114,7 @@ set(LIBRARY_SOURCES
     ${LIBRETROSHARE_DIR}/src/util/rsnet.cc
     ${LIBRETROSHARE_DIR}/src/util/rsnet_ss.cc
     ${LIBRETROSHARE_DIR}/src/util/rsstring.cc
+    ${LIBRETROSHARE_DIR}/src/util/rsstacktrace.cc
     ${LIBRETROSHARE_DIR}/src/util/rsthreads.cc
     ${LIBRETROSHARE_DIR}/src/util/rsurl.cc
     ${LIBRETROSHARE_DIR}/src/util/smallobject.cc
@@ -166,3 +173,18 @@ if(SS_STAT_FILE_LOCKING)
         ${LIBRARY_NAME}
         PRIVATE SHARED_STATE_STAT_FILE_LOCKING )
 endif(SS_STAT_FILE_LOCKING)
+
+if(SS_CPPTRACE_STACKTRACE)
+    FetchContent_Declare(
+      cpptrace
+      GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
+      GIT_TAG v0.3.1
+      GIT_SHALLOW TRUE
+      GIT_PROGRESS TRUE
+      TIMEOUT 10
+    )
+    FetchContent_MakeAvailable(cpptrace)
+    target_link_libraries(${LIBRARY_NAME} PRIVATE cpptrace::cpptrace)
+    target_compile_definitions(
+        ${LIBRARY_NAME} PRIVATE RS_JEREMY_RIFKIN_CPPTRACE )
+endif(SS_CPPTRACE_STACKTRACE)
