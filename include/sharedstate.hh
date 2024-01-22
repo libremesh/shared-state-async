@@ -126,13 +126,11 @@ struct SharedState
 
 	struct StateEntry : RsSerializable
 	{
-		StateEntry(
-		        const std::string& author,
-		        uint64_t bleachTTL,
-		        const RsJson& pData = RsJson(),
-		        RsJson::AllocatorType* allocator = nullptr ):
-		    mAuthor(author), mBleachTTL(bleachTTL), mData(allocator)
-		{ mData.CopyFrom(pData, allocator ? *allocator : mData.GetAllocator()); }
+		StateEntry(): mAuthor(), mBleachTTL(0), mData() {}
+
+		StateEntry(const StateEntry& st):
+		    mAuthor(st.mAuthor), mBleachTTL(st.mBleachTTL)
+		{ mData.CopyFrom(st.mData, mData.GetAllocator()); }
 
 		std::string mAuthor;
 		uint64_t mBleachTTL;
@@ -142,20 +140,6 @@ struct SharedState
 		virtual void
 		serial_process( RsGenericSerializer::SerializeJob j,
 		                RsGenericSerializer::SerializeContext &ctx );
-
-	/*protected:
-	 *	friend RsTypeSerializer;
-	 * TODO: Should be used only by RsTypeSerializer, but apparently firend
-	 * declaration wasn't enough to make them visible to it */
-		StateEntry(): mAuthor(), mBleachTTL(0), mData() {}
-		StateEntry(const StateEntry& st):
-		    mAuthor(st.mAuthor), mBleachTTL(st.mBleachTTL)
-		{
-			/* Reusing same allocator prooved unsafe, in particular passing
-			 * const_cast<StateEntry&>(st).mData.GetAllocator()
-			 * caused memory corruption in rapidjson and subsequently a crash */
-			mData.CopyFrom(st.mData, mData.GetAllocator());
-		}
 	};
 
 	/** @return number of significative changes in the state, -1 on error */

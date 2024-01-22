@@ -884,13 +884,8 @@ void SharedState::NetworkMessage::fromStateSlice(
 {
 	/* !!Keep stateSlice paramather name the same as in toStateSlice */
 
-	// Take allocator from first (non null?) element
-	auto* jAllocator = stateSlice.empty() ?
-	            nullptr : &stateSlice.begin()->second.mData.GetAllocator();
-
 	RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
-	RsGenericSerializer::SerializeContext ctx(
-	            nullptr, 0, RsSerializationFlags::NONE, jAllocator );
+	RsGenericSerializer::SerializeContext ctx;
 	RS_SERIAL_PROCESS(stateSlice);
 
 	std::stringstream ss;
@@ -903,13 +898,8 @@ void SharedState::NetworkMessage::toStateSlice(
 {
 	/* !! Keep stateSlice paramather name the same as in fromStateSlice */
 
-	// Take allocator from first (non null?) element
-	auto* jAllocator = stateSlice.empty() ?
-	            nullptr : &stateSlice.begin()->second.mData.GetAllocator();
-
 	RsGenericSerializer::SerializeJob j(RsGenericSerializer::FROM_JSON);
-	RsGenericSerializer::SerializeContext ctx(
-	            nullptr, 0, RsSerializationFlags::NONE, jAllocator );
+	RsGenericSerializer::SerializeContext ctx;
 	ctx.mJson.Parse(
 	            reinterpret_cast<const char*>(mData.data()),
 	            mData.size() );
@@ -929,7 +919,7 @@ std::task<bool> SharedState::notifyHooks(
 		                         typeName );
 		co_return false;
 	}
-	auto& tState = statesIt->second;
+	const auto& tState = statesIt->second;
 
 	const std::string hooksDirStr = std::string(SHARED_STATE_HOOKS_DIR) +
 	        typeName + "/";
@@ -943,20 +933,19 @@ std::task<bool> SharedState::notifyHooks(
 	std::string tDataStr;
 
 	{
-		RsJson cleanJsonData(
-		            rapidjson::kObjectType,
-		            tState.empty() ?
-		                nullptr : &tState.begin()->second.mData.GetAllocator() );
+		RsJson cleanJsonData(rapidjson::kObjectType);
+		auto& jAllocator = cleanJsonData.GetAllocator();
 
-		for(auto& [key, stateEntry]: tState)
+		for(const auto& [key, stateEntry]: tState)
 		{
-			rapidjson::Value jKey;
-			jKey.SetString( key.c_str(),
-			                static_cast<rapidjson::SizeType>(key.length()) );
+			rapidjson::Value jKey(
+			            key.c_str(),
+			            static_cast<rapidjson::SizeType>(key.length()),
+			            jAllocator );
 
-			cleanJsonData.AddMember(
-			            jKey, stateEntry.mData,
-			            cleanJsonData.GetAllocator() );
+			rapidjson::Value jValue(stateEntry.mData, jAllocator);
+
+			cleanJsonData.AddMember(jKey, jValue, jAllocator);
 		}
 
 		std::stringstream ss;
