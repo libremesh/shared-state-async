@@ -44,7 +44,6 @@ std::task<NoReturn> SharedStateCli::insert(const std::string& typeName)
 	auto& tState = typesIt->second;
 
 	RsJson jsonInput;
-	auto& jAllocator = jsonInput.GetAllocator();
 
 	{
 		std::istreambuf_iterator<char> cinBegin(std::cin), cinEnd;
@@ -62,32 +61,11 @@ std::task<NoReturn> SharedStateCli::insert(const std::string& typeName)
 	{
 		auto& entry = tState[member.name.GetString()];
 		entry.mAuthor = authorPlaceOlder();
-		// TODO: evaluate using std::chrono::seconds in entry too
-		entry.mBleachTTL = mTypeConf[typeName].mBleachTTL.count();
-		entry.mData.CopyFrom(member.value, jAllocator);
+		entry.mTtl = mTypeConf[typeName].mBleachTTL;
+		entry.mData.CopyFrom(member.value, entry.mData.GetAllocator());
 	}
-
-#if RS_DEBUG_LEVEL > 2
-	RS_DBG("State content after insert:");
-	for(auto& [key, value]: tState)
-	{
-		RS_DBG( "\t key: ", key,
-		        " TTL: ", value.mBleachTTL,
-		        " data: ", value.mData );
-	}
-#endif // RS_DEBUG_LEVEL
 
 	co_await SharedState::syncWithPeer(typeName, localInstanceAddr());
-
-#if RS_DEBUG_LEVEL > 2
-	RS_DBG("State content after sync:");
-	for(auto& [key, value]: tState)
-	{
-		RS_DBG( "\t key: ", key,
-		        " TTL: ", value.mBleachTTL,
-		        " data: ", value.mData );
-	}
-#endif // RS_DEBUG_LEVEL
 
 	exit(0);
 }

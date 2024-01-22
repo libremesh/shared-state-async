@@ -809,7 +809,11 @@ void SharedState::StateEntry::serial_process(
         RsGenericSerializer::SerializeContext& ctx)
 {
 	RS_SERIAL_PROCESS(mAuthor);
-	RS_SERIAL_PROCESS(mBleachTTL);
+
+	decltype(mTtl)::rep tTtl = mTtl.count();
+	RsTypeSerializer::serial_process(j, ctx, tTtl, "mTtl");
+	mTtl = decltype(mTtl)(tTtl);
+
 	RS_SERIAL_PROCESS(mData);
 }
 
@@ -845,36 +849,46 @@ std::task<ssize_t> SharedState::merge(
 		co_return rFAILURE;
 	}
 
+	const auto typeUpdateInterval = mTypeConf.at(dataTypeName).mUpdateInterval;
+
 	auto& tState = statesIt->second;
+	ssize_t allChanges = 0;
 	ssize_t significantChanges = 0;
 
 	for(auto&& [stateKey, sliceEntry]: stateSlice)
 	{
-		auto knownEntryIt = tState.find(stateKey);
-
+		const auto knownEntryIt = tState.find(stateKey);
 		if(knownEntryIt == tState.end()) RS_UNLIKELY
 		{
 			tState.emplace(stateKey, sliceEntry);
-			++significantChanges;
+			++significantChanges; ++allChanges;
 			RS_DBG4("Inserted new entry with key: ", stateKey);
 			continue;
 		}
+		const auto& knownEntry = knownEntryIt->second;
 
-		auto&& knownEntry = knownEntryIt->second;
-		if(sliceEntry.mBleachTTL > knownEntry.mBleachTTL)
+		/* Be just a bit more confident in already known data then in what we
+		 * just receive from others adding typeUpdateInterval */
+		if( sliceEntry.mTtl >
+		        (knownEntry.mTtl + typeUpdateInterval) )
 		{
 			bool significant = knownEntry.mData != sliceEntry.mData;
 			RS_DBG4( "Updating entry with key: ", stateKey, " TTL: ",
-			         sliceEntry.mBleachTTL, " > ", knownEntry.mBleachTTL,
+			         sliceEntry.mTtl, " > ", knownEntry.mTtl,
 			         " significant: ", significant? "true" : "false" );
 			if(significant) ++significantChanges;
+			++allChanges;
 			tState.erase(stateKey);
 			tState.emplace(stateKey, sliceEntry);
 		}
 	}
 
-	RS_DBG2( dataTypeName, " got ", significantChanges,
-	         " significative changes out of ", stateSlice.size(), " slice size");
+#if RS_DEBUG_LEVEL > 1
+	RS_DBG( dataTypeName, " got ", significantChanges,
+	        " significative changes out of ", allChanges,
+	        " input slice size: ", stateSlice.size(),
+	        " state size: ", tState.size() );
+#endif
 	co_return significantChanges;
 }
 
@@ -1012,9 +1026,9 @@ ssize_t SharedState::bleach(
 
 	ssize_t significativeChanges =
 	        std::erase_if(tState, [](const auto& item)
-	{ return item.second.mBleachTTL < 2; });
+	{ return item.second.mTtl < std::chrono::seconds(2); });
 
-	for(auto& [key, stateEntry]: tState) --stateEntry.mBleachTTL;
+	for(auto& [key, stateEntry]: tState) --stateEntry.mTtl;
 
 	return significativeChanges;
 }

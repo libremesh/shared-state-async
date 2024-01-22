@@ -126,14 +126,19 @@ struct SharedState
 
 	struct StateEntry : RsSerializable
 	{
-		StateEntry(): mAuthor(), mBleachTTL(0), mData() {}
+		StateEntry(): mAuthor(), mTtl(std::chrono::seconds::zero()), mData() {}
 
 		StateEntry(const StateEntry& st):
-		    mAuthor(st.mAuthor), mBleachTTL(st.mBleachTTL)
+		    mAuthor(st.mAuthor), mTtl(st.mTtl)
 		{ mData.CopyFrom(st.mData, mData.GetAllocator()); }
 
+		/// Entry author
 		std::string mAuthor;
-		uint64_t mBleachTTL;
+
+		/// Remaining time to live
+		std::chrono::seconds mTtl;
+
+		/// Entry data
 		RsJson mData;
 
 		/// @see RsSerializable
