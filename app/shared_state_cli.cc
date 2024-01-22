@@ -82,14 +82,14 @@ std::task<NoReturn> SharedStateCli::dump(const std::string& typeName)
 	co_await syncWithPeer(typeName, localInstanceAddr());
 
 	// State is empty nothing to dump
-	if(tState.empty()) exit(0);
-
-	// Take allocator from first (non null?) element
-	auto& jAllocator = tState.begin()->second.mData.GetAllocator();
+	if(tState.empty())
+	{
+		std::cout << "{}" << std::endl;
+		exit(0);
+	}
 
 	RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
-	RsGenericSerializer::SerializeContext ctx(
-	            nullptr, 0, RsSerializationFlags::NONE, &jAllocator );
+	RsGenericSerializer::SerializeContext ctx;
 	RS_SERIAL_PROCESS(tState);
 
 	std::cout << ctx.mJson["tState"] << std::endl;
@@ -115,18 +115,16 @@ std::task<NoReturn> SharedStateCli::get(const std::string& typeName)
 		exit(0);
 	}
 
-	// Take allocator from first (non null?) element
-	auto& jAllocator = tState.begin()->second.mData.GetAllocator();
-
-	RsJson cleanJsonData(rapidjson::kObjectType, &jAllocator);
+	RsJson cleanJsonData(rapidjson::kObjectType);
 	for(auto& [key, stateEntry]: tState)
 	{
 		rapidjson::Value jKey;
 		jKey.SetString( key.c_str(),
 		                static_cast<rapidjson::SizeType>(key.length()),
-		                jAllocator );
+		                cleanJsonData.GetAllocator() );
 
-		cleanJsonData.AddMember(jKey, stateEntry.mData, jAllocator);
+		cleanJsonData.AddMember(
+		            jKey, stateEntry.mData, cleanJsonData.GetAllocator() );
 	}
 
 	std::cout << prettyJSON << cleanJsonData << std::endl;
