@@ -49,7 +49,7 @@ class IOContext
 {
 public:
 	static std::unique_ptr<IOContext> setup(
-	        std::error_condition* errc = nullptr );
+	        std::error_condition* errbub = nullptr );
 
 	void run();
 

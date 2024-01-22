@@ -1021,15 +1021,11 @@ ssize_t SharedState::bleach(
 	}
 	auto& tState = statesIt->second;
 
+	ssize_t significativeChanges =
+	        std::erase_if(tState, [](const auto& item)
+	{ return item.second.mBleachTTL < 2; });
 
-	ssize_t significativeChanges = 0;
-	for(auto& [key, stateEntry]: tState)
-	{
-		if(--stateEntry.mBleachTTL) continue;
-
-		tState.erase(key);
-		++significativeChanges;
-	}
+	for(auto& [key, stateEntry]: tState) --stateEntry.mBleachTTL;
 
 	return significativeChanges;
 }
