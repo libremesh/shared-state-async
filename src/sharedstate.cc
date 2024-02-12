@@ -790,6 +790,10 @@ bool SharedState::loadRegisteredTypes(std::error_condition* errbub)
 		return false;
 	}
 
+	/* RsTypeSerializer print an error message and then clear the map if it is
+	 * not empty before FROM_JSON, so let's do it and avoid the error message
+	 * @see https://github.com/libremesh/lime-packages/issues/1081 */
+	mTypeConf.clear();
 	RS_SERIAL_PROCESS(mTypeConf);
 
 	// Create empty states for new types, do nothing if already presents
