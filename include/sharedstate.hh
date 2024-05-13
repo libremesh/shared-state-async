@@ -150,12 +150,14 @@ struct SharedState
 	/** @return number of significative changes in the state, -1 on error */
 	ssize_t bleach(
 	    const std::string& dataTypeName,
+	    std::chrono::seconds times = std::chrono::seconds(1),
 	    std::error_condition* errbub = nullptr );
 
 	/** @return number of significative changes in the state, -1 on error */
 	std::task<ssize_t> merge(
 	    const std::string& dataTypeName,
 	    const std::map<StateKey, StateEntry>& stateSlice,
+	    const sockaddr_storage& peerAddr,
 	    std::error_condition* errbub = nullptr );
 
 	/**

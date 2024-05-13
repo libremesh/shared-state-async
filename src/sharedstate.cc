@@ -138,7 +138,7 @@ while(false)
 	netMessage.toStateSlice(receivedState);
 
 	ssize_t changes = co_await merge(
-	            netMessage.mTypeName, receivedState, errbub);
+	            netMessage.mTypeName, receivedState, peerAddr, errbub);
 	if(changes == -1)
 	{
 		syncWithPeer_clean_socket();
@@ -414,7 +414,7 @@ while(false)
 	networkMessage.toStateSlice(peerState);
 
 	ssize_t changes = co_await merge(
-	            networkMessage.mTypeName, peerState, errbub );
+	            networkMessage.mTypeName, peerState, netStats.mPeer, errbub );
 
 	if(changes == -1) RS_UNLIKELY
 	{
@@ -839,6 +839,7 @@ void SharedState::StateEntry::serial_process(
 std::task<ssize_t> SharedState::merge(
         const std::string& dataTypeName,
         const std::map<StateKey, StateEntry>& stateSlice,
+        const sockaddr_storage& peerAddr,
         std::error_condition* errbub )
 {
 	constexpr ssize_t rFAILURE = -1;
@@ -858,6 +859,7 @@ std::task<ssize_t> SharedState::merge(
 	auto& tState = statesIt->second;
 	ssize_t allChanges = 0;
 	ssize_t significantChanges = 0;
+	const bool isRemote = !sockaddr_storage_isLoopbackNet(peerAddr);
 
 	for(auto&& [stateKey, sliceEntry]: stateSlice)
 	{
@@ -870,11 +872,28 @@ std::task<ssize_t> SharedState::merge(
 			continue;
 		}
 		const auto& knownEntry = knownEntryIt->second;
+		const bool ownAuthorship = knownEntry.mAuthor == authorPlaceOlder();
 
-		/* Be just a bit more confident in already known data then in what we
-		 * just receive from others adding typeUpdateInterval */
-		if( sliceEntry.mTtl >
-		        (knownEntry.mTtl + typeUpdateInterval) )
+		/* When receiving data authored by this node from remote nodes with
+		 * higher TTL then our own, something fishy is happening.
+		 * Ignore the remote entry and print a warning.
+		 * Instead when the data is received from the CLI if some own authored
+		 * record have higher TTL its normal and overwriting is accepted */
+		if( isRemote && ownAuthorship &&
+		        sliceEntry.mTtl > knownEntry.mTtl ) RS_UNLIKELY
+		{
+			RS_WARN( "Discarding received known entry: ", stateKey,
+			         "authored by this node with higher TTL from remote peer: ",
+			         peerAddr, " is remote peer ill?" );
+			continue;
+		}
+
+		/* Avoid overwrite of own entries from remotes peers when the TTL is
+		 * equal, while keep accepting it from CLI */
+		const auto minUpdateTtl = (isRemote && ownAuthorship) ?
+		            knownEntry.mTtl + std::chrono::seconds(1) : knownEntry.mTtl;
+
+		if( sliceEntry.mTtl >= knownEntry.mTtl )
 		{
 			bool significant = knownEntry.mData != sliceEntry.mData;
 			RS_DBG4( "Updating entry with key: ", stateKey, " TTL: ",
@@ -1016,10 +1035,19 @@ std::task<bool> SharedState::notifyHooks(
 }
 
 ssize_t SharedState::bleach(
-        const std::string& dataTypeName, std::error_condition* errbub )
+        const std::string& dataTypeName, std::chrono::seconds times,
+        std::error_condition* errbub )
 {
+	if(times < std::chrono::seconds(1)) RS_UNLIKELY
+	{
+		rs_error_bubble_or_exit(
+		            std::errc::invalid_argument, errbub,
+		            dataTypeName );
+		return -1;
+	}
+
 	auto statesIt = mStates.find(dataTypeName);
-	if(statesIt == mStates.end())
+	if(statesIt == mStates.end()) RS_UNLIKELY
 	{
 		rs_error_bubble_or_exit(
 		            SharedStateErrors::UNKOWN_DATA_TYPE, errbub,
@@ -1029,10 +1057,10 @@ ssize_t SharedState::bleach(
 	auto& tState = statesIt->second;
 
 	ssize_t significativeChanges =
-	        std::erase_if(tState, [](const auto& item)
-	{ return item.second.mTtl < std::chrono::seconds(2); });
+	        std::erase_if(tState, [=](const auto& item)
+	{ return item.second.mTtl <= times; });
 
-	for(auto& [key, stateEntry]: tState) --stateEntry.mTtl;
+	for(auto& [key, stateEntry]: tState) stateEntry.mTtl -= times;
 
 	return significativeChanges;
 }

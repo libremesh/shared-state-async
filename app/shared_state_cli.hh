@@ -68,4 +68,5 @@ struct SharedStateCli: SharedState
 
 protected:
 	std::task<NoReturn> acceptReqSyncConnectionsLoop(ListeningSocket& listener);
+	std::task<NoReturn> bleachDataLoop();
 };

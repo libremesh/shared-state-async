@@ -24,6 +24,7 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <algorithm>
 
 #include <serialiser/rsserializable.h>
 #include <serialiser/rstypeserializer.h>
@@ -61,7 +62,9 @@ std::task<NoReturn> SharedStateCli::insert(const std::string& typeName)
 	{
 		auto& entry = tState[member.name.GetString()];
 		entry.mAuthor = authorPlaceOlder();
-		entry.mTtl = mTypeConf[typeName].mBleachTTL;
+		// Take in account merge being conservative
+		entry.mTtl = mTypeConf[typeName].mBleachTTL +
+		        mTypeConf[typeName].mUpdateInterval + std::chrono::seconds(1);
 		entry.mData.CopyFrom(member.value, entry.mData.GetAllocator());
 	}
 
@@ -148,6 +151,43 @@ std::task<NoReturn> SharedStateCli::acceptReqSyncConnectionsLoop(
 	}
 }
 
+std::task<NoReturn> SharedStateCli::bleachDataLoop()
+{
+	/* Do bleach in it's own loop so bleaching is done regularly even if other
+	 * operations slow down or hang up temporarly.
+	 * That bleaching happens regurarly is fundamental for the network
+	 * functioning. */
+	std::chrono::steady_clock::time_point lastBleachCompletedTS =
+	        std::chrono::steady_clock::now();
+	std::error_condition tErr;
+	auto asyncTimer = AsyncTimer::create(mIoContext, &tErr);
+
+	while( asyncTimer && !tErr &&
+	       co_await asyncTimer->wait(
+	           std::chrono::seconds(0), std::chrono::milliseconds(999), &tErr) )
+	{
+		loadRegisteredTypes();
+
+		/* If the process has been very busy we might end up being called
+		 * less then once per second, if that dealy become noticeable it can be
+		 * problematic for the whole network so take in account how much time
+		 * has passed since last complete bleach */
+		const auto elapsedTimeSinceLastBleach =
+		        std::chrono::steady_clock::now() - lastBleachCompletedTS;
+		const auto bleachTimes =
+		        elapsedTimeSinceLastBleach > std::chrono::seconds(1) ?
+		        elapsedTimeSinceLastBleach : std::chrono::seconds(1);
+
+		for(auto&& [typeName, typeConf]: std::as_const(mTypeConf))
+			bleach( typeName,
+			        std::chrono::duration_cast<std::chrono::seconds>(bleachTimes) );
+		lastBleachCompletedTS = std::chrono::steady_clock::now();
+	}
+
+	rs_error_bubble_or_exit(tErr, nullptr, "Bleach timer wait failed");
+}
+
+
 std::task<NoReturn> SharedStateCli::peer()
 {
 	isPeer = true;
@@ -162,6 +202,9 @@ std::task<NoReturn> SharedStateCli::peer()
 	auto acceptConnectionsTask = acceptReqSyncConnectionsLoop(*listener);
 	acceptConnectionsTask.resume();
 
+	auto bleachDataTask = SharedStateCli::bleachDataLoop();
+	bleachDataTask.resume();
+
 	std::error_condition tErr;
 	auto asyncTimer = AsyncTimer::create(mIoContext, &tErr);
 
@@ -170,22 +213,32 @@ std::task<NoReturn> SharedStateCli::peer()
 	          std::chrono::seconds(0),
 	          std::chrono::milliseconds(999), &tErr) )
 	{
+		/* TODO: Evaluate how much time skew, due to not accouinting for
+		 * time spent during syncing, might affect data propagation
+		 * correctness and convergence. If it causes problems in real
+		 * networks adjust timer wait at each iteration depending on how
+		 * much time is elapsed during the iteration */
+
 		loadRegisteredTypes();
+
+		const auto tNow = std::chrono::time_point_cast<std::chrono::seconds>(
+		            std::chrono::steady_clock::now() );
+		std::vector<std::string> shouldSyncTypes;
+		for(auto&& [typeName, typeConf]: std::as_const(mTypeConf))
+		{
+			if( tNow.time_since_epoch().count() %
+			        typeConf.mUpdateInterval.count() ) RS_LIKELY
+			    continue;
+
+			shouldSyncTypes.push_back(typeName);
+		}
+		if(shouldSyncTypes.empty()) continue;
 
 		std::vector<sockaddr_storage> peersAddresses;
 		co_await getCandidatesNeighbours(peersAddresses, mIoContext);
 
-		const auto tNow = std::chrono::time_point_cast<std::chrono::seconds>(
-		            std::chrono::steady_clock::now() );
-
-		for(auto&& [typeName, typeConf]: std::as_const(mTypeConf))
+		for(auto&& typeName: std::as_const(shouldSyncTypes))
 		{
-			bleach(typeName);
-
-			if( tNow.time_since_epoch().count() %
-			        typeConf.mUpdateInterval.count() )
-				continue;
-
 			for(auto&& peerAddress : std::as_const(peersAddresses))
 			{
 				std::error_condition errInfo;
