@@ -882,7 +882,7 @@ std::task<ssize_t> SharedState::merge(
 		if( isRemote && ownAuthorship &&
 		        sliceEntry.mTtl > knownEntry.mTtl ) RS_UNLIKELY
 		{
-			RS_WARN( "Discarding received known entry: ", stateKey,
+			RS_WARN( "Discarding received known entry: ", stateKey, " ",
 			         "authored by this node with higher TTL from remote peer: ",
 			         peerAddr, " is remote peer ill?" );
 			continue;
