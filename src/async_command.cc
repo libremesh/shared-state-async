@@ -266,6 +266,7 @@ template<>
 std::task<bool> IOContext::closeAFD(
         std::shared_ptr<AsyncCommand> aFD, std::error_condition* errbub )
 {
+	RS_DBG("Debug printout as a workaround");
 	if(aFD->mStdIn)
 		if(!co_await aFD->closeStdIn(errbub)) co_return false;
 
