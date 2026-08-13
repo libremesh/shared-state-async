@@ -165,6 +165,12 @@ if(SS_DEVELOPMENT_BUILD)
 endif(SS_DEVELOPMENT_BUILD)
 
 if(SS_TESTS)
+    # enable_testing() must be called in the TOP-LEVEL list file or no
+    # root CTestTestfile.cmake is generated, and `ctest` in the build
+    # directory reports "No tests were found" however many tests the
+    # subdirectory registers. tests/CMakeLists.txt calls include(CTest)
+    # for itself, which is not enough on its own.
+    enable_testing()
     add_subdirectory(tests)
 endif(SS_TESTS)
 
