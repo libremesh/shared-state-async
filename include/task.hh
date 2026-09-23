@@ -26,7 +26,7 @@
 #include <iostream>
 #include <atomic>
 
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel0.h>
 
 namespace std
 {

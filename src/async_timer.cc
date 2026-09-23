@@ -26,7 +26,7 @@
 #include "read_operation.hh"
 
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel0.h>
 
 /*static*/ std::shared_ptr<AsyncTimer> AsyncTimer::create(
         IOContext& ioContext,

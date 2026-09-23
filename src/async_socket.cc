@@ -42,7 +42,7 @@
 #include <util/rserrorbubbleorexit.h>
 #include <util/stacktrace.h>
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel0.h>
 
 std::task<std::shared_ptr<ConnectingSocket>> ConnectingSocket::connect(
         const sockaddr_storage& address,
