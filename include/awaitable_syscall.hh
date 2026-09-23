@@ -33,7 +33,7 @@
 
 #include <util/rserrorbubbleorexit.h>
 #include <util/rsdebug.h>
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel0.h>
 
 /**
  * @brief AwaitableSyscall is a base class for all kind of asynchronous syscalls
