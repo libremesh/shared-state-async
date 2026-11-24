@@ -29,7 +29,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel0.h>
 
 /** @brief This awaitable operation waits for a child process that has
  *  already done his job. */

@@ -30,7 +30,7 @@
 
 #include <util/rsdebug.h>
 #include <util/stacktrace.h>
-#include <util/rsdebuglevel1.h>
+#include <util/rsdebuglevel0.h>
 
 
 /**
